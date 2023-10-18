@@ -1,0 +1,7 @@
+(coq.extraction
+ (prelude Extraction)
+ (extracted_modules Extracted)
+ (theories Warblre))
+
+(library
+ (name Warblre))

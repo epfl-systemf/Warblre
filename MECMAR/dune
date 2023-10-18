@@ -1,0 +1,4 @@
+(coq.theory
+ (name Warblre)
+ (package Warblre)
+ (synopsis "ECMAScript's regexes"))

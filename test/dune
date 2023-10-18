@@ -1,0 +1,6 @@
+(library
+ (name Warblre_tests)
+ (libraries Warblre)
+ (inline_tests)
+ (preprocess
+  (pps ppx_assert ppx_expect)))

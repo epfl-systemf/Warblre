@@ -1,5 +1,4 @@
 open Extracted
-open Extracted.Regex.Semantics
 open Notation
 
 let rec drop n ls = match n with
@@ -44,7 +43,7 @@ let test_regex regex input =
       | Some { CaptureRange.startIndex = s; CaptureRange.endIndex = e } ->
           Printf.printf "Group %d: '%s' (%d-%d)\n" name (from_list (drop s (take e ls_input))) (from_nat s) (from_nat e)
     in
-    Interop.Ocaml_Set_Int.iter f (Extracted.Regex.capturingGroupsWithin regex)
+    Interop.Ocaml_Set_Int.iter f (Extracted.StaticSemantics.capturingGroupsWithin regex)
 
   | Failure Mismatch -> Printf.printf "No match on '%s' \n" input
 

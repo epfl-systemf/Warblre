@@ -1,4 +1,4 @@
-open Extracted.Regex.Patterns
+open Extracted.Patterns
 
 let char c = Char ((fun d -> d == c), false)
 

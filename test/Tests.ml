@@ -1,4 +1,4 @@
-open! Warblre.Extracted.Regex.Patterns
+open! Warblre.Extracted.Patterns
 open Warblre.Helpers
 open Warblre.Notations
 

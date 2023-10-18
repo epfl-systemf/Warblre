@@ -1,6 +1,5 @@
 open Warblre
 open Extracted
-open Regex
 open Patterns
 open Helpers
 

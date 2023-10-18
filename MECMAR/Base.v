@@ -13,6 +13,5 @@ Definition non_neg_integer := nat.
 Definition non_neg_integer_or_inf := option nat.
 
 Notation "'+∞'" := (@None nat).
-Notation "'undefined'" := None.
 
-Notation "x '<=' y" := (Z.compare x y = Lt \/ Z.compare x y = Eq).
+(* Notation "x '<=' y" := (Z.compare x y = Lt \/ Z.compare x y = Eq). *)

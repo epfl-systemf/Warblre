@@ -50,4 +50,4 @@ let test_regex regex input =
 
   | Failure OutOfFuel -> Printf.printf "Out of fuel on '%s' \n" input
 
-  | AssertionError -> Printf.printf "Assertion error on '%s' \n" input
+  | Failure AssertionFailed -> Printf.printf "Assertion error on '%s' \n" input

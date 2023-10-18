@@ -126,14 +126,17 @@ Module Regex.
 
       Notation "ls '[' i ']'" := (match nth_error ls i with
       | Some x => Success x
-      | None => AssertionError
+      | None => assertion_failed
       end) (at level 98, left associativity).
 
       Inductive Failures :=
       | Mismatch
-      | OutOfFuel.
+      | OutOfFuel
+      | AssertionFailed.
 
       Definition MatchResult := Result MatchState Failures.
+      #[export]
+      Instance assertion_error: AssertionError Failures := { f := AssertionFailed }.
       Notation failure := (Failure Mismatch).
       Notation out_of_fuel := (Failure OutOfFuel).
 
@@ -484,7 +487,6 @@ Module Regex.
         -> directionalProgress dir x y
         -> progress dir x (Success y)
       | pFail: forall dir x f, progress dir x (Failure f)
-      | pError: forall dir x, progress dir x AssertionError
       .
 
       Ltac saturate_transitive rel trans := repeat match goal with
@@ -552,7 +554,7 @@ Module Regex.
                repeatMatcher' m (if Nat.eqb min 0 then 0 else min - 1)
                  match max with
                  | Some n => Some (n - 1)
-                 | undefined => +∞
+                 | None => +∞
                  end greedy y c groupsWithin fuel)).
       Proof.
         intros.

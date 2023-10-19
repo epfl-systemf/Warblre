@@ -272,6 +272,9 @@ Module Semantics.
 
   (** Correctness proofs *)
 
+  Tactic Notation "delta" reference(id) := cbv delta [ id ].
+  Tactic Notation "delta" reference(id) "in" hyp(h) := cbv delta [ id ] in h.
+
   Inductive directionalProgress: direction -> MatchState -> MatchState -> Prop :=
   | dpForward: forall x y, le (MatchState.endIndex x) (MatchState.endIndex y) -> directionalProgress forward x y
   | dpBackward: forall x y, ge (MatchState.endIndex x) (MatchState.endIndex y) -> directionalProgress backward x y
@@ -346,19 +349,6 @@ Module Semantics.
     -> MonotonousContinuation dir str (fun (x: MatchState) => m x c).
   Proof. intros. unfold MonotonousContinuation. intros. apply H; assumption. Qed.
 
-  Ltac remember_progress_target As := match goal with
-  | [ |- (progress _) _ ?y ] => let Eq := fresh "Eq" As in remember y as As
-  end.
-
-  (* Sounds good, doesn't work *)
-  Ltac remember_goal_part pat x As := idtac pat; match goal with
-  | [ |- pat ] => idtac x; remember x as A
-  end.
-  Tactic Notation "tmp" ident(x) "of" uconstr(pat) "as" simple_intropattern(As) := remember_goal_part pat x As.
-
-  Tactic Notation "delta" reference(id) := cbv delta [ id ].
-  Tactic Notation "delta" reference(id) "in" hyp(h) := cbv delta [ id ] in h.
-
   Lemma repeatMatcher_preserves_monotony: forall fuel dir str x m min max greedy c groupsWithin,
             MonotonousMatcher dir str m
         ->  MonotonousContinuation dir str c
@@ -380,6 +370,36 @@ Module Semantics.
         apply IHfuel with (str := str); assumption ] ].
   Qed.
 
+  (** Sounds good, doesn't work *)
+  (*
+  Ltac remember_goal_part pat x As := idtac pat; match goal with
+  | [ |- pat ] => idtac x; remember x as A
+  end.
+  Tactic Notation "tmp" ident(x) "of" uconstr(pat) "as" simple_intropattern(As) := remember_goal_part pat x As. *)
+
+  (** Meta-call-by-name: like call by name, but bound computation are promoted to hypotheses. E.g. from
+      let x := <expr1> in <expr2>
+      to
+      [x |-> x']<expr2>
+      where x' is a fresh meta-variable and with
+      x = <expr1>
+      added as an hypothesis
+
+      This was not yet useful, but might be once we move to more involved properties.
+   *)
+  Ltac mcbn := repeat
+  (   cbn beta delta iota
+  ||  lazymatch goal with
+      (* Annoying context *)
+      | [ |- (MonotonousMatcher _) (let x := ?t1 in @?ft2 x) ] =>
+        let xMeta := fresh x in
+        remember t1 as xMeta;
+        let full := eval cbn beta delta iota in (let x := xMeta in ft2 x) in
+        let full' := eval cbn beta delta iota in (ft2 xMeta) in
+        replace full with full' by (subst; reflexivity)
+      (* The same for if-then-else/match ?*)
+      end).
+
   Lemma compileSubpattern_result_is_monotonous: forall r rer dir str, MonotonousMatcher dir str (compileSubPattern r rer dir).
   Proof.
     induction r.
@@ -400,27 +420,12 @@ Module Semantics.
     - delta MonotonousMatcher. cbn. intros.
       apply repeatMatcher_preserves_monotony with (str := str); try assumption.
       apply IHr.
-    - intros. cbn.
+    - (* Pesky case which doesn't start like the others *)
+      intros. cbn.
       repeat lazymatch goal with
       | [ |- MonotonousMatcher _ _ (if ?b then _ else _) ] => destruct b
       end; delta MonotonousMatcher; cbn; intros;
         [ apply IHr1 with (str := str) | apply IHr2 with (str := str) ]; try apply matcher_to_continuation; auto.
-    (** With "meta-reduce" *)
-    (*
-    - intros. cbn beta delta iota.
-      repeat lazymatch goal with
-      | [ |- (MonotonousMatcher _) (let x := ?t1 in @?ft2 x) ] =>
-        let xMeta := fresh x in
-        remember t1 as xMeta;
-        let full := eval cbn beta delta iota in (let x := xMeta in ft2 x) in
-        let full' := eval cbn beta delta iota in (ft2 xMeta) in
-        replace full with full' by (subst; reflexivity)
-      | [ |- (MonotonousMatcher _) (if ?b then _ else _) ] => destruct b
-      end.
-      + cbv delta[MonotonousMatcher]. cbn. intros.
-        subst. apply IHr1. apply matcher_to_continuation; auto.
-      + cbv delta[MonotonousMatcher]. cbn. intros.
-        subst. apply IHr2. apply matcher_to_continuation; auto. *)
     - delta MonotonousMatcher. cbn. intros.
       specialize (IHr rer dir). delta MonotonousMatcher in IHr. cbn in IHr.
       apply IHr with (str := str); try assumption. delta MonotonousContinuation. cbn. intros.

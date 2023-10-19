@@ -1,6 +1,6 @@
 (* From Coq Require Import Strings.String Structures.Orders Lia Program.Subset MSets FMaps. *)
-From Coq Require Import PeanoNat Bool.
-From Warblre Require Import Result Base Patterns StaticSemantics Notation.
+From Coq Require Import PeanoNat Bool Lia.
+From Warblre Require Import Tactics Result Base Patterns StaticSemantics Notation.
 
 Import Result.Notations.
 Local Open Scope result_flow.
@@ -213,7 +213,7 @@ Module Semantics.
                           (* x. Return c(z). *)
                           c z
                         in
-                        (* d. Return c(z). *)
+                        (* d. Return m(x, d). *)
                         m x d
   | Lookback r    =>  (**  Assertion :: (?<= Disjunction ) *)
                       (* 1. Let m be CompileSubpattern of Disjunction with arguments rer and backward. *)
@@ -270,10 +270,14 @@ Module Semantics.
       m x c
     .
 
+  (** Correctness proofs *)
+
   Inductive directionalProgress: direction -> MatchState -> MatchState -> Prop :=
   | dpForward: forall x y, le (MatchState.endIndex x) (MatchState.endIndex y) -> directionalProgress forward x y
   | dpBackward: forall x y, ge (MatchState.endIndex x) (MatchState.endIndex y) -> directionalProgress backward x y
   .
+  #[export]
+  Hint Constructors directionalProgress : core.
 
   Inductive progress: direction -> MatchState -> MatchResult -> Prop :=
   | pStep: forall dir x y, 
@@ -282,6 +286,8 @@ Module Semantics.
     -> progress dir x (Success y)
   | pFail: forall dir x f, progress dir x (Failure f)
   .
+  #[export]
+  Hint Constructors progress : core.
 
   Ltac saturate_transitive rel trans := repeat match goal with
     | [ R1: rel ?S ?T, R2: rel ?T ?U |- _ ] => lazymatch goal with
@@ -319,15 +325,17 @@ Module Semantics.
     - assumption.
     - destruct dir; destruct_dps; constructor; assumption.
   Qed.
-(*       Lemma after_ignores_captures': forall dir x y cx cy, 
-    after (match_state (MatchState.input x) (MatchState.endIndex x) cx)
-    (Success (match_state (MatchState.input y) (MatchState.endIndex y) cy)) -> after x (Success y).
-  Proof. intros. simpl. assumption. Qed. *)
 
   Definition MonotonousContinuation (dir: direction) (c: MatcherContinuation) := forall x, (progress dir) x (c x).
   Definition MonotonousMatcher (dir: direction) (m: Matcher) := forall x c, (MonotonousContinuation dir) c -> (progress dir) x (m x c).
+  #[export]
+  Hint Transparent MonotonousContinuation MonotonousMatcher : core.
 
-  Lemma repeatMatcher_preserves_monotony_helper: forall dir x c fuel m min max greedy groupsWithin, 
+  Lemma matcher_to_continuation: forall dir m c, MonotonousMatcher dir m -> MonotonousContinuation dir c 
+    -> MonotonousContinuation dir (fun (x: MatchState) => m x c).
+  Proof. intros. unfold MonotonousContinuation. intros. apply H. assumption. Qed.
+
+  Lemma repeatMatcher'_preserves_monotony_helper: forall dir x c fuel m min max greedy groupsWithin, 
     MonotonousMatcher dir m ->
     MonotonousContinuation dir c ->
     (forall (m : Matcher) (min : non_neg_integer)
@@ -365,12 +373,80 @@ Module Semantics.
       end; try now constructor. apply H1; assumption.
   Qed.
 
-  Lemma repeatMatcher_preserves_forward: forall fuel dir m min max greedy groupsWithin, (MonotonousMatcher dir) m -> (MonotonousMatcher dir) (fun x c => repeatMatcher' m min max greedy x c groupsWithin fuel).
+  Lemma repeatMatcher'_preserves_monotony: forall fuel dir m min max greedy groupsWithin, (MonotonousMatcher dir) m -> (MonotonousMatcher dir) (fun x c => repeatMatcher' m min max greedy x c groupsWithin fuel).
   Proof.
     intros fuel. induction fuel; intros; unfold MonotonousMatcher; intros; simpl; try now constructor.
     repeat match goal with
     | [ |- (progress dir) _ (if ?b then _ else _) ] => destruct b
     end.
-    all: solve [ auto | apply repeatMatcher_preserves_monotony_helper; try easy; intros; apply IHfuel; assumption ].
+    all: solve [ auto | apply repeatMatcher'_preserves_monotony_helper; try easy; intros; apply IHfuel; assumption ].
   Qed.
+
+  Lemma repeatMatcher_preserves_monotony: forall dir m min max greedy groupsWithin, (MonotonousMatcher dir) m -> (MonotonousMatcher dir) (fun x c => repeatMatcher m min max greedy x c groupsWithin).
+  Proof. intros. unfold repeatMatcher. epose proof (repeatMatcher'_preserves_monotony _ dir m min max greedy groupsWithin). admit.
+  Admitted.
+
+  Ltac remember_progress_target As := match goal with
+  | [ |- (progress _) _ ?y ] => let Eq := fresh "Eq" As in remember y as As
+  end.
+
+  (* Sounds good, doesn't work *)
+  Ltac remember_goal_part pat x As := idtac pat; match goal with
+  | [ |- pat ] => idtac x; remember x as A
+  end.
+  Tactic Notation "tmp" ident(x) "of" uconstr(pat) "as" simple_intropattern(As) := remember_goal_part pat x As.
+
+  Tactic Notation "delta" reference(id) := cbv delta [ id ].
+  Tactic Notation "delta" reference(id) "in" hyp(h) := cbv delta [ id ] in h.
+
+  Lemma compileSubpattern_result_is_monotonous: forall r rer dir, MonotonousMatcher dir (compileSubPattern r rer dir).
+  Proof.
+    induction r.
+    - delta MonotonousMatcher. cbn. intros.
+      repeat match goal with
+      | [ |- (progress _) _ (if ?b then _ else _) ] => destruct b
+      | [ |- (progress _) _ (match ?b with | _ => _ end) ] => destruct b
+      end; try now constructor.
+      destruct dir;
+        (match goal with [ |- (progress _) _ (_ ?x') ] => apply progress_trans with (y := x') end; 
+        [ constructor; [ reflexivity | constructor; simpl; lia ]
+        | apply H ]).
+    - delta MonotonousMatcher. cbn. intros.
+      repeat match goal with
+      | [ |- (progress _) _ (if ?b then _ else _) ] => destruct b
+      | [ |- (progress _) _ (match ?b with | _ => _ end) ] => destruct b
+      end; (apply IHr1 + apply IHr2); assumption.
+    - intros. delta MonotonousMatcher. apply repeatMatcher_preserves_monotony.
+      delta MonotonousMatcher. intros. apply IHr.
+    - intros. cbn.
+      repeat lazymatch goal with
+      | [ |- (MonotonousMatcher _) (if ?b then _ else _) ] => destruct b
+      end; delta MonotonousMatcher; cbn; intros;
+        [ apply IHr1 | apply IHr2 ]; apply matcher_to_continuation; auto.
+    (** With "meta-reduce" *)
+    (*
+    - intros. cbn beta delta iota.
+      repeat lazymatch goal with
+      | [ |- (MonotonousMatcher _) (let x := ?t1 in @?ft2 x) ] =>
+        let xMeta := fresh x in
+        remember t1 as xMeta;
+        let full := eval cbn beta delta iota in (let x := xMeta in ft2 x) in
+        let full' := eval cbn beta delta iota in (ft2 xMeta) in
+        replace full with full' by (subst; reflexivity)
+      | [ |- (MonotonousMatcher _) (if ?b then _ else _) ] => destruct b
+      end.
+      + cbv delta[MonotonousMatcher]. cbn. intros.
+        subst. apply IHr1. apply matcher_to_continuation; auto.
+      + cbv delta[MonotonousMatcher]. cbn. intros.
+        subst. apply IHr2. apply matcher_to_continuation; auto. *)
+    - delta MonotonousMatcher. cbn. intros.
+      specialize (IHr rer dir). delta MonotonousMatcher in IHr. cbn in IHr.
+      apply IHr. delta MonotonousContinuation. cbn. intros.
+      repeat match goal with
+      | [ |- (progress _) _ (if ?b then _ else _) ] => destruct b
+      | [ |- (progress _) _ (match ?b with | _ => _ end) ] => destruct b
+      end; try now constructor.
+      delta MonotonousContinuation in H. admit.
+    - admit.
+    Admitted.
 End Semantics.

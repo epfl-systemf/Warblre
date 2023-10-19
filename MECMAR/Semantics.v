@@ -326,65 +326,25 @@ Module Semantics.
     - destruct dir; destruct_dps; constructor; assumption.
   Qed.
 
-  Definition MonotonousContinuation (dir: direction) (c: MatcherContinuation) := forall x, (progress dir) x (c x).
-  Definition MonotonousMatcher (dir: direction) (m: Matcher) := forall x c, (MonotonousContinuation dir) c -> (progress dir) x (m x c).
+  Ltac ignore_captures_change' x captures :=
+    apply progress_trans with (y := (match_state (MatchState.input x) (MatchState.endIndex x) captures));
+    [ replace x with (match_state (MatchState.input x) (MatchState.endIndex x) (MatchState.captures x)) at 1 by (destruct x; reflexivity);
+      apply progress_ignores_captures; apply progress_refl
+    | idtac ].
+  Ltac ignore_captures_change := match goal with
+  | [ |- progress _ ?x (_ (match_state (MatchState.input ?x) (MatchState.endIndex ?x) ?captures)) ] => is_var x; ignore_captures_change' x captures
+  | [ |- progress _ ?x (_ (match_state (MatchState.input ?x) (MatchState.endIndex ?x) ?captures) _) ] => is_var x; ignore_captures_change' x captures
+  end.
+
+  Definition OnInput (x: MatchState) (str: list Character) := MatchState.input x = str.
+  Definition MonotonousContinuation (dir: direction) (str: list Character) (c: MatcherContinuation) := forall x, OnInput x str -> (progress dir) x (c x).
+  Definition MonotonousMatcher (dir: direction) (str: list Character) (m: Matcher) := forall x c, OnInput x str -> (MonotonousContinuation dir str) c -> (progress dir) x (m x c).
   #[export]
   Hint Transparent MonotonousContinuation MonotonousMatcher : core.
 
-  Lemma matcher_to_continuation: forall dir m c, MonotonousMatcher dir m -> MonotonousContinuation dir c 
-    -> MonotonousContinuation dir (fun (x: MatchState) => m x c).
-  Proof. intros. unfold MonotonousContinuation. intros. apply H. assumption. Qed.
-
-  Lemma repeatMatcher'_preserves_monotony_helper: forall dir x c fuel m min max greedy groupsWithin, 
-    MonotonousMatcher dir m ->
-    MonotonousContinuation dir c ->
-    (forall (m : Matcher) (min : non_neg_integer)
-         (max : non_neg_integer_or_inf) (greedy : bool)
-         (groupsWithin : IdSet.t),
-       MonotonousMatcher dir m ->
-       MonotonousMatcher dir
-         (fun (x : MatchState) (c : MatcherContinuation) =>
-          repeatMatcher' m min max greedy x c groupsWithin fuel)) ->
-    (progress dir) x
-      (m
-         (match_state (MatchState.input x) (MatchState.endIndex x)
-            (IdSet.fold DMap.remove groupsWithin (MatchState.captures x)))
-         (fun y : MatchState =>
-          if Nat.eqb min 0 && Nat.eqb (MatchState.endIndex y) (MatchState.endIndex x)
-          then failure
-          else
-           repeatMatcher' m (if Nat.eqb min 0 then 0 else min - 1)
-             match max with
-             | Some n => Some (n - 1)
-             | None => +∞
-             end greedy y c groupsWithin fuel)).
-  Proof.
-    intros.
-    match goal with | [ |- (progress dir) x ?e ] => destruct e eqn:Eq end; try now constructor.
-    remember (match_state (MatchState.input x) (MatchState.endIndex x) (IdSet.fold DMap.remove groupsWithin (MatchState.captures x))) as x'.
-    apply progress_trans with (y := x').
-    - subst. simpl. 
-      replace x with (match_state (MatchState.input x) (MatchState.endIndex x) (MatchState.captures x)) at 1 by (destruct x; reflexivity).
-      apply progress_ignores_captures. apply progress_refl.
-    - rewrite <- Eq. apply H.
-      unfold MonotonousContinuation. intros x0.
-      repeat match goal with
-      | [ |- (progress _) _ (if ?b then _ else _) ] => destruct b
-      end; try now constructor. apply H1; assumption.
-  Qed.
-
-  Lemma repeatMatcher'_preserves_monotony: forall fuel dir m min max greedy groupsWithin, (MonotonousMatcher dir) m -> (MonotonousMatcher dir) (fun x c => repeatMatcher' m min max greedy x c groupsWithin fuel).
-  Proof.
-    intros fuel. induction fuel; intros; unfold MonotonousMatcher; intros; simpl; try now constructor.
-    repeat match goal with
-    | [ |- (progress dir) _ (if ?b then _ else _) ] => destruct b
-    end.
-    all: solve [ auto | apply repeatMatcher'_preserves_monotony_helper; try easy; intros; apply IHfuel; assumption ].
-  Qed.
-
-  Lemma repeatMatcher_preserves_monotony: forall dir m min max greedy groupsWithin, (MonotonousMatcher dir) m -> (MonotonousMatcher dir) (fun x c => repeatMatcher m min max greedy x c groupsWithin).
-  Proof. intros. unfold repeatMatcher. epose proof (repeatMatcher'_preserves_monotony _ dir m min max greedy groupsWithin). admit.
-  Admitted.
+  Lemma matcher_to_continuation: forall dir str m c, MonotonousMatcher dir str m -> MonotonousContinuation dir str c 
+    -> MonotonousContinuation dir str (fun (x: MatchState) => m x c).
+  Proof. intros. unfold MonotonousContinuation. intros. apply H; assumption. Qed.
 
   Ltac remember_progress_target As := match goal with
   | [ |- (progress _) _ ?y ] => let Eq := fresh "Eq" As in remember y as As
@@ -399,7 +359,28 @@ Module Semantics.
   Tactic Notation "delta" reference(id) := cbv delta [ id ].
   Tactic Notation "delta" reference(id) "in" hyp(h) := cbv delta [ id ] in h.
 
-  Lemma compileSubpattern_result_is_monotonous: forall r rer dir, MonotonousMatcher dir (compileSubPattern r rer dir).
+  Lemma repeatMatcher_preserves_monotony: forall fuel dir str x m min max greedy c groupsWithin,
+            MonotonousMatcher dir str m
+        ->  MonotonousContinuation dir str c
+        ->  OnInput x str
+        ->  progress dir x (repeatMatcher' m min max greedy x c groupsWithin fuel).
+  Proof.
+    induction fuel; intros; delta repeatMatcher'; try constructor.
+    cbn.
+    repeat match goal with
+    | [ |- (progress _) _ (if ?b then _ else _) ] => destruct b
+    end; solve
+    [ apply H0; assumption
+    | ignore_captures_change; apply H;
+      [ assumption
+      | delta MonotonousContinuation; cbn; intros;
+        repeat match goal with
+        | [ |- (progress _) _ (if ?b then _ else _) ] => destruct b
+        end; try (now constructor);
+        apply IHfuel with (str := str); assumption ] ].
+  Qed.
+
+  Lemma compileSubpattern_result_is_monotonous: forall r rer dir str, MonotonousMatcher dir str (compileSubPattern r rer dir).
   Proof.
     induction r.
     - delta MonotonousMatcher. cbn. intros.
@@ -408,21 +389,22 @@ Module Semantics.
       | [ |- (progress _) _ (match ?b with | _ => _ end) ] => destruct b
       end; try now constructor.
       destruct dir;
-        (match goal with [ |- (progress _) _ (_ ?x') ] => apply progress_trans with (y := x') end; 
+        (lazymatch goal with [ |- progress _ _ (_ ?x') ] => apply progress_trans with (y := x') end;
         [ constructor; [ reflexivity | constructor; simpl; lia ]
-        | apply H ]).
+        | apply H0; inversion H; subst; reflexivity ]).
     - delta MonotonousMatcher. cbn. intros.
       repeat match goal with
       | [ |- (progress _) _ (if ?b then _ else _) ] => destruct b
       | [ |- (progress _) _ (match ?b with | _ => _ end) ] => destruct b
-      end; (apply IHr1 + apply IHr2); assumption.
-    - intros. delta MonotonousMatcher. apply repeatMatcher_preserves_monotony.
-      delta MonotonousMatcher. intros. apply IHr.
+      end; (apply IHr1 with (str := str) + apply IHr2 with (str := str)); assumption.
+    - delta MonotonousMatcher. cbn. intros.
+      apply repeatMatcher_preserves_monotony with (str := str); try assumption.
+      apply IHr.
     - intros. cbn.
       repeat lazymatch goal with
-      | [ |- (MonotonousMatcher _) (if ?b then _ else _) ] => destruct b
+      | [ |- MonotonousMatcher _ _ (if ?b then _ else _) ] => destruct b
       end; delta MonotonousMatcher; cbn; intros;
-        [ apply IHr1 | apply IHr2 ]; apply matcher_to_continuation; auto.
+        [ apply IHr1 with (str := str) | apply IHr2 with (str := str) ]; try apply matcher_to_continuation; auto.
     (** With "meta-reduce" *)
     (*
     - intros. cbn beta delta iota.
@@ -441,12 +423,21 @@ Module Semantics.
         subst. apply IHr2. apply matcher_to_continuation; auto. *)
     - delta MonotonousMatcher. cbn. intros.
       specialize (IHr rer dir). delta MonotonousMatcher in IHr. cbn in IHr.
-      apply IHr. delta MonotonousContinuation. cbn. intros.
+      apply IHr with (str := str); try assumption. delta MonotonousContinuation. cbn. intros.
       repeat match goal with
       | [ |- (progress _) _ (if ?b then _ else _) ] => destruct b
       | [ |- (progress _) _ (match ?b with | _ => _ end) ] => destruct b
       end; try now constructor.
-      delta MonotonousContinuation in H. admit.
-    - admit.
-    Admitted.
+      delta MonotonousContinuation in H.
+      inversion H; inversion H1. subst. rewrite <- H3.
+      delta MonotonousContinuation in H0. cbn in H0.
+      ignore_captures_change.
+      apply H0. rewrite <- H3. reflexivity.
+    - delta MonotonousMatcher. cbn. intros.
+      repeat match goal with
+      | [ |- (progress _) _ (if ?b then _ else _) ] => destruct b
+      | [ |- (progress _) _ (match ?b with | _ => _ end) ] => destruct b
+      end; try now constructor.
+      ignore_captures_change. apply H0. assumption.
+    Qed.
 End Semantics.

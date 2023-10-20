@@ -1,4 +1,5 @@
-Require Import ZArith.
+From Coq Require Import ZArith.
+From Warblre Require Import Result.
 
 (* 5.2.5 Mathematical Operations
    «  Mathematical values: Arbitrary real numbers, used as the default numeric type. »
@@ -11,6 +12,25 @@ Require Import ZArith.
 Definition integer := Z.
 Definition non_neg_integer := nat.
 Definition non_neg_integer_or_inf := option nat.
+
+Infix "=?" := Z.eqb (at level 70): Z_scope.
+Infix "<?" := Z.ltb (at level 70): Z_scope.
+Infix "<=?" := Z.leb (at level 70): Z_scope.
+Infix ">?" := Z.gtb (at level 70): Z_scope.
+Infix ">=?" := Z.geb (at level 70): Z_scope.
+
+Inductive MatchFailure :=
+| Mismatch
+| OutOfFuel
+| AssertionFailed.
+
+Definition list_get_Z {T: Type} (ls: list T) (i: Z): Result.Result T MatchFailure := match i with
+| Z0 => Result.from_option (List.nth_error ls 0) AssertionFailed
+| Zpos i => Result.from_option (List.nth_error ls (Pos.to_nat i)) AssertionFailed
+| Zneg _ => Result.Failure AssertionFailed
+end.
+
+Notation "ls '[' i ']'" := (list_get_Z ls i) (at level 98, left associativity).
 
 Notation "'+∞'" := (@None nat).
 

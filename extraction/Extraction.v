@@ -1,10 +1,12 @@
 From Warblre Require Import Base Semantics.
 
 From Coq Require Extraction.
-From Coq Require extraction.ExtrOcamlString.
-From Coq Require extraction.ExtrOcamlBasic.
-
 Extraction Language OCaml.
+
+From Coq Require extraction.ExtrOcamlBasic.
+From Coq Require extraction.ExtrOcamlString.
+From Coq Require extraction.ExtrOcamlNatInt.
+From Coq Require extraction.ExtrOcamlZInt.
 
 Extract Constant IdentifierName => "int".
 

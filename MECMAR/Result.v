@@ -9,6 +9,11 @@ Module Result.
 
   Class AssertionError (F: Type) := { f: F }.
 
+  Definition from_option {S F: Type} (o: option S) (f: F): Result S F := match o with
+  | Some x => Success x
+  | None => Failure f
+  end.
+
   Definition map { S T F: Type } (r: Result S F) (f: S -> T): Result T F := match r with
   | Success s => Success (f s)
   | Failure f => Failure f
@@ -28,7 +33,7 @@ Module Result.
       | Success v => (fun r => z) v
       | Failure f => Failure f
       end)
-      (at level 20, r pattern, y at level 100, z at level 200) : result_flow.
+      (at level 20, r pattern, y at level 100, z at level 200): result_flow.
 
     Notation "'assert!' b ';' z" := (if b then z else assertion_failed) (at level 20, b at level 100, z at level 100): result_flow.
 
@@ -36,7 +41,7 @@ Module Result.
       | r => z
       | _ => assertion_failed
       end)
-      (at level 20, r pattern, y at level 100, z at level 200) : result_flow.
+      (at level 20, r pattern, y at level 100, z at level 200): result_flow.
   End Notations.
 End Result.
-Export Result.
+Export Result(Result, Success, Failure).

@@ -1,9 +1,7 @@
-From Warblre Require Import Base.
+From Warblre Require Import Base Notation.
 
 (** 22.2.1 Patterns *)
 Module Patterns.
-  Definition CharSet := Character -> bool.
-
   Inductive Regex :=
   | Char (A: CharSet) (invert: bool)
   | Disjunction (r1 r2: Regex)

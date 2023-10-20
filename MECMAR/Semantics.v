@@ -1,5 +1,5 @@
 (* From Coq Require Import Strings.String Structures.Orders Lia Program.Subset MSets FMaps. *)
-From Coq Require Import PeanoNat Bool Lia.
+From Coq Require Import PeanoNat ZArith Bool Lia.
 From Warblre Require Import Tactics Result Base Patterns StaticSemantics Notation.
 
 Import Result.Notations.
@@ -23,7 +23,7 @@ Module Semantics.
     let d := fun (y: MatchState) =>
       (* a. Assert: y is a MatchState. *)
       (* b. If min = 0 and y's endIndex = x's endIndex, return failure. *)
-      if (Nat.eqb min 0) && (Nat.eqb (MatchState.endIndex y) (MatchState.endIndex x)) 
+      if (Nat.eqb min 0) && ((MatchState.endIndex y) =? (MatchState.endIndex x))%Z 
         then failure else
       (* c. If min = 0, let min2 be 0; otherwise let min2 be min - 1. *)
       let min2 :=
@@ -72,7 +72,7 @@ Module Semantics.
     repeatMatcher' m min max greedy x c groupsWithin (min + length (MatchState.input x) + 1).
 
   Fixpoint compileSubPattern (self: Regex) (rer: RegExp) (direction: direction): Matcher := match self with
-  | Char A invert =>  (** 7.1 CharacterSetMatcher ( rer, A, invert, direction ) *)
+  | Char A invert =>  (** 22.2.2.7.1 CharacterSetMatcher ( rer, A, invert, direction ) *)
                       (* 1. Return a new Matcher with parameters (x, c) that captures rer, A, invert, and direction and performs the following steps when called: *)
                       (* a. Assert: x is a MatchState. *)
                       (* b. Assert: c is a MatcherContinuation. *)
@@ -83,19 +83,19 @@ Module Semantics.
                         let e := MatchState.endIndex x in
                         let f :=
                           (* e. If direction is forward, let f be e + 1. *)
-                          if Direction.eqb direction forward
+                          (if Direction.eqb direction forward
                           then e + 1
                           (* f. Else, let f be e - 1. *)
-                          else e - 1
+                          else e - 1)%Z
                         in
                         (* g. Let InputLength be the number of elements in Input. *)
-                        let inputLength := length input in
+                        let inputLength := Z.of_nat (length input) in
                         (* h. If f < 0 or f > InputLength, return failure. *)
-                        if (Nat.leb f 0) || (Nat.leb (S inputLength) f) then
+                        if (f <? 0)%Z || (f >? inputLength)%Z then
                           failure
                         else
                           (* i. Let index be min(e, f). *)
-                          let index := min e f in
+                          let index := Z.min e f in
                           (* j. Let ch be the character Input[index]. *)
                           let! chr <- input[ index ] in
                           (* k. Let cc be Canonicalize(rer, ch). *)
@@ -194,7 +194,7 @@ Module Semantics.
                             (* vi. If direction is forward, then *)
                             if direction is forward then
                               (* 1. Assert: xe ≤ ye. *)
-                              assert! PeanoNat.Nat.leb xe ye ;
+                              assert! (xe <=? ye)%Z ;
                               (* 2. Let r be the CaptureRange (xe, ye). *)
                               Success (CaptureRange.make xe ye)
                             (* vii. Else, *)
@@ -202,7 +202,7 @@ Module Semantics.
                               (* 1. Assert: direction is backward. *)
                               assert! direction is backward ;
                               (* 2. Assert: ye ≤ xe. *)
-                              assert! PeanoNat.Nat.leb ye xe ;
+                              assert! (ye <=? xe)%Z ;
                               (* 3. Let r be the CaptureRange (ye, xe). *)
                               Success (CaptureRange.make ye xe)
                           in
@@ -248,6 +248,10 @@ Module Semantics.
                           c z
   end.
 
+  (** 22.2.2.2 Runtime Semantics: CompilePattern *)
+  (*  The syntax-directed operation CompilePattern takes argument rer (a RegExp Record) and returns an
+      Abstract Closure that takes a List of characters and a non-negative integer and returns a MatchResult. It is
+      defined piecewise over the following productions: *)
   Definition compilePattern (r: Regex) (rer: RegExp): list Character -> non_neg_integer -> MatchResult :=
     (* 1. Let m be CompileSubpattern of Disjunction with arguments rer and forward. *)
     let m := compileSubPattern r rer forward in
@@ -265,7 +269,7 @@ Module Semantics.
       (* d. Let cap be a List of rer.[[CapturingGroupsCount]] undefined values, indexed 1 through rer.[[CapturingGroupsCount]]. *)
       let cap := DMap.empty CaptureRange.type in
       (* e. Let x be the MatchState (Input, index, cap). *)
-      let x := match_state input index cap in
+      let x := match_state input (Z.of_nat index) cap in
       (* f. Return m(x, c). *)
       m x c
     .
@@ -276,8 +280,8 @@ Module Semantics.
   Tactic Notation "delta" reference(id) "in" hyp(h) := cbv delta [ id ] in h.
 
   Inductive directionalProgress: direction -> MatchState -> MatchState -> Prop :=
-  | dpForward: forall x y, le (MatchState.endIndex x) (MatchState.endIndex y) -> directionalProgress forward x y
-  | dpBackward: forall x y, ge (MatchState.endIndex x) (MatchState.endIndex y) -> directionalProgress backward x y
+  | dpForward: forall x y, (MatchState.endIndex x <= MatchState.endIndex y)%Z -> directionalProgress forward x y
+  | dpBackward: forall x y, (MatchState.endIndex x >= MatchState.endIndex y)%Z -> directionalProgress backward x y
   .
   #[export]
   Hint Constructors directionalProgress : core.
@@ -303,8 +307,13 @@ Module Semantics.
   | [ H: directionalProgress ?d _ _ |- _ ] => is_constructor d; inversion H; clear H
   end.
 
+  Ltac normalize_Z_comp := repeat
+  (   rewrite -> Z.ge_le_iff in *
+  ).
+  
+  About Z.le_refl.
   Lemma progress_refl: forall dir x, (progress dir) x (Success x).
-  Proof. intros. destruct dir; constructor; try reflexivity; constructor; unfold ">="; apply Nat.le_refl. Qed.
+  Proof. intros. destruct dir; constructor; try reflexivity; constructor; normalize_Z_comp; apply Z.le_refl. Qed.
 
   Lemma progress_trans: forall dir x y z, (progress dir) x (Success y) -> (progress dir) y z -> (progress dir) x z.
   Proof.
@@ -316,7 +325,7 @@ Module Semantics.
     | [ |- (progress _) _ ?y ] => constructor
     end.
     - congruence.
-    - destruct dir; destruct_dps; constructor; unfold ">=" in *; saturate_transitive le Nat.le_trans.
+    - destruct dir; destruct_dps; constructor; normalize_Z_comp; saturate_transitive Z.le Z.le_trans.
   Qed.
 
   Lemma progress_ignores_captures: forall dir x y cx cy,
@@ -387,7 +396,7 @@ Module Semantics.
 
       This was not yet useful, but might be once we move to more involved properties.
    *)
-  Ltac mcbn := repeat
+  Ltac mcbn_proto := repeat
   (   cbn beta delta iota
   ||  lazymatch goal with
       (* Annoying context *)

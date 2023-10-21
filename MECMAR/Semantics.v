@@ -1,5 +1,5 @@
 (* From Coq Require Import Strings.String Structures.Orders Lia Program.Subset MSets FMaps. *)
-From Coq Require Import PeanoNat ZArith Bool Lia.
+From Coq Require Import PeanoNat ZArith Bool Lia Program.Equality.
 From Warblre Require Import Tactics Result Base Patterns StaticSemantics Notation.
 
 Import Result.Notations.
@@ -276,9 +276,6 @@ Module Semantics.
 
   (** Correctness proofs *)
 
-  Tactic Notation "delta" reference(id) := cbv delta [ id ].
-  Tactic Notation "delta" reference(id) "in" hyp(h) := cbv delta [ id ] in h.
-
   Inductive directionalProgress: direction -> MatchState -> MatchState -> Prop :=
   | dpForward: forall x y, (MatchState.endIndex x <= MatchState.endIndex y)%Z -> directionalProgress forward x y
   | dpBackward: forall x y, (MatchState.endIndex x >= MatchState.endIndex y)%Z -> directionalProgress backward x y
@@ -307,11 +304,6 @@ Module Semantics.
   | [ H: directionalProgress ?d _ _ |- _ ] => is_constructor d; inversion H; clear H
   end.
 
-  Ltac normalize_Z_comp := repeat
-  (   rewrite -> Z.ge_le_iff in *
-  ).
-  
-  About Z.le_refl.
   Lemma progress_refl: forall dir x, (progress dir) x (Success x).
   Proof. intros. destruct dir; constructor; try reflexivity; constructor; normalize_Z_comp; apply Z.le_refl. Qed.
 
@@ -379,36 +371,6 @@ Module Semantics.
         apply IHfuel with (str := str); assumption ] ].
   Qed.
 
-  (** Sounds good, doesn't work *)
-  (*
-  Ltac remember_goal_part pat x As := idtac pat; match goal with
-  | [ |- pat ] => idtac x; remember x as A
-  end.
-  Tactic Notation "tmp" ident(x) "of" uconstr(pat) "as" simple_intropattern(As) := remember_goal_part pat x As. *)
-
-  (** Meta-call-by-name: like call by name, but bound computation are promoted to hypotheses. E.g. from
-      let x := <expr1> in <expr2>
-      to
-      [x |-> x']<expr2>
-      where x' is a fresh meta-variable and with
-      x = <expr1>
-      added as an hypothesis
-
-      This was not yet useful, but might be once we move to more involved properties.
-   *)
-  Ltac mcbn_proto := repeat
-  (   cbn beta delta iota
-  ||  lazymatch goal with
-      (* Annoying context *)
-      | [ |- (MonotonousMatcher _) (let x := ?t1 in @?ft2 x) ] =>
-        let xMeta := fresh x in
-        remember t1 as xMeta;
-        let full := eval cbn beta delta iota in (let x := xMeta in ft2 x) in
-        let full' := eval cbn beta delta iota in (ft2 xMeta) in
-        replace full with full' by (subst; reflexivity)
-      (* The same for if-then-else/match ?*)
-      end).
-
   Lemma compileSubpattern_result_is_monotonous: forall r rer dir str, MonotonousMatcher dir str (compileSubPattern r rer dir).
   Proof.
     induction r.
@@ -454,4 +416,154 @@ Module Semantics.
       end; try now constructor.
       ignore_captures_change. apply H0. assumption.
     Qed.
+
+    Ltac mcbn_step t0 :=
+      let t := (eval cbn beta delta iota in t0) in
+
+      let repl ft2 xMeta By :=
+        let subs := eval cbn beta delta iota in (ft2 xMeta) in
+        let _ := lazymatch goal with
+        | [ |- context[ t0 ] ] => replace t0 with subs by By
+        | [ |- ?goal ] => fail 100 "Goal" goal "was expected to contain" t0
+        end in
+        constr:(Some subs)
+      in
+
+      let remember_and_replace b pat :=
+        let As := fresh in
+        let Eq := fresh "Eq" in
+        let _ := match goal with _ => 
+          remember b as As eqn:Eq in |-;
+          symmetry in Eq;
+          destruct As in Eq
+        end in
+        lazymatch type of Eq with
+        | _ = ?v =>
+          repl pat v ltac:(rewrite -> Eq; reflexivity)
+        | ?T => idtac T; fail 100 T
+        end
+      in
+
+      lazymatch t with
+      | let x := ?t1 in @?ft2 x => match goal with
+        | [ _: ?xMeta = t1 |- _ ] => 
+          is_var xMeta; 
+          repl ft2 xMeta ltac:(subst; reflexivity)
+        | [ |- _ ] =>
+          let xMeta := fresh x in
+          let _ := match goal with _ => remember t1 as xMeta in |- end in
+          repl ft2 xMeta ltac:(subst; reflexivity)
+        end
+      | if ?b then _ else _ =>
+        let app := (eval pattern b in t) in
+        lazymatch app with
+        | ?pat _ => lazymatch goal with
+          | [ H: b = ?v |- _ ] =>
+            repl pat v ltac:(rewrite -> H; reflexivity)
+          | [ |- _ ] =>
+            remember_and_replace b pat
+          end
+        end 
+      | match ?b with | _ => _ end =>
+        let app := (eval pattern b in t) in
+        lazymatch app with
+        | ?pat _ => lazymatch goal with
+          | [ H: b = ?v |- _ ] =>
+            repl pat v ltac:(rewrite -> H; reflexivity)
+          | [ |- _ ] =>
+            remember_and_replace b pat
+          end
+        end
+      | _ =>
+        let T := type of t in
+        constr:(@None T)
+      end.
+
+    Ltac mcbn t :=
+      let res := mcbn_step t in
+      lazymatch res with
+      | Some ?t' => mcbn t'
+      | None => idtac
+      end.
+
+    Ltac boolean_simplifier := repeat match goal with
+    | [ H: andb _ _ = true |- _ ] => pose proof (andb_prop _ _  H); clear H
+    | [ H: orb _ _ = false |- _ ] => apply orb_false_elim in H; destruct H
+    end.
+
+    Lemma ZofNat_is_pos: forall n, (0 <= Z.of_nat n)%Z.
+    Proof. induction n; lia. Qed.
+
+    Ltac ztac := repeat match goal with
+    | [ H: context[ Z.min ?x ?y] |- _ ] =>
+        ( ( assert(x <= y)%Z by lia; replace (Z.min x y) with x in * by (symmetry; apply Z.min_l; assumption) )
+        + ( assert(y <= x)%Z by lia; replace (Z.min x y) with y in * by (symmetry; apply Z.min_r; assumption) ) )
+    | [ H: context[ Z.of_nat ?n ] |- _ ] => lazymatch goal with
+      | [ _: (0 <= Z.of_nat n)%Z |- _ ] => fail
+      | [ |- _ ] => pose proof (ZofNat_is_pos n)
+      end
+    end.
+
+    Lemma compiledSubPattern_never_triggers_assertions: forall r rer dir x c, (forall x', progress dir x (Success x') -> c x' <> assertion_failed) -> (compileSubPattern r rer dir) x c <> assertion_failed.
+    Proof.
+      induction r; intros.
+      - deltaf compileSubPattern. cbn beta delta iota.
+        lazymatch goal with | [ |- ?t <> _ ] => mcbn t end; try easy.
+        + apply H. subst. destruct dir; (constructor; try solve [ reflexivity | constructor; cbn; lia ]).
+        + destruct (input [index]) eqn:Eq3; try easy.
+          intros Falso. injection Eq0; clear Eq0. injection Falso; clear Falso. intros. subst f0. subst f1.
+          rewrite -> Indexing.indexing_Failure in Eq3.
+          hypotheses_reflector;
+          normalize_Z_comp;
+          spec_reflector Z.ltb_spec0;
+          destruct dir eqn:Eq_dir;
+          simpl in *;
+          assert (0 <= MatchState.endIndex x)%Z by admit;
+          assert (MatchState.endIndex x <= Z.of_nat (length (MatchState.input x)))%Z by admit.
+          all: subst; ztac; lia.
+      - deltaf compileSubPattern. cbn beta delta iota.
+        repeat progress lazymatch goal with | [ |- ?t _ _ <> _ ] => mcbn t end; try easy.
+        repeat progress lazymatch goal with | [ |- ?t <> _ ] => mcbn t end; try easy.
+        + subst r. subst m1. apply IHr1. assumption.
+        + subst m2. apply IHr2. assumption.
+      - deltaf compileSubPattern. cbn beta delta iota.
+        repeat progress lazymatch goal with | [ |- ?t _ _ <> _ ] => mcbn t end; try easy.
+        admit.
+      - delta compileSubPattern. cbn beta delta iota.
+        repeat progress lazymatch goal with | [ |- ?t _ _ <> _ ] => mcbn t end; try easy;
+        repeat progress lazymatch goal with | [ |- ?t <> _ ] => mcbn t end; try easy.
+        + subst m1. apply IHr1. subst d. subst m2. intros. apply IHr2. intros. apply H. apply progress_trans with (y := x'); assumption.
+        + subst m2. apply IHr2. subst d. subst m1. intros. apply IHr1. intros. apply H. apply progress_trans with (y := x'); assumption.
+      - deltaf compileSubPattern. cbn beta delta iota.
+        repeat lazymatch goal with | [ |- ?t _ _ <> _ ] => mcbn t end; try easy.
+        repeat lazymatch goal with | [ |- ?t <> _ ] => mcbn t end; try easy.
+        subst m. apply IHr. intros.
+        subst d.
+        repeat lazymatch goal with | [ |- ?t <> _ ] => mcbn t end; try easy.
+        + apply H. subst. apply progress_trans with (y := x'); try assumption. dependent destruction H0. rewrite -> H0. ignore_captures_change.
+          apply progress_refl.
+        (* + apply H. subst. apply progress_trans with (y := x'); try assumption. dependent destruction H0. rewrite -> H0. ignore_captures_change. apply progress_refl. *)
+        + destruct dir.
+          * dependent destruction H0. dependent destruction H1. subst.
+            spec_denoter Z.leb_spec0. rewrite -> H1 in Eq. easy.
+          * dependent destruction H0. dependent destruction H1. subst.
+            normalize_Z_comp.
+            spec_denoter Z.leb_spec0. rewrite -> H1 in Eq. easy.
+      - deltaf compileSubPattern. cbn beta delta iota.
+        repeat progress lazymatch goal with | [ |- ?t _ _ <> _ ] => mcbn t end; try easy;
+        repeat progress lazymatch goal with | [ |- ?t <> _ ] => mcbn t end; try easy.
+        + apply H. subst. ignore_captures_change. apply progress_refl.
+        + rewrite <- Eq0. subst m. apply IHr.
+          intros. subst d. easy.
+    Admitted.
+
+    Theorem compiledPattern_never_triggers_internal_assertions: forall r rer input i, 0 <= i <= (length input) -> compilePattern r rer input i <> assertion_failed.
+    Proof.
+      intros. delta compilePattern. cbn beta.
+      repeat lazymatch goal with | [ |- ?t _ _ <> _ ] => mcbn t end; try easy;
+      repeat lazymatch goal with | [ |- ?t <> _ ] => mcbn t end; try easy.
+      - subst m. apply compiledSubPattern_never_triggers_assertions. intros. subst c. easy.
+      - spec_reflector Nat.leb_spec0. lia.
+    Qed.
+    
 End Semantics.

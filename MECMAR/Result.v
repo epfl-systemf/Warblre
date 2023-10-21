@@ -39,7 +39,10 @@ Module Result.
 
     Notation "'destruct!' r '<-' y ';' z" := (match y with
       | r => z
-      | _ => assertion_failed
+      | _ => match y with
+        | Failure f => Failure f (* Preserve current failure *)
+        | Success _ => assertion_failed (* Otherwise, consider the failure as an assertion failure *)
+        end
       end)
       (at level 20, r pattern, y at level 100, z at level 200): result_flow.
   End Notations.

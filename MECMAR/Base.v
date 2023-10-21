@@ -1,5 +1,5 @@
-From Coq Require Import ZArith.
-From Warblre Require Import Result.
+From Coq Require Import ZArith Lia.
+From Warblre Require Import Tactics Result.
 
 (* 5.2.5 Mathematical Operations
    «  Mathematical values: Arbitrary real numbers, used as the default numeric type. »
@@ -24,13 +24,39 @@ Inductive MatchFailure :=
 | OutOfFuel
 | AssertionFailed.
 
-Definition list_get_Z {T: Type} (ls: list T) (i: Z): Result.Result T MatchFailure := match i with
-| Z0 => Result.from_option (List.nth_error ls 0) AssertionFailed
-| Zpos i => Result.from_option (List.nth_error ls (Pos.to_nat i)) AssertionFailed
-| Zneg _ => Result.Failure AssertionFailed
-end.
 
-Notation "ls '[' i ']'" := (list_get_Z ls i) (at level 98, left associativity).
+Module Indexing.
+  Local Close Scope nat.
+  Local Open Scope Z.
+
+  Definition indexing {T: Type} (ls: list T) (i: Z): Result.Result T MatchFailure := match i with
+  | Z0 => Result.from_option (List.nth_error ls 0) AssertionFailed
+  | Zpos i => Result.from_option (List.nth_error ls (Pos.to_nat i)) AssertionFailed
+  | Zneg _ => Result.Failure AssertionFailed
+  end.
+
+  Lemma indexing_Failure: forall {T: Type} (ls: list T) (i: Z), indexing ls i = Result.Failure AssertionFailed <-> (i < 0 \/ (Z.of_nat (length ls)) <= i )%Z.
+  Proof. intros. destruct i; delta indexing; cbn beta iota; split; intros.
+    - destruct ls eqn:Eq.
+      + cbn. lia.
+      + easy.
+    - destruct ls eqn:Eq.
+      + easy.
+      + subst. destruct H; [ lia | easy ].
+    - destruct (List.nth_error ls (Pos.to_nat p)) eqn:Eq.
+      + easy.
+      + rewrite -> List.nth_error_None in Eq. lia.
+    - destruct H; try lia.
+      rewrite <- positive_nat_Z in H. rewrite <- Nat2Z.inj_le in H.
+      rewrite <- List.nth_error_None in H. rewrite -> H.
+      reflexivity.
+    - lia.
+    - easy.
+  Qed.
+End Indexing.
+Export Indexing(indexing).
+
+Notation "ls '[' i ']'" := (indexing ls i) (at level 98, left associativity).
 
 Notation "'+∞'" := (@None nat).
 

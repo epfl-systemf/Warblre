@@ -1,4 +1,9 @@
-From Coq Require Import Program.Tactics Bool.Bool.
+From Coq Require Import Program.Tactics Bool.Bool ZArith.
+
+Tactic Notation "delta" reference(id) := cbv delta [ id ].
+Tactic Notation "delta" reference(id) "in" hyp(h) := cbv delta [ id ] in h.
+Tactic Notation "deltaf" constr(id) := cbv delta [ id ]; cbn fix; fold id.
+Tactic Notation "deltaf" constr(id) "in" hyp(h) := delta id in h; cbn fix in h; fold id in h.
 
 Ltac is_compound t := match t with
   | ?l => is_constructor l
@@ -53,6 +58,28 @@ Module Decidability.
   Qed.
 End Decidability.
 
+Module ZExtra.
+
+  Lemma geb_leb_iff: forall x y b, Z.geb x y = b <-> Z.leb y x = b.
+  Proof. intros. unfold Z.geb. unfold Z.leb. destruct (Z.compare x y) eqn:Eq.
+    - apply Z.compare_eq in Eq. subst. rewrite -> Z.compare_refl. split; intros; assumption.
+    - rewrite <- Zcompare_Gt_Lt_antisym in Eq. rewrite -> Eq. split; intros; assumption.
+    - rewrite -> Zcompare_Gt_Lt_antisym in Eq. rewrite -> Eq. split; intros; assumption.
+  Qed.
+
+  Lemma gtb_ltb_iff: forall x y b, Z.gtb x y = b <-> Z.ltb y x = b.
+  Proof. intros. unfold Z.gtb. unfold Z.ltb. destruct (Z.compare x y) eqn:Eq.
+    - apply Z.compare_eq in Eq. subst. rewrite -> Z.compare_refl. split; intros; assumption.
+    - rewrite <- Zcompare_Gt_Lt_antisym in Eq. rewrite -> Eq. split; intros; assumption.
+    - rewrite -> Zcompare_Gt_Lt_antisym in Eq. rewrite -> Eq. split; intros; assumption.
+  Qed.
+End ZExtra.
+Ltac normalize_Z_comp := repeat
+(   rewrite -> Z.ge_le_iff in *
+||  rewrite -> ZExtra.geb_leb_iff in *
+||  rewrite -> ZExtra.gtb_ltb_iff in * ).
+
+
 Module Reflection.
   Ltac apply_to_iff H a := let lr := fresh in let rl := fresh in let G := fresh "H" in
     pose proof H as G; destruct G as [ lr rl ];
@@ -70,6 +97,7 @@ End Reflection.
 
 Ltac fforward := repeat match goal with
 | [ H0: ?P -> ?Q, H1: ?P |- _ ] => specialize (H0 H1)
+| [ H0: (?x = ?x) -> ?Q |- _ ] => specialize (H0 (eq_refl x))
 end.
 
 Ltac destruct_match := simpl in *; match goal with
@@ -82,6 +110,7 @@ Ltac destruct_match := simpl in *; match goal with
 Ltac hypotheses_reflector := repeat match goal with
   | [ H: andb _ _ = true |- _ ] => pose proof (andb_prop _ _  H); clear H
   | [ H: andb ?l ?r = false |- _ ] => Reflection.apply_to_iff (Bool.andb_false_iff l r) H; clear H
+  | [ H: orb _ _ = false |- _ ] => apply orb_false_elim in H; destruct H
   | [ H: _ /\ _ |- _ ] => destruct H
   | [ H: _ \/ _ |- _ ] => destruct H
   end.
@@ -108,3 +137,21 @@ Ltac spec_reflector spec :=
   first [ reflector_base_0 spec
         | reflector_base_1 spec
         | reflector_base_2 spec ].
+
+
+Ltac denoter_base_0 spec := progress repeat (
+      rewrite -> (Bool.reflect_iff _ _ spec) in *
+  ||  rewrite -> (Reflection.reflect_iff_false _ _ spec) in * ).
+
+  Ltac denoter_base_1 spec := progress repeat (
+      rewrite -> (Bool.reflect_iff _ _ (spec _)) in *
+  ||  rewrite -> (Reflection.reflect_iff_false _ _ (spec _)) in * ).
+
+Ltac denoter_base_2 spec := progress repeat (
+      rewrite -> (Bool.reflect_iff _ _ (spec _ _)) in *
+  ||  rewrite -> (Reflection.reflect_iff_false _ _ (spec _ _)) in * ).
+
+Ltac spec_denoter spec :=
+  first [ denoter_base_0 spec
+        | denoter_base_1 spec
+        | denoter_base_2 spec ].

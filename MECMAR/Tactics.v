@@ -31,7 +31,7 @@ Tactic Notation "exApplyW" hyp(H) hyp(w) :=
 Tactic Notation "exApplyW" hyp(H) hyp(w) "as" simple_intropattern(As) :=
   exApplyW_internal H w As.
 
-Ltac clean_injection H := injection H; clear H; intros; subst.
+Ltac clean_injection H := injection H; clear H; intros.
 
 Ltac bookkeeper := repeat (
       Coq.Program.Tactics.destruct_conjs 

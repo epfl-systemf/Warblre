@@ -1,6 +1,6 @@
 (* From Coq Require Import Strings.String Structures.Orders Lia Program.Subset MSets FMaps. *)
 From Coq Require Import PeanoNat ZArith Bool Lia Program.Equality.
-From Warblre Require Import Tactics Result Base Patterns StaticSemantics Notation.
+From Warblre Require Import Tactics Focus Result Base Patterns StaticSemantics Notation.
 
 Import Result.Notations.
 Local Open Scope result_flow.
@@ -479,22 +479,6 @@ Module Semantics.
           repl ft2 xMeta ltac:(subst; reflexivity)
         end
 
-      (*| (fun x => @?b x) ?a => lazymatch goal with
-        | [ _: ?xMeta = a |- _ ] => 
-          is_var xMeta; 
-          repl b xMeta ltac:(subst; reflexivity)
-        | [ |- _ ] =>
-          let xMeta := fresh x in
-          let _ := match goal with _ => remember a as xMeta in |- end in
-          repl b xMeta ltac:(subst; reflexivity)
-        end
-      | ?l ?r =>
-        let _ := match goal with _ =>
-        match mcbn_step l with
-        | Some ?l' => constr:(Some (l' r))
-        | None => let T := type of t in constr:(@None T)
-        end*)
-
       | if ?b then _ else _ =>
         let app := (eval pattern b in t) in
         lazymatch app with
@@ -530,133 +514,7 @@ Module Semantics.
     Tactic Notation "eql" "mcbn" hyp(H) := (revert H; pose proof I as H; match goal with | [ |- ?t = _ -> _ ] => mcbn t end; clear H; intros H).
     Tactic Notation "eqr" "mcbn" hyp(H) := (revert H; pose proof I as H; match goal with | [ |- _ = ?t -> _ ] => mcbn t end; clear H; intros H).
 
-    
-    Ltac red_tl_beta t := (eval simpl ((fun _ => _) _) at 1 in t).
-    Ltac red_tl_ite t := (eval simpl (if _ then _ else _) at 1 in t).
-    
-    Inductive focus :=
-    | Here
-    | AppL (f: focus)
-    | AppR (f: focus)
-    | ArrowL (f: focus)
-    | ArrowR (f: focus)
-    | IteCond (f: focus)
-    | LetBound (f: focus)
-    .
 
-    Fixpoint focus_insert (f inserted: focus) := match f with
-    | Here => inserted
-    | AppL f' => AppL (focus_insert f' inserted)
-    | AppR f' => AppR (focus_insert f' inserted)
-    | ArrowL f' => ArrowL (focus_insert f' inserted)
-    | ArrowR f' => ArrowR (focus_insert f' inserted)
-    | IteCond f' => IteCond (focus_insert f' inserted)
-    | LetBound f' => LetBound (focus_insert f' inserted)
-    end.
-
-    Ltac assert_type t T := lazymatch type of t with
-    | T => idtac
-    | ?T' => fail 99 "Epected type" T "got" T'
-    end.
-
-    Ltac focus_excise f t :=
-      let _ := assert_type f focus in
-      let rec iter f t := lazymatch f with
-      | Here => lazymatch t with ?g => g end
-      | AppL ?f' => lazymatch t with ?t' _ => iter f' t' end
-      | AppR ?f' => lazymatch t with _ ?t' => iter f' t' end
-      | ArrowL ?f' => lazymatch t with ?t' -> _ => iter f' t' end
-      | ArrowR ?f' => lazymatch t with _ -> ?t' => iter f' t' end
-      | IteCond ?f' => lazymatch t with if ?t' then _ else _ => iter f' t' end
-      | LetBound ?f' => lazymatch t with let _ := ?t' in _ => iter f' t' end
-      | _ => fail 100 "Unknown focus" f
-      end in
-      iter f t.
-
-    Ltac focus_replace f t r :=
-      let _ := assert_type f focus in
-      let rec iter f t r := lazymatch f with
-      | Here => let t' := r t in t'
-      | AppL ?f' => lazymatch t with ?t' ?o => let t'' := iter f' t' r in constr:(t'' o) end
-      | AppR ?f' => lazymatch t with ?o ?t' => let t'' := iter f' t' r in constr:(o t'') end
-      | ArrowL ?f' => lazymatch t with ?t' -> ?o => let t'' := iter f' t' r in constr:(t'' -> o) end
-      | ArrowR ?f' => lazymatch t with ?o -> ?t' => let t'' := iter f' t' r in constr:(o -> t'') end
-      | IteCond ?f' => lazymatch t with if ?t' then ?thenn else ?elze => let t'' := iter f' t' r in constr:(if t'' then thenn else elze) end
-      | LetBound ?f' => lazymatch t with let x := ?t' in ?o => 
-        let t'' := iter f' t' r in
-        let s := constr:(let x := t'' in o) in
-        s
-        end
-      | _ => fail 100 "Unknown focus" f
-      end in
-      iter f t r.
-
-    Ltac focus_get_goal := lazymatch goal with [ |- ?g ] => g end.
-    Ltac focus_get_focus := match goal with
-    | [ _ := [?f] : focus |- _ ] => f
-    end.
-
-    Tactic Notation "focus" constr(f) "print" := (
-      let g := focus_get_goal in
-      let focused := focus_excise f g in
-      idtac focused).
-    Tactic Notation "focus" constr(f) "replace" "with" constr(r) := (
-      let g := focus_get_goal in
-      let r' := (fun _ => r) in
-      let replacement := focus_replace f g r' in
-      replace g with replacement).
-    Tactic Notation "focus" constr(f) "replace" "with" constr(r) "by" tactic(s) := (
-      let g := focus_get_goal in
-      let r' := (fun _ => r) in
-      let replacement := focus_replace f g r' in
-      replace g with replacement by s).
-    Tactic Notation "focus" constr(f) "replace" "using" tactic(t) := (
-      let g := focus_get_goal in
-      let replacement := focus_replace f g t in
-      change_no_check g with replacement).
-      
-    Tactic Notation "focused" "print" := (
-      let f := focus_get_focus in
-      let g := focus_get_goal in
-      let focused := focus_excise f g in
-      idtac focused).
-    Tactic Notation "focused" "replace" "with" constr(r) := (
-      let f := focus_get_focus in
-      let g := focus_get_goal in
-      let r' := (fun _ => r) in
-      let replacement := focus_replace f g r' in
-      replace g with replacement).
-    Tactic Notation "focused" "replace" "with" constr(r) "by" tactic(s) := (
-      let f := focus_get_focus in
-      let g := focus_get_goal in
-      let r' := (fun _ => r) in
-      let replacement := focus_replace f g r' in
-      replace g with replacement by s).
-    Tactic Notation "focused" "replace" "using" tactic(t) := (
-      let f := focus_get_focus in
-      let g := focus_get_goal in
-      let replacement := focus_replace f g t in
-      change_no_check g with replacement).
-
-    Declare Custom Entry focus.
-    Notation "'§' e '§'" := e (e custom focus at level 99).
-    Notation "'[]'" := Here (in custom focus at level 0).
-    Notation "'(' f ')'" := f (in custom focus at level 0, f at level 99).
-    Notation "'if' f 'then' '_' 'else' '_'" := (IteCond f) (in custom focus at level 99).
-    Notation "f '_'" := (AppL f) (in custom focus at level 50, left associativity).
-    Notation "'_' f" := (AppR f) (in custom focus at level 50, f at level 49, left associativity).
-    Notation "f -> '_'" := (ArrowL f) (in custom focus at level 70, right associativity).
-    Notation "'_' -> f" := (ArrowR f) (in custom focus at level 70, right associativity).
-    Notation "'_' f" := (AppR f) (in custom focus at level 50, f at level 49, left associativity).
-    Notation "'_' '_' f" := (AppR f) (in custom focus at level 50, f at level 49, left associativity, only parsing).
-    Notation "'_' '_' '_' f" := (AppR f) (in custom focus at level 50, f at level 49, left associativity, only parsing).
-    Notation "'_' '_' '_' '_' f" := (AppR f) (in custom focus at level 50, f at level 49, left associativity, only parsing).
-    Notation "'_' '_' '_' '_' '_' f" := (AppR f) (in custom focus at level 50, f at level 49, left associativity, only parsing).
-    Notation "'_' '_' '_' '_' '_' '_' f" := (AppR f) (in custom focus at level 50, f at level 49, left associativity, only parsing).
-    Notation "'_' '_' '_' '_' '_' '_' '_' f" := (AppR f) (in custom focus at level 50, f at level 49, left associativity, only parsing).
-    Notation "'_' '_' '_' '_' '_' '_' '_' '_' f" := (AppR f) (in custom focus at level 50, f at level 49, left associativity, only parsing).
-    Notation "'_' '_' '_' '_' '_' '_' '_' '_' '_' f" := (AppR f) (in custom focus at level 50, f at level 49, left associativity, only parsing).
-    Notation "'_' '_' '_' '_' '_' '_' '_' '_' '_' '_' f" := (AppR f) (in custom focus at level 50, f at level 49, left associativity, only parsing).
 
     Ltac boolean_simplifier := repeat match goal with
     | [ H: andb _ _ = true |- _ ] => pose proof (andb_prop _ _  H); clear H
@@ -700,6 +558,57 @@ Module Semantics.
         focus f replace with t' by (rewrite -> Eq; reflexivity)
       end.
 
+    Ltac abstract_ite_impl f :=
+      let g := focus_get_goal in
+      let f'' := (eval cbn in (focus_insert f § if [] then _ else _ §)) in
+      let b := focus_excise f'' g in
+      let Eq := fresh "IfEq_" in
+      destruct b eqn:Eq in |-;
+      match type of Eq with b = ?v =>
+        (focus f'' replace with v by (rewrite -> Eq; reflexivity)); try discriminate
+      end.
+
+    Ltac abstract_match_impl f :=
+      let g := focus_get_goal in
+      let l := focus_excise f g in
+      match l with
+      | match ?b with _ => _ end =>
+        let Eq := fresh "MatchEq_" in
+        destruct b eqn:Eq in |-;
+        try discriminate
+      end.
+
+    Ltac make_let_meta_impl f :=
+      let g := focus_get_goal in
+      let l := focus_excise f g in
+      match l with
+      | let x := ?b in @?t x =>
+        let xMeta := fresh x in
+        let Eq := fresh "LetEq_" in
+        remember b as xMeta eqn:Eq in |-;
+        let t' := constr:(t xMeta) in
+        focus f replace with t' by (rewrite -> Eq; reflexivity)
+      end.
+     
+
+    Ltac meta_eval_impl f t :=
+      assert_type f focus;
+      match t with
+      | if _ then _ else _ => abstract_ite_impl f
+      | let _ := _ in _ => make_let_meta_impl f
+      | match _ with _ => _ end => abstract_match_impl f
+      | (fun _ => _) _ => idtac "funky"
+      | ?l _ => meta_eval_impl constr:(focus_insert f (AppL Here)) l
+      | _ => idtac
+      end.
+      
+    Tactic Notation "focused" "meta-eval" := (
+      let f := focus_get_focus in
+      (
+        let g := focus_get_goal in
+        let t := focus_excise f g in
+        meta_eval_impl f t)).
+
     Tactic Notation "reset" "(" ident(i) ":=" constr(t) ")" := clear i; set (i := t).
 
     Ltac check_not_duplicated H :=
@@ -740,76 +649,179 @@ Module Semantics.
       |- validState ?y ] => 
     *)
 
+    Ltac auto_destruct t := lazymatch t with
+    | match ?c with | _ => _ end => let Eq := fresh "MatchEq_" in destruct c eqn:Eq
+    | if ?c then _ else _ => let Eq := fresh "IfEq_" in destruct c eqn:Eq
+    | ?l _ => auto_destruct l
+    end; try discriminate.
+
+    Tactic Notation "focus" constr(f) "auto" "destruct" := (
+      assert_type f focus;
+      repeat(
+        let g := focus_get_goal in
+        let t := focus_excise f g in
+        auto_destruct t)).
+        
+    Tactic Notation "focus" constr(f) "auto" "destruct" "in" hyp(H) := (
+      assert_type f focus;
+      repeat(
+        let g := focus_get_hypothesis H in
+        let t := focus_excise f g in
+        auto_destruct t)).
+
+    Notation "x '[@' n ']'" := (match_state (MatchState.input x) n (MatchState.captures x)) (at level 50, left associativity).
+    Notation "x '[$' c ']'" := (match_state (MatchState.input x) (MatchState.endIndex x) c) (at level 50, left associativity).
+    Notation "x '[@' n '$' c ']'" := (match_state (MatchState.input x) n c) (at level 50, left associativity).
+
+    Ltac auto_remember t := match t with
+    | context[ _ [@ ?n ] ] => is_var n
+    | context[ _ [@ ?n ] ] => let As := fresh "endIndex" in remember n as As
+    (* | context[ compileSubPattern ?r ?rer ?dir ] => let As := fresh "m" in remember (compileSubPattern r rer dir) as As *)
+    end.
+    
+    Tactic Notation "focused" "auto" "remember" := (
+      let f := focus_get_focus in
+      (
+        let g := focus_get_goal in
+        let t := focus_excise f g in
+        idtac t;
+        auto_remember t)).
+
+    Lemma progress_ignores_captures': forall dir x iy ey cy,
+          (progress dir) x (Success (match_state iy ey (MatchState.captures x)))
+      ->  (progress dir) x (Success (match_state iy ey cy)).
+    Proof. intros. inversion H. constructor; simpl.
+      - assumption.
+      - destruct dir; destruct_dps; constructor; assumption.
+    Qed.
+    
+    Lemma progress_restate: forall dir x y,
+          (progress dir) x (Success y)
+      ->  (progress dir) x (Success (x [@ MatchState.endIndex y])).
+    Proof. intros. inversion H. constructor; simpl in *.
+      - reflexivity.
+      - destruct dir; destruct_dps; constructor; assumption.
+    Qed.
+
+    Lemma matchState_id: forall x, x [@ MatchState.endIndex x ] = x.
+    Proof. intros. destruct x; reflexivity. Qed.
+    
+    Lemma matchState_normalize: forall x e c, x [$ c] [@ e] = x [@ e] [$ c].
+    Proof. intros. destruct x; reflexivity. Qed.
+    
+    Lemma progress_simplify_l: forall dir x y c, progress dir (x [$ c]) (Success y) <-> progress dir x (Success y).
+    Proof. intros; split; intros; inversion H; constructor; simpl.
+      - assumption.
+      - destruct dir; destruct_dps; constructor; assumption.
+      - assumption.
+      - destruct dir; destruct_dps; constructor; assumption.
+    Qed.
+    
+    Lemma progress_simplify_r: forall dir x y c, progress dir x (Success (y [$ c])) <-> progress dir x (Success y).
+    Proof. intros; split; intros; inversion H; constructor; simpl.
+      - assumption.
+      - destruct dir; destruct_dps; constructor; assumption.
+      - assumption.
+      - destruct dir; destruct_dps; constructor; assumption.
+    Qed.
+    
+    Lemma progress_ignores_captures_r: forall dir x n c,
+          (progress dir) x (Success (x [@ n $ c]))
+      <->  (progress dir) x (Success (x [@ n])).
+    Proof. intros; split; intros; inversion H; constructor; simpl.
+      - assumption.
+      - destruct dir; destruct_dps; constructor; assumption.
+      - reflexivity.
+      - destruct dir; destruct_dps; constructor; assumption.
+    Qed.
+    
+    Lemma progress_normalize: forall dir x y, progress dir x (Success y) -> y = (x [@ MatchState.endIndex y] [$ MatchState.captures y]).
+    Proof. intros. inversion H. destruct y. cbn in *. subst. reflexivity. Qed.
+
+    Ltac clean_progress := repeat
+    (   rewrite -> matchState_id in *
+    ||  rewrite -> matchState_normalize in *
+    ||  rewrite -> progress_ignores_captures_r in *
+    ||  rewrite -> progress_simplify_l in *
+    ||  rewrite -> progress_simplify_r in *
+    ||  lazymatch goal with
+        | [ H: progress _ ?x (Success (?x [@ _ ] [$ _ ])) |- _ ] => fail
+        | [ H: progress _ ?x (Success ?y) |- _ ] =>
+          let Eq := fresh "Eq" x y in
+          pose proof progress_normalize _ _ _ H as Eq;
+          rewrite -> Eq in *
+        end
+    ||  assumption).
+    
+    Ltac step_progress := match goal with
+    | [ |- progress ?dir _ _ ] => is_constructor dir; constructor; [ reflexivity | constructor; cbn; lia ]
+    | [ |- progress ?dir _ _ ] => destruct dir; step_progress
+    end.
+
+    Inductive Specialized {A B: Type} (a: A) (b: B) :=
+    | AlreadySpecialized: Specialized a b.
+    Ltac auto_specialize := repeat match goal with
+    | [ a: _, b: _ |- _ ] => lazymatch goal with
+      | [ _: Specialized a b |- _ ] => fail
+      | [ |- _ ] =>
+        pose proof (AlreadySpecialized a b);
+        let H := fresh a "'" in
+        pose proof a as H;
+        specialize H with (1 := b)
+      end
+    end.
+
+    Ltac specialize_once := match goal with
+    | [ H: _, H': _ |- _ ] => specialize H with (1 := H')
+    end.
+
+    Ltac search_intermediate_value := try assumption; match goal with
+      | [ H: ?c ?y = Success ?z |- exists x, _ /\ ?c x = Success ?z ] => exists y; split; [ try assumption | apply H ]
+      end; match goal with
+      | [ |- progress ?dir _ _ ] => saturate_progress dir; try assumption
+      end.
+
     Lemma repeatMatcher_intermediate_value: forall fuel dir x m min max greedy c groupsWithin z,
           (repeatMatcher' m min max greedy x c groupsWithin fuel) = Success z
       ->  (forall x' c' z', m x' c' = Success z' -> exists y', progress dir x' (Success y') /\ c' y' = Success z')
       ->  exists y, progress dir x (Success y) /\ c y = Success z.
     Proof.
-      set (f := § _ [] _ -> _ §).
-      induction fuel; intros; revert H.
-      - focused replace using (fun t => eval cbn in t). discriminate.
-      - deltaf repeatMatcher'.
-        focused replace using (fun t => eval cbn match in t).
-        repeat (abstract_ite || make_let_meta).
-        + intros. exists x. auto with warblre.
-        + intros. subst d. apply H0 in H. Coq.Program.Tactics.destruct_conjs.
-          revert H2.
-          repeat (abstract_ite || make_let_meta).
-          intros. specialize IHfuel with (1 := H2) (2 := H0). Coq.Program.Tactics.destruct_conjs.
-          exists IHfuel.
-          repeat saturate_progress dir. split; assumption.
-        + intros. exists x. split; [ apply progress_refl | congruence ].
-        + intros. subst d. apply H0 in H. Coq.Program.Tactics.destruct_conjs.
-          revert H2.
-          repeat (abstract_ite || make_let_meta).
-          intros. specialize IHfuel with (1 := H2) (2 := H0). Coq.Program.Tactics.destruct_conjs.
-          exists IHfuel.
-          repeat saturate_progress dir. split; assumption.
-        + subst z0. intros. subst d. apply H0 in H. Coq.Program.Tactics.destruct_conjs.
-          revert H2.
-          repeat (abstract_ite || make_let_meta).
-          intros. specialize IHfuel with (1 := H2) (2 := H0). Coq.Program.Tactics.destruct_conjs.
-          exists IHfuel.
-          repeat saturate_progress dir. split; assumption.
-        + intros. exists x. split; [ apply progress_refl | congruence ].
+      induction fuel; deltaf repeatMatcher'; cbn; intros;
+        focus § _ [] _ § auto destruct in H.
+      - discriminate.
+      - search_intermediate_value. apply progress_refl.
+      - auto_specialize; Coq.Program.Tactics.destruct_conjs.
+        focus § _ [] _ § auto destruct in H3.
+        auto_specialize; Coq.Program.Tactics.destruct_conjs.
+        search_intermediate_value. clean_progress.
+      - search_intermediate_value. apply progress_refl.
+      - auto_specialize; Coq.Program.Tactics.destruct_conjs.
+        focus § _ [] _ § auto destruct in H3.
+        auto_specialize; Coq.Program.Tactics.destruct_conjs.
+        search_intermediate_value. clean_progress.
+      - auto_specialize; Coq.Program.Tactics.destruct_conjs.
+        focus § _ [] _ § auto destruct in H3.
+        auto_specialize; Coq.Program.Tactics.destruct_conjs.
+        search_intermediate_value. clean_progress.
+      - search_intermediate_value. apply progress_refl.
     Qed.
-        
 
     Lemma compiledSubPattern_intermediate_value: forall r rer dir x c z, (compileSubPattern r rer dir) x c = Success z 
       -> exists y, progress dir x (Success y) /\ c y = Success z.
     Proof.
-      induction r; intros rer dir x c z;
-        deltaf compileSubPattern; cbn beta iota;
-        try lazymatch goal with | [ |- ?t _ _ = _ -> _ ] => mcbn t end;
-        lazymatch goal with | [ |- ?t = _ -> _ ] => mcbn t end; intros.
-      - exists y; split; subst; try easy.
-        destruct dir; (constructor; [ reflexivity | constructor; cbn; lia ]).
-      - subst r. subst m1. specialize IHr1 with (1 := H). assumption.
-      - subst m2. specialize IHr2 with (1 := H). assumption.
-      - apply (repeatMatcher_intermediate_value (repeatMatcherFuel 0 x) dir x m 0 +∞ true c groups).
-        + assumption.
-        + subst m. apply IHr.
-      - subst m1. specialize IHr1 with (1 := H). Coq.Program.Tactics.destruct_conjs.
-        subst d. subst m2. specialize IHr2 with (1 := H1). Coq.Program.Tactics.destruct_conjs.
-        pose proof progress_trans. specialize H4 with (1 := H0) (2 := H2).
-        exists IHr2; split; assumption.
-      - subst m2. specialize IHr2 with (1 := H). Coq.Program.Tactics.destruct_conjs.
-        subst d. subst m1. specialize IHr1 with (1 := H1). Coq.Program.Tactics.destruct_conjs.
-        pose proof progress_trans. specialize H4 with (1 := H0) (2 := H2).
-        exists IHr1; split; assumption.
-      - subst d. subst m. specialize IHr with (1 := H). Coq.Program.Tactics.destruct_conjs.
-        eql mcbn H1.
-        assert (progress dir IHr (Success z0)). {
-          constructor; inversion H0.
-          - subst. cbn. congruence.
-          - destruct dir; constructor; subst; cbn; lia.
-        }
-        pose proof progress_trans. specialize H3 with (1 := H0) (2 := H2).
-        exists z0. split; assumption.
-      - exists z0. split; try assumption.
-        subst. ignore_captures_change. apply progress_refl.
+      induction r; intros rer dir x c z; cbn;
+      focus § _ [] _ -> _ § auto destruct; intros.
+      + search_intermediate_value. step_progress.
+      + repeat (specialize_once; Coq.Program.Tactics.destruct_conjs). search_intermediate_value.
+      + repeat (specialize_once; Coq.Program.Tactics.destruct_conjs). search_intermediate_value.
+      + apply repeatMatcher_intermediate_value with (1 := H). intros.
+        repeat (specialize_once; Coq.Program.Tactics.destruct_conjs). search_intermediate_value.
+      + repeat (specialize_once; Coq.Program.Tactics.destruct_conjs). search_intermediate_value.
+      + repeat (specialize_once; Coq.Program.Tactics.destruct_conjs). search_intermediate_value.
+      + specialize IHr with (1 := H). Coq.Program.Tactics.destruct_conjs.
+        focus §_ [] _§ auto destruct in H1. search_intermediate_value. clean_progress.
+      + search_intermediate_value. clean_progress. auto with warblre.
       Qed.
-      
 
     Lemma compiledSubPattern_never_triggers_assertions: forall r rer dir x c,
           validState x

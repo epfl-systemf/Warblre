@@ -1,3 +1,5 @@
+(include_subdirs qualified)
+
 (coq.theory
  (name Warblre)
  (package Warblre)

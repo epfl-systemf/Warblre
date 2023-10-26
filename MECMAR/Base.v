@@ -35,7 +35,7 @@ Module Indexing.
   | Zneg _ => Result.Failure AssertionFailed
   end.
 
-  Lemma indexing_Failure: forall {T: Type} (ls: list T) (i: Z), indexing ls i = Result.Failure AssertionFailed <-> (i < 0 \/ (Z.of_nat (length ls)) <= i )%Z.
+  Lemma failure_bounds: forall {T: Type} (ls: list T) (i: Z), indexing ls i = Result.Failure AssertionFailed <-> (i < 0 \/ (Z.of_nat (length ls)) <= i )%Z.
   Proof. intros. destruct i; delta indexing; cbn beta iota; split; intros.
     - destruct ls eqn:Eq.
       + cbn. lia.
@@ -53,6 +53,22 @@ Module Indexing.
     - lia.
     - easy.
   Qed.
+
+  Lemma failure_is_assertion: forall {T: Type} (ls: list T) (i: Z) (f: MatchFailure),
+    indexing ls i = Result.Failure f -> f = AssertionFailed.
+  Proof.
+    intros. destruct i; destruct ls; cbn in *; try injection H; try easy.
+    - destruct (List.nth_error _ _) eqn:Eq in *.
+      + discriminate.
+      + cbn in *. congruence.
+    - destruct (List.nth_error _ _) eqn:Eq in *.
+      + discriminate.
+      + cbn in *. congruence.
+  Qed.
+  
+  Lemma failure_kind: forall {T: Type} (ls: list T) (i: Z) (f: MatchFailure),
+    indexing ls i = Result.Failure f -> indexing ls i = Result.Failure AssertionFailed.
+  Proof. intros. pose proof (failure_is_assertion ls i f H). congruence. Qed.
 End Indexing.
 Export Indexing(indexing).
 

@@ -425,97 +425,6 @@ Module Semantics.
       ignore_captures_change. apply H0. assumption.
     Qed.
 
-    Ltac mcbn_step t0 :=
-      (*let _ := lazymatch goal with
-      | [ |- context [ t0 ] ] => idtac
-      | [ |- ?goal ] =>
-        fail 100 "Goal" goal "should contain" t0
-      end in  *)
-      let t := (eval cbn beta iota in t0) in
-
-      let prc from to By :=
-        replace from with to by By
-        (*let Tmp := fresh "Tmp" in
-        assert (from = to) as Tmp by By:
-        rewrite -> Tmp; 
-        clear Tmp*)
-      in
-
-      let repl ft2 xMeta By :=
-        let subs := eval cbn beta iota in (ft2 xMeta) in
-        let _ := lazymatch goal with
-        | [ |- context [ t0 ] ] =>
-          prc t0 subs By
-        | [ |- ?goal ] =>
-          fail 100 "Goal" goal "was expected to contain" t0
-        end in
-        constr:(Some subs)
-      in
-
-      let remember_and_replace b pat :=
-        let As := fresh in
-        let Eq := fresh "Eq" in
-        let _ := match goal with _ => 
-          remember b as As eqn:Eq in |-;
-          symmetry in Eq;
-          destruct As in Eq;
-          try discriminate
-        end in
-        lazymatch type of Eq with
-        | _ = ?v =>
-          repl pat v ltac:(rewrite -> Eq; reflexivity)
-        | ?T => idtac T; fail 100 T
-        end
-      in
-
-      lazymatch t with
-      | let x := ?t1 in @?ft2 x => lazymatch goal with
-        | [ _: ?xMeta = t1 |- _ ] => 
-          is_var xMeta; 
-          repl ft2 xMeta ltac:(subst; reflexivity)
-        | [ |- _ ] =>
-          let xMeta := fresh x in
-          let _ := match goal with _ => remember t1 as xMeta in |- end in
-          repl ft2 xMeta ltac:(subst; reflexivity)
-        end
-
-      | if ?b then _ else _ =>
-        let app := (eval pattern b in t) in
-        lazymatch app with
-        | ?pat _ => lazymatch goal with
-          | [ H: b = ?v |- _ ] =>
-            repl pat v ltac:(rewrite -> H; reflexivity)
-          | [ |- _ ] =>
-            remember_and_replace b pat
-          end
-        end 
-
-      | match ?b with | _ => _ end =>
-        let app := (eval pattern b in t) in
-        lazymatch app with
-        | ?pat _ => lazymatch goal with
-          | [ H: b = ?v |- _ ] =>
-            repl pat v ltac:(rewrite -> H; reflexivity)
-          | [ |- _ ] =>
-            remember_and_replace b pat
-          end
-        end
-      | _ => let T := type of t in constr:(@None T)
-      end.
-
-    Ltac mcbn_impl t :=
-      let res := mcbn_step t in
-      lazymatch res with
-      | Some ?t' => mcbn_impl t'
-      | None => try discriminate
-      end.
-
-    Tactic Notation "mcbn" constr(t) := mcbn_impl t.
-    Tactic Notation "eql" "mcbn" hyp(H) := (revert H; pose proof I as H; match goal with | [ |- ?t = _ -> _ ] => mcbn t end; clear H; intros H).
-    Tactic Notation "eqr" "mcbn" hyp(H) := (revert H; pose proof I as H; match goal with | [ |- _ = ?t -> _ ] => mcbn t end; clear H; intros H).
-
-
-
     Ltac boolean_simplifier := repeat match goal with
     | [ H: andb _ _ = true |- _ ] => pose proof (andb_prop _ _  H); clear H
     | [ H: orb _ _ = false |- _ ] => apply orb_false_elim in H; destruct H
@@ -533,83 +442,6 @@ Module Semantics.
       | [ |- _ ] => pose proof (ZofNat_is_pos n)
       end
     end.
-
-    Ltac abstract_ite :=
-      let f := focus_get_focus in
-      let g := focus_get_goal in
-      let f'' := (eval cbn in (focus_insert f § if [] then _ else _ §)) in
-      let b := focus_excise f'' g in
-      let Eq := fresh "Eq" in
-      destruct b eqn:Eq in |-;
-      match type of Eq with b = ?v =>
-        (focus f'' replace with v by (rewrite -> Eq; reflexivity)); try discriminate
-      end.
-
-    Ltac make_let_meta :=
-      let f := focus_get_focus in
-      let g := focus_get_goal in
-      let l := focus_excise f g in
-      match l with
-      | let x := ?b in @?t x =>
-        let xMeta := fresh x in
-        let Eq := fresh "Eq" in
-        remember b as xMeta eqn:Eq in |-;
-        let t' := constr:(t xMeta) in
-        focus f replace with t' by (rewrite -> Eq; reflexivity)
-      end.
-
-    Ltac abstract_ite_impl f :=
-      let g := focus_get_goal in
-      let f'' := (eval cbn in (focus_insert f § if [] then _ else _ §)) in
-      let b := focus_excise f'' g in
-      let Eq := fresh "IfEq_" in
-      destruct b eqn:Eq in |-;
-      match type of Eq with b = ?v =>
-        (focus f'' replace with v by (rewrite -> Eq; reflexivity)); try discriminate
-      end.
-
-    Ltac abstract_match_impl f :=
-      let g := focus_get_goal in
-      let l := focus_excise f g in
-      match l with
-      | match ?b with _ => _ end =>
-        let Eq := fresh "MatchEq_" in
-        destruct b eqn:Eq in |-;
-        try discriminate
-      end.
-
-    Ltac make_let_meta_impl f :=
-      let g := focus_get_goal in
-      let l := focus_excise f g in
-      match l with
-      | let x := ?b in @?t x =>
-        let xMeta := fresh x in
-        let Eq := fresh "LetEq_" in
-        remember b as xMeta eqn:Eq in |-;
-        let t' := constr:(t xMeta) in
-        focus f replace with t' by (rewrite -> Eq; reflexivity)
-      end.
-     
-
-    Ltac meta_eval_impl f t :=
-      assert_type f focus;
-      match t with
-      | if _ then _ else _ => abstract_ite_impl f
-      | let _ := _ in _ => make_let_meta_impl f
-      | match _ with _ => _ end => abstract_match_impl f
-      | (fun _ => _) _ => idtac "funky"
-      | ?l _ => meta_eval_impl constr:(focus_insert f (AppL Here)) l
-      | _ => idtac
-      end.
-      
-    Tactic Notation "focused" "meta-eval" := (
-      let f := focus_get_focus in
-      (
-        let g := focus_get_goal in
-        let t := focus_excise f g in
-        meta_eval_impl f t)).
-
-    Tactic Notation "reset" "(" ident(i) ":=" constr(t) ")" := clear i; set (i := t).
 
     Ltac check_not_duplicated H :=
       let T := type of H in
@@ -637,17 +469,8 @@ Module Semantics.
                 check_not_duplicated H
     end.
     Ltac saturate_progress dir := repeat saturate_progress_step dir.
-    
-    
+
     Notation "'validState' x" := (0 <= MatchState.endIndex x <= Z.of_nat (length (MatchState.input x)))%Z (at level 99).
-    
-    (*Ltac validate_state := match goal with
-    | [ H: validState ?x |- validState ?x ] => exact H
-    | [ H1: ?input = MatchState.input ?x,
-        H2: ?endIndex = MatchState.endIndex ?x,
-        H3: ?y = match_state ?input ?end_index ?c
-      |- validState ?y ] => 
-    *)
 
     Ltac auto_destruct t := lazymatch t with
     | match ?c with | _ => _ end => let Eq := fresh "MatchEq_" in destruct c eqn:Eq
@@ -661,7 +484,7 @@ Module Semantics.
         let g := focus_get_goal in
         let t := focus_excise f g in
         auto_destruct t)).
-        
+
     Tactic Notation "focus" constr(f) "auto" "destruct" "in" hyp(H) := (
       assert_type f focus;
       repeat(
@@ -673,28 +496,6 @@ Module Semantics.
     Notation "x '[$' c ']'" := (match_state (MatchState.input x) (MatchState.endIndex x) c) (at level 50, left associativity).
     Notation "x '[@' n '$' c ']'" := (match_state (MatchState.input x) n c) (at level 50, left associativity).
 
-    Ltac auto_remember t := match t with
-    | context[ _ [@ ?n ] ] => is_var n
-    | context[ _ [@ ?n ] ] => let As := fresh "endIndex" in remember n as As
-    (* | context[ compileSubPattern ?r ?rer ?dir ] => let As := fresh "m" in remember (compileSubPattern r rer dir) as As *)
-    end.
-    
-    Tactic Notation "focused" "auto" "remember" := (
-      let f := focus_get_focus in
-      (
-        let g := focus_get_goal in
-        let t := focus_excise f g in
-        idtac t;
-        auto_remember t)).
-
-    Lemma progress_ignores_captures': forall dir x iy ey cy,
-          (progress dir) x (Success (match_state iy ey (MatchState.captures x)))
-      ->  (progress dir) x (Success (match_state iy ey cy)).
-    Proof. intros. inversion H. constructor; simpl.
-      - assumption.
-      - destruct dir; destruct_dps; constructor; assumption.
-    Qed.
-    
     Lemma progress_restate: forall dir x y,
           (progress dir) x (Success y)
       ->  (progress dir) x (Success (x [@ MatchState.endIndex y])).
@@ -734,6 +535,7 @@ Module Semantics.
       - reflexivity.
       - destruct dir; destruct_dps; constructor; assumption.
     Qed.
+   
     
     Lemma progress_normalize: forall dir x y, progress dir x (Success y) -> y = (x [@ MatchState.endIndex y] [$ MatchState.captures y]).
     Proof. intros. inversion H. destruct y. cbn in *. subst. reflexivity. Qed.
@@ -765,7 +567,7 @@ Module Semantics.
       | [ _: Specialized a b |- _ ] => fail
       | [ |- _ ] =>
         pose proof (AlreadySpecialized a b);
-        let H := fresh a "'" in
+        let H := fresh a b in
         pose proof a as H;
         specialize H with (1 := b)
       end
@@ -820,78 +622,86 @@ Module Semantics.
       + repeat (specialize_once; Coq.Program.Tactics.destruct_conjs). search_intermediate_value.
       + specialize IHr with (1 := H). Coq.Program.Tactics.destruct_conjs.
         focus §_ [] _§ auto destruct in H1. search_intermediate_value. clean_progress.
-      + search_intermediate_value. clean_progress. auto with warblre.
+      + search_intermediate_value. clean_progress. apply progress_refl.
       Qed.
 
-    Lemma compiledSubPattern_never_triggers_assertions: forall r rer dir x c,
+    Notation "'continuationNeverTriggersAssertion' x '|' dir '|' c" := (forall x', validState x' -> progress dir x (Success x') -> c x' <> assertion_failed) 
+      (x at level 0, dir at level 0, c at level 0, at level 99).
+    Notation "'matcherNeverTriggersAssertion' dir '|' m" := (forall x c,
           validState x
-      ->  (forall x', validState x' -> progress dir x (Success x') -> c x' <> assertion_failed)
-      ->  (compileSubPattern r rer dir) x c <> assertion_failed.
+      ->  (continuationNeverTriggersAssertion x | dir | c)
+      ->  m x c <> assertion_failed)
+      (dir at level 0, m at level 0, at level 99).
+
+    Lemma continuationNeverTriggersAssertions_weakening: forall x x' dir (c: MatcherContinuation), progress dir x (Success x')
+      -> continuationNeverTriggersAssertion x | dir | c -> continuationNeverTriggersAssertion x' | dir | c.
+    Proof. intros. apply H0; try assumption. saturate_progress dir. assumption. Qed.
+
+    Lemma repeatMatcher_never_triggers_assertions: forall fuel dir m min max greedy captures,
+      matcherNeverTriggersAssertion dir | m -> matcherNeverTriggersAssertion dir | (fun x c => repeatMatcher' m min max greedy x c captures fuel).
     Proof.
-      induction r; intros.
-      - deltaf compileSubPattern. cbn beta delta iota.
-        lazymatch goal with | [ |- ?t <> _ ] => mcbn t end; try easy.
-        + apply H0. 
-          * subst. destruct dir; cbn in *; hypotheses_reflector; lia.
-          * subst. destruct dir; (constructor; try solve [ reflexivity | constructor; cbn; lia ]).
-        + destruct (input [index]) eqn:Eq3; try easy.
-          intros Falso. injection Eq0; clear Eq0. injection Falso; clear Falso. intros. subst f0. subst f1.
-          rewrite -> Indexing.indexing_Failure in Eq3.
-          hypotheses_reflector;
-          normalize_Z_comp;
-          spec_reflector Z.ltb_spec0;
-          destruct dir eqn:Eq_dir;
-          simpl in *.
-          all: subst; ztac; lia.
-      - deltaf compileSubPattern. cbn beta delta iota.
-        repeat progress lazymatch goal with | [ |- ?t _ _ <> _ ] => mcbn t end; try easy.
-        repeat progress lazymatch goal with | [ |- ?t <> _ ] => mcbn t end; try easy.
-        + subst r. subst m1. apply IHr1; assumption.
-        + subst m2. apply IHr2; assumption.
-      - deltaf compileSubPattern. cbn beta delta iota.
-        repeat progress lazymatch goal with | [ |- ?t _ _ <> _ ] => mcbn t end; try easy.
-        admit.
-      - delta compileSubPattern. cbn beta delta iota.
-        repeat progress lazymatch goal with | [ |- ?t _ _ <> _ ] => mcbn t end; try easy;
-        repeat progress lazymatch goal with | [ |- ?t <> _ ] => mcbn t end; try easy.
-        + subst m1. apply IHr1; try assumption. subst d. subst m2. intros. apply IHr2; try assumption. intros. apply H0; try assumption. apply progress_trans with (y := x'); assumption.
-        + subst m2. apply IHr2; try assumption. subst d. subst m1. intros. apply IHr1; try assumption. intros. apply H0; try assumption. apply progress_trans with (y := x'); assumption.
-      - deltaf compileSubPattern. cbn beta delta iota.
-        repeat lazymatch goal with | [ |- ?t _ _ <> _ ] => mcbn t end; try easy.
-        repeat lazymatch goal with | [ |- ?t <> _ ] => mcbn t end; try easy.
-        subst m. apply IHr; try assumption. intros.
-        subst d.
-        repeat lazymatch goal with | [ |- ?t <> _ ] => mcbn t end; try easy.
-        + apply H0.
-          * admit.
-          * subst. apply progress_trans with (y := x'); try assumption. dependent destruction H2. rewrite -> H2. ignore_captures_change.
-            apply progress_refl.
-        + destruct dir.
-          * 
-            dependent destruction H2. dependent destruction H3. subst.
-            spec_denoter Z.leb_spec0. rewrite -> H3 in Eq. easy.
-          * dependent destruction H2. dependent destruction H3. subst.
-            normalize_Z_comp.
-            spec_denoter Z.leb_spec0. rewrite -> H3 in Eq. easy.
-      - deltaf compileSubPattern. cbn beta delta iota.
-        repeat progress lazymatch goal with | [ |- ?t _ _ <> _ ] => mcbn t end; try easy;
-        repeat progress lazymatch goal with | [ |- ?t <> _ ] => mcbn t end; try easy.
-        + apply H0. 
-          * admit.
-          * subst. ignore_captures_change. apply progress_refl.
-        + rewrite <- Eq0. subst m. apply IHr.
-          intros. subst d. easy.
-    Admitted.
+      induction fuel; intros; cbn; try easy.
+      focus § _ (_ [] _) § auto destruct.
+      - apply H1; try assumption. apply progress_refl.
+      - apply H; try clean_progress; try apply progress_refl.
+        intros. focus § _ (_ [] _) § auto destruct.
+        apply IHfuel with (dir := dir); try assumption.
+        apply continuationNeverTriggersAssertions_weakening with (x := x); try assumption.
+        clean_progress.
+      - apply H1; try assumption. apply progress_refl.
+      - apply H; try clean_progress; try apply progress_refl.
+        intros. focus § _ (_ [] _) § auto destruct.
+        apply IHfuel with (dir := dir); try assumption.
+        apply continuationNeverTriggersAssertions_weakening with (x := x); try assumption.
+        clean_progress.
+      - apply H; try clean_progress; try apply progress_refl.
+        intros. focus § _ (_ [] _) § auto destruct.
+        apply IHfuel with (dir := dir); try assumption.
+        apply continuationNeverTriggersAssertions_weakening with (x := x); try assumption.
+        clean_progress.
+      - apply H1; try assumption. apply progress_refl.
+    Qed.
+
+    Lemma compiledSubPattern_never_triggers_assertions: forall r dir rer, matcherNeverTriggersAssertion dir | (compileSubPattern r rer dir).
+    Proof.
+      induction r; cbn; intros;
+      focus § _ (_ [] _) § auto destruct.
+      - apply H0.
+        + destruct dir; cbn in *; constructor; lia.
+        + inversion H. destruct dir; (constructor; cbn in *; solve [ assumption | constructor; cbn; lia ]).
+      - apply Indexing.failure_kind in MatchEq_0.
+        rewrite -> Indexing.failure_bounds in *.
+        hypotheses_reflector; destruct dir; cbn in *; lia.
+      - auto_specialize. apply IHr1HH0.
+      - auto_specialize. apply IHr2HH0.
+      - apply repeatMatcher_never_triggers_assertions with (x := x) (dir := dir); try assumption.
+        intros. apply IHr; try assumption.
+      - intros.
+        apply IHr1; try assumption.
+        intros. apply IHr2; try assumption.
+        apply continuationNeverTriggersAssertions_weakening with (x := x); assumption.
+      - intros.
+        apply IHr2 with (x := x); try assumption.
+        intros. apply IHr1; try assumption.
+        apply continuationNeverTriggersAssertions_weakening with (x := x); assumption.
+      - apply IHr with (x := x); try assumption.
+        intros. focus § _ (_ [] _) § auto destruct.
+        + apply H0; clean_progress.
+        + focus § _ [] _ § auto destruct in MatchEq_;
+            destruct dir; try discriminate; inversion H2; inversion H7; spec_reflector Z.leb_spec0; lia.
+      - apply H0; clean_progress. apply progress_refl.
+      - rewrite <- MatchEq_0. apply IHr; try assumption.
+        easy.
+    Qed.
 
     Theorem compiledPattern_never_triggers_internal_assertions: forall r rer input i, 0 <= i <= (length input) -> compilePattern r rer input i <> assertion_failed.
     Proof.
-      intros. delta compilePattern. cbn beta.
-      repeat lazymatch goal with | [ |- ?t _ _ <> _ ] => mcbn t end; try easy;
-      repeat lazymatch goal with | [ |- ?t <> _ ] => mcbn t end; try easy.
-      - subst m. apply compiledSubPattern_never_triggers_assertions. 
-        * subst x. cbn. hypotheses_reflector. spec_reflector Nat.leb_spec0. lia.
-        * intros. subst c. easy.
-      - hypotheses_reflector; spec_reflector Nat.leb_spec0; lia.
+      intros. delta compilePattern. cbn.
+      focus § _ (_ [] _) § auto destruct.
+      - apply compiledSubPattern_never_triggers_assertions.
+        + hypotheses_reflector. constructor; cbn; lia.
+        + easy.
+      - hypotheses_reflector. spec_reflector Nat.leb_spec0. contradiction.
     Qed.
-    
+
 End Semantics.

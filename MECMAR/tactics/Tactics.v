@@ -155,3 +155,10 @@ Ltac spec_denoter spec :=
   first [ denoter_base_0 spec
         | denoter_base_1 spec
         | denoter_base_2 spec ].
+
+Ltac check_not_duplicated H :=
+  let T := type of H in
+  lazymatch goal with
+  | [ _: T, _: T |- _ ] => fail
+  | [ |- _ ] => idtac
+  end.

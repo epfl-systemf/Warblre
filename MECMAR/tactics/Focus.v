@@ -85,6 +85,13 @@ Ltac focus_replace_hypothesis H With By :=
   replace g with With in H;
   [ idtac | By ].
 
+
+Ltac auto_destruct t := lazymatch t with
+| match ?c with | _ => _ end => let Eq := fresh "MatchEq_" in destruct c eqn:Eq
+| if ?c then _ else _ => let Eq := fresh "IfEq_" in destruct c eqn:Eq
+| ?l _ => auto_destruct l
+end; try discriminate.
+
 Tactic Notation "focus" constr(f) "do" tactic(t) := (
   assert_type f focus;
   let g := focus_get_goal in
@@ -109,6 +116,43 @@ Tactic Notation "focus" constr(f) "replace" "with" constr(r) := (
 Tactic Notation "focus" constr(f) "replace" "with" constr(r) "by" tactic(s) := (
   let r' := (fun _ => r) in
   focus f replace using r' by s).
+Tactic Notation "focus" constr(f) "auto" "destruct" := (
+  assert_type f focus;
+  repeat(
+    let g := focus_get_goal in
+    let t := focus_excise f g in
+    auto_destruct t)).
+
+Tactic Notation "focus" constr(f) "do" tactic(t) "in" hyp(H) := (
+  assert_type f focus;
+  let g := focus_get_hypothesis H in
+  let focused := focus_excise f g in
+  t focused).
+Tactic Notation "focus" constr(f) "print" "in" hyp(H) := (
+  let t := (fun t => idtac t) in
+  focus f do t in H).
+Tactic Notation "focus" constr(f) "replace" "using" tactic(t) "by" tactic(s) "in" hyp(H) := (
+  assert_type f focus;
+  let g := focus_get_hypothesis H in
+  let replacement := focus_replace f g t in
+  focus_replace_hypothesis H replacement ltac:(solve [ s ])).
+Tactic Notation "focus" constr(f) "replace" "using" tactic(t) "in" hyp(H) := (
+  assert_type f focus;
+  let g := focus_get_hypothesis H in
+  let replacement := focus_replace f g t in
+  focus_replace_hypothesis H replacement ltac:(try reflexivity)).
+Tactic Notation "focus" constr(f) "replace" "with" constr(r) "in" hyp(H) := (
+  let r' := (fun _ => r) in
+  focus f replace using r' in H).
+Tactic Notation "focus" constr(f) "replace" "with" constr(r) "by" tactic(s) "in" hyp(H) := (
+  let r' := (fun _ => r) in
+  focus f replace using r' by s in H).
+Tactic Notation "focus" constr(f) "auto" "destruct" "in" hyp(H) := (
+  assert_type f focus;
+  repeat(
+    let g := focus_get_hypothesis H in
+    let t := focus_excise f g in
+    auto_destruct t)).
 
 Tactic Notation "focused" "set" constr(f) := (
   assert_type f focus;
@@ -135,30 +179,6 @@ Tactic Notation "focused" "replace" "with" constr(r) "by" tactic(s) := (
   let f := focus_get_focus in
   focus f replace with r by s).
 
-Tactic Notation "focus" constr(f) "do" tactic(t) "in" hyp(H) := (
-  assert_type f focus;
-  let g := focus_get_hypothesis H in
-  let focused := focus_excise f g in
-  t focused).
-Tactic Notation "focus" constr(f) "print" "in" hyp(H) := (
-  let t := (fun t => idtac t) in
-  focus f do t in H).
-Tactic Notation "focus" constr(f) "replace" "using" tactic(t) "by" tactic(s) "in" hyp(H) := (
-  assert_type f focus;
-  let g := focus_get_hypothesis H in
-  let replacement := focus_replace f g t in
-  focus_replace_hypothesis H replacement ltac:(solve [ s ])).
-Tactic Notation "focus" constr(f) "replace" "using" tactic(t) "in" hyp(H) := (
-  assert_type f focus;
-  let g := focus_get_hypothesis H in
-  let replacement := focus_replace f g t in
-  focus_replace_hypothesis H replacement ltac:(try reflexivity)).
-Tactic Notation "focus" constr(f) "replace" "with" constr(r) "in" hyp(H) := (
-  let r' := (fun _ => r) in
-  focus f replace using r' in H).
-Tactic Notation "focus" constr(f) "replace" "with" constr(r) "by" tactic(s) "in" hyp(H) := (
-  let r' := (fun _ => r) in
-  focus f replace using r' by s in H).
 
 Declare Custom Entry focus.
 Notation "'§' e '§'" := e (e custom focus at level 99).

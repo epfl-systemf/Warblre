@@ -162,3 +162,8 @@ Ltac check_not_duplicated H :=
   | [ _: T, _: T |- _ ] => fail
   | [ |- _ ] => idtac
   end.
+
+Ltac check_type t T := lazymatch type of t with
+| T => idtac
+| _ => fail
+end.

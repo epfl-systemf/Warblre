@@ -10,6 +10,7 @@ Module Correctness.
 
   Create HintDb warblre.
 
+  (* Lift all computational boolean operators and Z comparisons into Props *)
   Ltac Zhelper := repeat
   (   hypotheses_reflector
   ||  goal_reflector
@@ -17,8 +18,17 @@ Module Correctness.
   ||  spec_reflector Z.leb_spec0
   ||  spec_reflector Z.ltb_spec0).
 
+  (* Notation for MatchStates which goes nicely with the normalization tactic *)
   Notation "s '[@' n '$' c ']'" := (match_state s n c) (at level 50, left associativity).
 
+  (** Progress: We say that a MatchState (wrapped in Result) ry has progressed w.r.t to another MatchState x if:
+      - ry = Success y, x and y share the same input string and either
+        + direction is forward, in which case x's endIndex <= y's endIndex
+        + direction is backward, in which case y's endIndex <= x's endIndex
+      - ry is any kind of failure
+  *)
+
+  (* Allows to abstract most theorem over the direction of progress *)
   Inductive directionalProgress: direction -> MatchState -> MatchState -> Prop :=
   | dpForward: forall x y, (MatchState.endIndex x <= MatchState.endIndex y)%Z -> directionalProgress forward x y
   | dpBackward: forall x y, (MatchState.endIndex x >= MatchState.endIndex y)%Z -> directionalProgress backward x y.
@@ -34,7 +44,11 @@ Module Correctness.
 
   Definition OnInput (x: MatchState) (str: list Character) := MatchState.input x = str.
   Definition Valid (x: MatchState) := (0 <= MatchState.endIndex x <= Z.of_nat (length (MatchState.input x)))%Z.
+
   Module MatchState.
+    (*  Normalizes all MatchStates by doing the following:
+        - Destructing them into their components
+        - Then, if the MatchState is known to be on a particular string, eliminate the string introduced at the previous step. *)
     Ltac normalize := repeat
     (   simpl (match_state _ _ _) in *
     ||  lazymatch goal with
@@ -94,6 +108,10 @@ Module Correctness.
       -> MatchState.input x = MatchState.input y.
     Proof. intros. inversion H. assumption. Qed.
 
+    (*  Normalize the hypotheses/goals related to progress:
+        - Normalize all MatchStates (using MatchState.normalize)
+        - Uniformizes all captures, which are irrelevant to progress (replaces all of them by DMap.empty)
+        - Derives that two MatchStates have the same input from progress hypotheses *)
     Ltac normalize := repeat (
         MatchState.normalize
     ||  rewrite <- (ignores_captures_l (DMap.empty _)) in *
@@ -111,6 +129,7 @@ Module Correctness.
     ).
 
     Local Ltac solvers := assumption || apply refl || reflexivity.
+    (* Solves the current goal by 1. normalizing progress 2. leveraging assumptions and reflexivity *)
     Ltac solve := normalize; solve [ solvers ].
 
     Ltac saturate_step := normalize; match goal with
@@ -120,116 +139,32 @@ Module Correctness.
       specialize H with (1 := H1) (2 := H2);
       check_not_duplicated H
     end.
+
+    (* Saturates the progress hypotheses by transitivity. Then attemps to solve goals using assumptions and reflexivity. *)
     Ltac saturate := repeat (normalize; saturate_step); normalize; try solvers.
   End Progress.
 
-  Module Monotony.
-    Definition MonotonousContinuation (dir: direction) (str: list Character) (c: MatcherContinuation) := forall x, OnInput x str -> (progress dir) x (c x).
-    Definition MonotonousMatcher (dir: direction) (str: list Character) (m: Matcher) := 
-      forall x c, OnInput x str -> MonotonousContinuation dir str c -> (progress dir) x (m x c).
-
-    Lemma matcher_to_continuation: forall dir str m c, MonotonousMatcher dir str m -> MonotonousContinuation dir str c
-      -> MonotonousContinuation dir str (fun (x: MatchState) => m x c).
-    Proof. intros. unfold MonotonousContinuation. intros. apply H; assumption. Qed.
-
-    Ltac check_type t T := lazymatch type of t with
-    | T => idtac
-    | _ => fail
-    end.
-    Ltac obvious_transitivity := match goal with
-      | [ |- progress _ _ (?m ?y' _) ] => check_type m Matcher; apply Progress.trans with (y := y')
-      | [ |- progress _ _ (?c ?y') ] => check_type c MatcherContinuation; apply Progress.trans with (y := y')
-      end.
-
-    Lemma repeatMatcher: forall fuel dir str x m min max greedy c groupsWithin,
-              MonotonousMatcher dir str m
-          ->  MonotonousContinuation dir str c
-          ->  OnInput x str
-          ->  progress dir x (repeatMatcher' m min max greedy x c groupsWithin fuel).
-    Proof.
-      induction fuel; try constructor.
-      intros. cbn.
-      focus § _ _ _ [] § auto destruct.
-      - apply H0; assumption.
-      - obvious_transitivity; [ Progress.solve | ].
-        apply H; try assumption.
-        cbn. intros x' OIx'. focus § _ _ _ [] § auto destruct; try easy.
-        apply IHfuel with (str := str); assumption.
-      - apply H0; assumption.
-      - obvious_transitivity; [ Progress.solve | ].
-        apply H; try assumption.
-        cbn. intros x' OIx'. focus § _ _ _ [] § auto destruct; try easy.
-        apply IHfuel with (str := str); assumption.
-      - obvious_transitivity; [ Progress.solve | ].
-        apply H; try assumption.
-        cbn. intros x' OIx'. focus § _ _ _ [] § auto destruct; try easy.
-        apply IHfuel with (str := str); assumption.
-      - apply H0; assumption.
-    Qed.
-
-    Lemma compileSubPattern: forall r rer dir str, MonotonousMatcher dir str (compileSubPattern r rer dir).
-    Proof.
-      induction r; intros; intros x c OIx Mc; cbn.
-      - focus § _ _ _ []§ auto destruct; try easy.
-        destruct dir;
-          (obvious_transitivity;
-          [ constructor; [ reflexivity | constructor; cbn; lia ]
-          | apply Mc; inversion OIx; subst; reflexivity ]).
-      - focus § _ _ _ []§ auto destruct; (apply IHr1 with (str := str) + apply IHr2 with (str := str)); assumption.
-      - apply Monotony.repeatMatcher with (str := str); try assumption.
-        apply IHr.
-      - focus § _ _ _ []§ auto destruct.
-        + apply IHr1 with (str := str); try assumption.
-          intros x' OIx'.
-          apply IHr2 with (str := str); try assumption.
-        + apply IHr2 with (str := str); try assumption.
-          intros x' OIx'.
-          apply IHr1 with (str := str); try assumption.
-      - apply IHr with (str := str); try assumption. cbn. intros x' OIx'.
-        focus § _ _ _ []§ auto destruct; try easy.
-        Progress.normalize.
-        obvious_transitivity.
-        + Progress.solve.
-        + apply Mc. Progress.solve.
-      - focus § _ _ _ []§ auto destruct; try easy.
-        obvious_transitivity.
-        + Progress.solve.
-        + apply Mc. Progress.solve.
-      Qed.
-
-      Lemma compilePattern: forall r rer input i, progress forward (match_state input (Z.of_nat i) (DMap.empty CaptureRange)) (compilePattern r rer input i).
-      Proof.
-        intros. delta compilePattern. cbn.
-        remember (match_state input (Z.of_nat i) (DMap.empty CaptureRange)) as x.
-        focus § _ _ _ [] § auto destruct.
-        - pose proof compileSubPattern. unfold MonotonousMatcher in H.
-          apply H with (str := input).
-          + subst. reflexivity.
-          + intros y OIy. apply Progress.refl.
-        - constructor.
-      Qed.
-  End Monotony.
-
-  Ltac step_progress := match goal with
-  | [ |- progress ?dir _ _ ] => is_constructor dir; constructor; [ reflexivity | constructor; cbn; lia ]
-  | [ |- progress ?dir _ _ ] => destruct dir; step_progress
-  end.
-
+  (** Intermediate value: We say that Matcher _honores its continuation_ if 
+      its continuation must succeed on an input the matcher called it with in order for the matcher to itself succeed. *)
   Module IntermediateValue.
-    Ltac search := try assumption; match goal with
-      | [ H: ?c ?y = Success ?z |- exists x, _ /\ ?c x = Success ?z ] => exists y; split; [ try assumption | apply H ]
-      end; match goal with
-      | [ |- progress ?dir _ _ ] => Progress.saturate
-      end.
+    (* y is also most likely Valid; see if we can incorporate this to the definition *)
+    Definition HonoresContinuation (m: Matcher) (dir: direction) := forall x c z, m x c = Success z -> exists y, progress dir x (Success y) /\ c y = Success z.
+    #[export]
+    Hint Unfold HonoresContinuation : Warblre.
 
-    Lemma repeatMatcher: forall fuel dir x m min max greedy c groupsWithin z,
-          (repeatMatcher' m min max greedy x c groupsWithin fuel) = Success z
-      ->  (forall x' c' z', m x' c' = Success z' -> exists y', progress dir x' (Success y') /\ c' y' = Success z')
-      ->  exists y, progress dir x (Success y) /\ c y = Success z.
+    Ltac search := lazymatch goal with
+    | [ H: ?c ?y = Success ?z |- exists x, progress ?dir _ _ /\ ?c x = Success ?z ] =>
+      exists y; split;
+      [ try solve [Progress.saturate]
+      | apply H ]
+    end.
+
+    Lemma repeatMatcher: forall fuel dir m min max greedy groupsWithin,
+          HonoresContinuation m dir -> HonoresContinuation (fun x c => repeatMatcher' m min max greedy x c groupsWithin fuel) dir.
     Proof.
-      induction fuel; deltaf repeatMatcher'; cbn; intros;
-        focus § _ [] _ § auto destruct in H.
-      - discriminate.
+      induction fuel; [ discriminate | ].
+      deltaf repeatMatcher'. cbn. intros dir m min max greedy groupsWithin HCm x c z H.
+      focus § _ [] _ § auto destruct in H; autounfold with Warblre in *.
       - IntermediateValue.search.
       - auto_specialize; Coq.Program.Tactics.destruct_conjs.
         focus § _ [] _ § auto destruct in H3.
@@ -247,30 +182,70 @@ Module Correctness.
       - IntermediateValue.search.
     Qed.
 
-    Lemma compileSubPattern: forall r rer dir x c z, (compileSubPattern r rer dir) x c = Success z 
-      -> exists y, progress dir x (Success y) /\ c y = Success z.
+    Lemma compileSubPattern: forall r rer dir, HonoresContinuation (compileSubPattern r rer dir) dir.
     Proof.
       induction r; intros rer dir x c z; cbn;
-      focus § _ [] _ -> _ § auto destruct; intros.
-      + IntermediateValue.search. step_progress.
-      + repeat (specialize_once; Coq.Program.Tactics.destruct_conjs). IntermediateValue.search.
-      + repeat (specialize_once; Coq.Program.Tactics.destruct_conjs). IntermediateValue.search.
-      + apply IntermediateValue.repeatMatcher with (1 := H). intros.
-        repeat (specialize_once; Coq.Program.Tactics.destruct_conjs). IntermediateValue.search.
-      + repeat (specialize_once; Coq.Program.Tactics.destruct_conjs). IntermediateValue.search.
-      + repeat (specialize_once; Coq.Program.Tactics.destruct_conjs). IntermediateValue.search.
-      + specialize IHr with (1 := H). Coq.Program.Tactics.destruct_conjs.
+      focus § _ [] _ -> _ § auto destruct.
+      + intros. IntermediateValue.search. destruct dir; (constructor; [ reflexivity | constructor; cbn; lia ]).
+      + intros. autounfold with Warblre in *. repeat (specialize_once; Coq.Program.Tactics.destruct_conjs). IntermediateValue.search.
+      + intros. autounfold with Warblre in *. repeat (specialize_once; Coq.Program.Tactics.destruct_conjs). IntermediateValue.search.
+      + apply IntermediateValue.repeatMatcher. apply IHr.
+      + intros. autounfold with Warblre in *. repeat (specialize_once; Coq.Program.Tactics.destruct_conjs). IntermediateValue.search.
+      + intros. autounfold with Warblre in *. repeat (specialize_once; Coq.Program.Tactics.destruct_conjs). IntermediateValue.search.
+      + intros. autounfold with Warblre in *. repeat (specialize_once; Coq.Program.Tactics.destruct_conjs).
         focus §_ [] _§ auto destruct in H1. IntermediateValue.search.
-      + IntermediateValue.search.
+      + intros. IntermediateValue.search.
     Qed.
   End IntermediateValue.
 
+  (** Monotony: We say that Matcher(Continuation) is
+    + A _Forward_ Matcher(Continuation) if for any input (x: MatchState), the then returned (y: MatchState) is a foward progress;
+    + A _Backward_ Matcher(Continuation) if for any input (x: MatchState), the then returned (y: MatchState) is a backward progress;
+    + A _Stationary_ Matcher(Continuation) if it is both a Forward and Backward Matcher(Continuation). *)
+  Module Monotony.
+    Definition MonotonousContinuation (dir: direction) (c: MatcherContinuation) :=
+      forall x, (progress dir) x (c x).
+    Definition MonotonousMatcher (dir: direction) (m: Matcher) :=
+      forall x c,
+          MonotonousContinuation dir c
+      ->  progress dir x (m x c).
+    #[export]
+    Hint Unfold MonotonousContinuation MonotonousMatcher : Warblre.
+
+    Lemma compileSubPattern: forall r rer dir, MonotonousMatcher dir (compileSubPattern r rer dir).
+    Proof.
+      intros r rer dir x c Mc.
+      (focus § _ _ _ []§ do (fun t => destruct t eqn:Suc)); try easy.
+      apply IntermediateValue.compileSubPattern with (dir := dir) in Suc.
+      destruct Suc as [ y [ Pxy Suc ] ]. rewrite <- Suc.
+      apply Progress.trans with (y := y).
+      + assumption.
+      + apply Mc.
+    Qed.
+
+    Lemma compilePattern: forall r rer input i, progress forward (match_state input (Z.of_nat i) (DMap.empty CaptureRange)) (compilePattern r rer input i).
+    Proof.
+      intros. delta compilePattern. cbn.
+      focus § _ _ _ [] § auto destruct.
+      - apply compileSubPattern.
+        intros x. apply Progress.refl.
+      - constructor.
+    Qed.
+  End Monotony.
+
   Module Safety.
-    Definition SafeContinuation (x: MatchState) (dir: direction) (c: MatcherContinuation) := (forall x', Valid x' -> progress dir x (Success x') -> c x' <> assertion_failed).
-    Definition SafeMatcher (dir: direction) (m: Matcher) := (forall x c,
+    Definition SafeContinuation (x0: MatchState) (dir: direction) (c: MatcherContinuation) :=
+      forall x,
           Valid x
-      ->  (SafeContinuation x dir c)
-      ->  m x c <> assertion_failed).
+      ->  progress dir x0 (Success x) 
+      ->  c x <> assertion_failed.
+    Definition SafeMatcher (dir: direction) (m: Matcher) :=
+      forall x c,
+          Valid x
+      ->  SafeContinuation x dir c
+      ->  m x c <> assertion_failed.
+    #[export]
+    Hint Unfold SafeContinuation SafeMatcher: Warblre.
 
     Lemma continuation_weakening: forall x x' dir (c: MatcherContinuation), progress dir x (Success x')
       -> SafeContinuation x dir c -> SafeContinuation x' dir c.

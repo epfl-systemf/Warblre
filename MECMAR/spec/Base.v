@@ -28,34 +28,37 @@ Inductive MatchFailure :=
 Module Indexing.
   Local Close Scope nat.
   Local Open Scope Z.
+  Local Definition get_failure {F: Type} {failure: Result.AssertionError F}: F := let (f) := failure in f.
+  Local Lemma failure_helper: forall {T F: Type} {failure: Result.AssertionError F}, @Result.assertion_failed T F failure = Result.Failure get_failure.
+  Proof. intros. destruct failure. reflexivity. Qed.
 
-  Definition indexing {T: Type} (ls: list T) (i: Z): Result.Result T MatchFailure := match i with
-  | Z0 => Result.from_option (List.nth_error ls 0) AssertionFailed
-  | Zpos i => Result.from_option (List.nth_error ls (Pos.to_nat i)) AssertionFailed
-  | Zneg _ => Result.Failure AssertionFailed
+  Definition indexing {T F: Type} (ls: list T) (i: Z) {failure: Result.AssertionError F}: Result.Result T F := match i with
+  | Z0 => Result.from_option (List.nth_error ls 0) get_failure
+  | Zpos i => Result.from_option (List.nth_error ls (Pos.to_nat i)) get_failure
+  | Zneg _ => Result.Failure get_failure
   end.
 
-  Lemma failure_bounds: forall {T: Type} (ls: list T) (i: Z), indexing ls i = Result.Failure AssertionFailed <-> (i < 0 \/ (Z.of_nat (length ls)) <= i )%Z.
+  Lemma failure_bounds: forall {T F: Type} {failure: Result.AssertionError F} (ls: list T) (i: Z), @indexing T F ls i failure = Result.assertion_failed <-> (i < 0 \/ (Z.of_nat (length ls)) <= i )%Z.
   Proof. intros. destruct i; delta indexing; cbn beta iota; split; intros.
     - destruct ls eqn:Eq.
       + cbn. lia.
-      + easy.
+      + rewrite -> failure_helper in *. easy.
     - destruct ls eqn:Eq.
-      + easy.
+      + rewrite -> failure_helper in *. easy.
       + subst. destruct H; [ lia | easy ].
     - destruct (List.nth_error ls (Pos.to_nat p)) eqn:Eq.
-      + easy.
+      + rewrite -> failure_helper in *. easy.
       + rewrite -> List.nth_error_None in Eq. lia.
     - destruct H; try lia.
       rewrite <- positive_nat_Z in H. rewrite <- Nat2Z.inj_le in H.
       rewrite <- List.nth_error_None in H. rewrite -> H.
-      reflexivity.
+      rewrite -> failure_helper in *. easy.
     - lia.
-    - easy.
+    - rewrite -> failure_helper in *. easy.
   Qed.
 
-  Lemma failure_is_assertion: forall {T: Type} (ls: list T) (i: Z) (f: MatchFailure),
-    indexing ls i = Result.Failure f -> f = AssertionFailed.
+  Lemma failure_is_assertion: forall {T F: Type} {failure: Result.AssertionError F} (ls: list T) (i: Z) (f: F),
+    indexing ls i = Result.Failure f -> f = get_failure.
   Proof.
     intros. destruct i; destruct ls; cbn in *; try injection H; try easy.
     - destruct (List.nth_error _ _) eqn:Eq in *.
@@ -66,9 +69,9 @@ Module Indexing.
       + cbn in *. congruence.
   Qed.
   
-  Lemma failure_kind: forall {T: Type} (ls: list T) (i: Z) (f: MatchFailure),
-    indexing ls i = Result.Failure f -> indexing ls i = Result.Failure AssertionFailed.
-  Proof. intros. pose proof (failure_is_assertion ls i f H). congruence. Qed.
+  Lemma failure_kind: forall {T F: Type} {failure: Result.AssertionError F} (ls: list T) (i: Z) (f: F),
+    indexing ls i = Result.Failure f -> indexing ls i = Result.assertion_failed.
+  Proof. intros. pose proof (failure_is_assertion ls i f H). rewrite -> failure_helper in *. congruence. Qed.
 End Indexing.
 Export Indexing(indexing).
 

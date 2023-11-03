@@ -1,5 +1,5 @@
 From Coq Require Import PeanoNat ZArith Bool Lia Program.Equality.
-From Warblre Require Import Tactics Specialize Focus Result Base Patterns StaticSemantics Notation Semantics.
+From Warblre Require Import Tactics Specialize Focus Result Base Patterns StaticSemantics Notation Semantics Definitions.
 
 Import Result.Notations.
 
@@ -8,7 +8,15 @@ Module Correctness.
   Import Notation.
   Import Semantics.
 
-  Create HintDb warblre.
+  Create HintDb Warblre.
+  #[export] Hint Unfold repeatMatcherFuel : Warblre.
+  
+  Lemma is_not_failure_true_rewrite: forall (r: MatchResult), r is not failure = true <-> r <> failure.
+  Proof. intros [ r | [ | | ] ]; split; easy. Qed.
+  Lemma is_not_failure_false_rewrite: forall (r: MatchResult), r is not failure = false <-> r = failure.
+  Proof. intros [ r | [ | | ] ]; split; easy. Qed.
+  #[export]
+  Hint Rewrite -> is_not_failure_true_rewrite is_not_failure_false_rewrite : Warblre.
 
   (* Lift all computational boolean operators and Z comparisons into Props *)
   Ltac Zhelper := repeat
@@ -18,8 +26,6 @@ Module Correctness.
   ||  spec_reflector Z.leb_spec0
   ||  spec_reflector Z.ltb_spec0).
 
-  (* Notation for MatchStates which goes nicely with the normalization tactic *)
-  Notation "s '[@' n '$' c ']'" := (match_state s n c) (at level 50, left associativity).
 
   (** Progress: We say that a MatchState (wrapped in Result) ry has progressed w.r.t to another MatchState x if:
       - ry = Success y, x and y share the same input string and either
@@ -46,11 +52,20 @@ Module Correctness.
   Definition Valid (x: MatchState) := (0 <= MatchState.endIndex x <= Z.of_nat (length (MatchState.input x)))%Z.
 
   Module MatchState.
+    Lemma characterClass_successful_state_Valid: forall input endIndex captures dir,
+      ~ (step{dir} endIndex < 0)%Z  ->
+      ~ (Z.of_nat (length input) < step{dir} endIndex)%Z ->
+      Valid (Definitions.characterClass_successful_state input endIndex captures dir).
+    Proof. destruct dir; constructor; cbn in *; lia. Qed.
+
     (*  Normalizes all MatchStates by doing the following:
         - Destructing them into their components
         - Then, if the MatchState is known to be on a particular string, eliminate the string introduced at the previous step. *)
     Ltac normalize := repeat
     (   simpl (match_state _ _ _) in *
+    ||  simpl (MatchState.input _) in *
+    ||  simpl (MatchState.endIndex _) in *
+    ||  simpl (MatchState.captures _) in *
     ||  lazymatch goal with
         | [ x: MatchState |- _ ] =>
           let input := fresh "input_" x in
@@ -61,6 +76,10 @@ Module Correctness.
           unfold OnInput in H; cbn in H;
           try rewrite -> H in *; clear H; clear input
         end).
+
+    Local Ltac solvers := assumption || reflexivity || (Zhelper; apply characterClass_successful_state_Valid; assumption).
+    (* Solves the current goal by 1. normalizing the states 2. leveraging assumptions and reflexivity *)
+    Ltac solve := normalize; solve [ solvers ].
   End MatchState.
 
   Module Progress.
@@ -75,6 +94,14 @@ Module Correctness.
       | [ |- directionalProgress ?d _ _ ] => is_constructor d; constructor
       | [ |- directionalProgress ?d _ _ ] => destruct d
       end.
+
+    Lemma step: forall x dir, progress dir x (Success (match_state 
+        (MatchState.input x)
+        (if Direction.eqb dir forward
+         then (MatchState.endIndex x + 1)%Z
+         else (MatchState.endIndex x - 1)%Z) 
+        (MatchState.captures x))).
+    Proof. intros. destruct dir; (constructor; cbn in *; solve [ assumption | constructor; cbn; lia ]). Qed.
 
     Lemma refl: forall dir x, (progress dir) x (Success x).
     Proof. intros. hammer. 1,3: congruence. all: lia. Qed.
@@ -128,7 +155,7 @@ Module Correctness.
         end
     ).
 
-    Local Ltac solvers := assumption || apply refl || reflexivity.
+    Local Ltac solvers := assumption || apply step || apply refl || reflexivity || MatchState.solve.
     (* Solves the current goal by 1. normalizing progress 2. leveraging assumptions and reflexivity *)
     Ltac solve := normalize; solve [ solvers ].
 
@@ -186,7 +213,7 @@ Module Correctness.
     Proof.
       induction r; intros rer dir x c z; cbn;
       focus § _ [] _ -> _ § auto destruct.
-      + intros. IntermediateValue.search. destruct dir; (constructor; [ reflexivity | constructor; cbn; lia ]).
+      + intros. IntermediateValue.search.
       + intros. autounfold with Warblre in *. repeat (specialize_once; Coq.Program.Tactics.destruct_conjs). IntermediateValue.search.
       + intros. autounfold with Warblre in *. repeat (specialize_once; Coq.Program.Tactics.destruct_conjs). IntermediateValue.search.
       + apply IntermediateValue.repeatMatcher. apply IHr.
@@ -280,10 +307,8 @@ Module Correctness.
     Proof.
       induction r; cbn; intros dir rer x c Vx Sc;
       focus § _ (_ [] _) § auto destruct.
-      - apply Sc.
-        + destruct dir; constructor; cbn in *; lia.
-        + inversion Vx. destruct dir; (constructor; cbn in *; solve [ assumption | constructor; cbn; lia ]).
-      - apply Indexing.failure_kind in MatchEq_0.
+      - apply Sc; try Progress.solve.
+      - apply Indexing.failure_kind in AutoDest_0.
         rewrite -> Indexing.failure_bounds in *.
         unfold Valid in *. destruct dir; cbn in *; Zhelper; try lia.
       - apply IHr1; assumption.
@@ -301,10 +326,10 @@ Module Correctness.
       - apply IHr with (x := x); try assumption.
         intros y Vy Pxy. focus § _ (_ [] _) § auto destruct.
         + apply Sc; Progress.solve.
-        + focus § _ [] _ § auto destruct in MatchEq_;
+        + focus § _ [] _ § auto destruct in AutoDest_;
             destruct dir; try discriminate; inversion Pxy; inversion H3; Zhelper; lia.
       - apply Sc; Progress.solve.
-      - rewrite <- MatchEq_0. apply IHr; try assumption.
+      - rewrite <- AutoDest_0. apply IHr; try assumption.
         easy.
     Qed.
 
@@ -318,4 +343,187 @@ Module Correctness.
       - hypotheses_reflector. spec_reflector Nat.leb_spec0. contradiction.
     Qed.
   End Safety.
+
+  Module Termination.
+    Definition TerminatingMatcher (m: Matcher) (dir: direction) :=
+      forall x c, Valid x -> m x c = out_of_fuel -> exists y, Valid y /\ progress dir x (Success y) /\ c y = out_of_fuel.
+    #[export]
+    Hint Unfold TerminatingMatcher: Warblre.
+
+    Definition remainingChars (x: MatchState) (dir: direction): nat := match dir with
+    | forward => length (MatchState.input x) - Z.to_nat (MatchState.endIndex x)
+    | backward => Z.to_nat (MatchState.endIndex x)
+    end.
+    Definition fuelBound (min: non_neg_integer) (x: MatchState) (dir: direction) := min + (remainingChars x dir)  + 1.
+    #[export]
+    Hint Unfold fuelBound remainingChars : Warblre.
+
+    Lemma repeatMatcherFuel_satisfies_bound: forall min x dir, Valid x -> fuelBound min x dir <= repeatMatcherFuel min x.
+    Proof. intros. autounfold with Warblre in *. unfold Valid in *. destruct dir; cbn; lia. Qed.
+
+    Lemma fuelDecreases_min: forall dir min min' x x' b, 
+      min' < min -> progress dir x (Success x') 
+      -> fuelBound min x dir <= S b -> fuelBound min' x' dir <= b.
+    Proof.
+      intros. autounfold with Warblre in *. inversion H0; destruct dir; inversion H6; subst.
+      - rewrite -> H3 in *. lia.
+      - lia.
+    Qed.
+
+    Lemma fuelDecreases_progress: forall dir min x x' b, 
+      progress dir x (Success x') -> ((MatchState.endIndex x) =? (MatchState.endIndex x'))%Z = false
+      -> Valid x -> Valid x'
+      -> fuelBound min x dir <= S b -> fuelBound min x' dir <= b.
+    Proof.
+      intros. autounfold with Warblre in *. destruct H1. destruct H2. spec_reflector Z.eqb_spec.
+      destruct dir; inversion H.
+      - inversion H10. subst. rewrite -> H7 in *. lia.
+      - inversion H10. lia.
+    Qed.
+
+    Ltac boolean_simplifier := repeat
+    (   rewrite -> andb_true_l in *
+    ||  match goal with
+        | [ H: ?c1 = ?c2 |- _ ] => check_type c1 bool; is_constructor c1; is_constructor c2; try discriminate H; clear H
+        | [ H: ?b = _ |- _ ] => check_type b bool; is_constructor b; symmetry in H
+        | [ H: _ = ?b |- _ ] => rewrite -> H in *
+        | [ H: negb _ = _ |- _ ] => apply (f_equal negb) in H; rewrite -> negb_involutive in H; cbn in H
+        end).
+
+    Ltac search := lazymatch goal with
+    | [ H: ?c ?y = out_of_fuel |- exists x, Valid x /\ progress ?dir _ _ /\ ?c x = out_of_fuel ] =>
+      exists y; split; [ | split ];
+      [ try solve [Progress.saturate]
+      | try solve [Progress.saturate]
+      | apply H ]
+    end.
+
+    Lemma repeatMatcher': forall fuel m min max greedy captures x c dir, fuelBound min x dir <= fuel -> Valid x ->
+      TerminatingMatcher m dir ->
+      repeatMatcher' m min max greedy x c captures fuel = out_of_fuel ->
+      exists y, Valid y /\ progress dir x (Success y) /\ c y = out_of_fuel.
+    Proof.
+      induction fuel; intros m min max greedy captures x c dir INEQ_fuel Vx Tm Falsum.
+      - autounfold with Warblre in *. lia.
+      - cbn in Falsum.
+        (focus § _ [] _ § auto destruct in Falsum).
+        + search.
+        + apply Tm in Falsum; try Progress.solve. destruct Falsum as [ y [ Vy [ Pxy Falsum ] ] ].
+          (focus § _ [] _ § auto destruct in Falsum). boolean_simplifier.
+          assert(FD: fuelBound (min - 1) y dir <= fuel). {
+            apply fuelDecreases_min with (min := min) (x := x); try Progress.solve.
+            spec_reflector Nat.eqb_spec. lia.
+          }
+          specialize IHfuel with (1 := FD) (2 := Vy) (3 := Tm) (4 := Falsum). clear Falsum.
+          destruct IHfuel as [ z [ Vz [ Pyz Falsum ] ] ].
+          search.
+        + search.
+        + apply Tm in Falsum; try Progress.solve. destruct Falsum as [ y [ Vy [ Pxy Falsum ] ] ].
+          (focus § _ [] _ § auto destruct in Falsum).
+          boolean_simplifier. spec_reflector Nat.eqb_spec. subst.
+          assert(FD: fuelBound 0 y dir <= fuel). {
+            (focus § _ [] _ § do (fun t => apply fuelDecreases_progress with (x := t)) in Pxy); try Progress.solve.
+            MatchState.normalize. spec_reflector Z.eqb_spec. congruence.
+          }
+          specialize IHfuel with (1 := FD) (2 := Vy) (3 := Tm) (4 := Falsum). clear Falsum.
+          destruct IHfuel as [ z [ Vz [ Pyz Falsum ] ] ].
+          search.
+        + apply Tm in Falsum; try Progress.solve. destruct Falsum as [ y [ Vy [ Pxy Falsum ] ] ].
+          (focus § _ [] _ § auto destruct in Falsum).
+          boolean_simplifier. spec_reflector Nat.eqb_spec. subst.
+          assert(FD: fuelBound 0 y dir <= fuel). {
+            (focus § _ [] _ § do (fun t => apply fuelDecreases_progress with (x := t)) in Pxy); try Progress.solve.
+            MatchState.normalize. spec_reflector Z.eqb_spec. congruence.
+          }
+          specialize IHfuel with (1 := FD) (2 := Vy) (3 := Tm) (4 := Falsum). clear Falsum.
+          destruct IHfuel as [ z [ Vz [ Pyz Falsum ] ] ].
+          search.
+        + search.
+    Qed.
+
+    Lemma repeatMatcher: forall m min max greedy captures dir,
+      TerminatingMatcher m dir -> TerminatingMatcher (fun x c => repeatMatcher m min max greedy x c captures) dir.
+    Proof. unfold Semantics.repeatMatcher, TerminatingMatcher. intros.
+      pose proof repeatMatcher' as Tmp. specialize Tmp with (4 := H1). apply Tmp; try easy.
+      apply repeatMatcherFuel_satisfies_bound. assumption.
+    Qed.
+
+    Lemma compileSubPattern: forall r rer dir, TerminatingMatcher (compileSubPattern r rer dir) dir.
+    Proof.
+      induction r; intros rer dir; cbn -[Semantics.repeatMatcher];
+      focus § _ [] _ § auto destruct.
+      - intros x c Vx H. autounfold with Warblre in *. focus § _ [] _ § auto destruct in H.
+        + search.
+        + apply Indexing.failure_is_assertion in AutoDest_0. simpl in AutoDest_0. congruence.
+      - intros x c Vx H. autounfold with Warblre in *. focus § _ [] _ § auto destruct in H; repeat (specialize_once; Coq.Program.Tactics.destruct_conjs); search.
+      - apply repeatMatcher. apply IHr.
+      - intros x c Vx H. autounfold with Warblre in *. repeat (auto_specialize; Coq.Program.Tactics.destruct_conjs). search.
+      - intros x c Vx H. autounfold with Warblre in *. repeat (auto_specialize; Coq.Program.Tactics.destruct_conjs). search.
+      - intros x c Vx H. autounfold with Warblre in *. repeat (auto_specialize; Coq.Program.Tactics.destruct_conjs).
+        focus § _ [] _ § auto destruct in H4.
+        + search.
+        + focus § _ [] _ § auto destruct in AutoDest_; congruence.
+      - intros x c Vx H. autounfold with Warblre in *.
+        focus § _ [] _ § auto destruct in H.
+        + search.
+        + rewrite -> H in *; clear H. repeat (auto_specialize; Coq.Program.Tactics.destruct_conjs). discriminate.
+    Qed.
+
+    Lemma compilePattern: forall r rer input i, compilePattern r rer input i <> out_of_fuel.
+    Proof.
+      intros. delta compilePattern. cbn.
+      focus § _ (_ [] _) § auto destruct.
+      (focus § _ (_ [] _) § do (fun t => destruct t eqn:S)); try easy.
+      destruct f; try easy.
+      pose proof compileSubPattern as Falsum. autounfold with Warblre in *. specialize Falsum with (2 := S).
+      focus § _ [] -> _ § do (fun t => assert(Valid t)) in Falsum.
+      - spec_reflector Nat.leb_spec0. constructor; cbn; lia.
+      - specialize Falsum with (1 := H). Coq.Program.Tactics.destruct_conjs. discriminate.
+    Qed.
+
+    From Coq Require Import Logic.FunctionalExtensionality.
+    Definition TerminatingContinuation (c: MatcherContinuation) :=
+      forall x, c x <> out_of_fuel.
+    Lemma repeatMatcher_fuelWeakening: forall fuelL fuelH (m: Matcher) min max greedy captures x c dir, fuelL <= fuelH ->
+      TerminatingMatcher m dir -> IntermediateValue.HonoresContinuation m dir -> TerminatingContinuation c ->
+      Semantics.repeatMatcher' m min max greedy x c captures fuelL <> out_of_fuel -> 
+      Semantics.repeatMatcher' m min max greedy x c captures fuelH = Semantics.repeatMatcher' m min max greedy x c captures fuelL.
+    Proof.
+      induction fuelL; intros fuelH m min max greedy captures x c dir INEQ_fuel Tm Hm Tc Tl; [ easy | ].
+      apply Nat.lt_exists_pred in INEQ_fuel. destruct INEQ_fuel as [ fuelH' [ EQ_fuelH INEQ_fuel ] ].
+      subst. rename fuelH' into fuelH.
+      cbn in Tl |- *.
+      (focus § _ (_ [] _) § auto destruct in Tl); try easy.
+      - (* How to go from Tl to the hypothesis of IHfuelL? *)
+        (* We are in the case min > 0, i.e. we need to eat *)
+        (focus § _ (_ [] _) § do (fun t => destruct t eqn:Eq in Tl) in Tl).
+        + (* pose proof Eq as Eq'.
+          apply Hm in Eq. destruct Eq as [ y [Pxy Eq] ].
+          (focus § _ [] _ § auto destruct in Eq).
+          focus § _ [] _ § do (fun t => assert (NEQ: t <> out_of_fuel) by congruence) in Eq.
+          specialize IHfuelL with (1 := INEQ_fuel) (2 := Tm) (3 := Hm) (4 := Tc) (5 := NEQ).
+          rewrite -> Eq'. rewrite <- Eq. rewrite <- IHfuelL. *)
+          (* How does one show that y is the value privded to the continuation? *)
+          f_equal. apply functional_extensionality. intros y.
+          (focus § _ [] _ § auto destruct); try easy.
+          apply IHfuelL with (dir := dir); try assumption.
+          (* Intermediate value doesn't help; we have no way of connecting it to y *)
+          admit.
+        + destruct f; try easy.
+          * (*  If m was systematically failing, this could hide termination issues in its continuation,
+                which must terminate in order to apply the IH *)
+            admit.
+          * admit.
+      - admit.
+      - (focus § _ (_ [] _) § do (fun t => destruct t eqn:Eq in Tl) in Tl).
+        + apply Hm in Eq. destruct Eq as [ y [Pxy Eq] ].
+          (focus § _ [] _ § auto destruct in Eq).
+          rewrite <- Eq in Tl.
+          admit.
+        + destruct f; try easy.
+          * admit.
+          * admit.
+      - admit.
+    Abort.
+  End Termination.
 End Correctness.

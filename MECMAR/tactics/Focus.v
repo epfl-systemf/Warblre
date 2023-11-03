@@ -73,7 +73,7 @@ end.
 
 (*  Replace has the bad habit of applying some transformation (cbn? hnf?)
     to the replacement, so we apply the same transformation to the goal to ensure
-    perfetct matching. *)
+    perfect matching. *)
 Ltac focus_replace_goal With By :=
   cbn;
   let g := focus_get_goal in
@@ -85,10 +85,14 @@ Ltac focus_replace_hypothesis H With By :=
   replace g with With in H;
   [ idtac | By ].
 
+Ltac destruct_or_rewrite t := lazymatch goal with
+| [ H: t = ?v |- _ ] => idtac H; rewrite -> H
+| [ |- _ ] => let Eq := fresh "AutoDest_" in destruct t eqn:Eq
+end.
 
 Ltac auto_destruct t := lazymatch t with
-| match ?c with | _ => _ end => let Eq := fresh "MatchEq_" in destruct c eqn:Eq
-| if ?c then _ else _ => let Eq := fresh "IfEq_" in destruct c eqn:Eq
+| match ?c with | _ => _ end => destruct_or_rewrite c
+| if ?c then _ else _ => destruct_or_rewrite c
 | ?l _ => auto_destruct l
 end; try discriminate.
 

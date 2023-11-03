@@ -110,7 +110,7 @@ Ltac destruct_match := simpl in *; match goal with
 Ltac hypotheses_reflector := repeat match goal with
   | [ H: andb _ _ = true |- _ ] => pose proof (andb_prop _ _  H); clear H
   | [ H: andb ?l ?r = false |- _ ] => Reflection.apply_to_iff (Bool.andb_false_iff l r) H; clear H
-  | [ H: orb _ _ = false |- _ ] => apply orb_false_elim in H; destruct H
+  | [ H: orb ?l ?r = false |- _ ] => apply orb_false_elim in H
   | [ H: _ /\ _ |- _ ] => destruct H
   | [ H: _ \/ _ |- _ ] => destruct H
   end.

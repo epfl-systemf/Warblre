@@ -97,7 +97,7 @@ Module Semantics.
                           (* i. Let index be min(e, f). *)
                           let index := Z.min e f in
                           (* j. Let ch be the character Input[index]. *)
-                          let! chr <- input[ index ] in
+                          let! chr =<< input[ index ] in
                           (* k. Let cc be Canonicalize(rer, ch). *)
                           let cc := chr in
                           (* l. If there exists a member a of A such that Canonicalize(rer, a) is cc, let found be true. Otherwise, let found be false. *)
@@ -190,7 +190,7 @@ Module Semantics.
                           let xe := MatchState.endIndex x in
                           (* v. Let ye be y's endIndex. *)
                           let ye := MatchState.endIndex y in
-                          let! r <-
+                          let! r =<<
                             (* vi. If direction is forward, then *)
                             if direction is forward then
                               (* 1. Assert: xe ≤ ye. *)
@@ -226,7 +226,7 @@ Module Semantics.
                         (* i. Assert: y is a MatchState. *)
                         let d := fun (y: MatchState) =>
                           (* ii. Return y. *)
-                          Success y
+                          Success (Some y)
                         in
                         (* d. Let r be m(x, d). *)
                         let r := m x d in
@@ -235,7 +235,7 @@ Module Semantics.
                           failure
                         else
                           (* f. Let y be r's MatchState. *)
-                          destruct! Success y <- r ;
+                          destruct! Success (Some y) <- r in
                           (* g. Let cap be y's captures List. *)
                           let cap := MatchState.captures y in
                           (* h. Let cap be y's captures List. *)
@@ -264,7 +264,7 @@ Module Semantics.
       (* i. Assert: y is a MatchState. *)
       let c := fun (y: MatchState) =>
         (* Return y. *)
-        Success y 
+        Success (Some y) 
       in
       (* d. Let cap be a List of rer.[[CapturingGroupsCount]] undefined values, indexed 1 through rer.[[CapturingGroupsCount]]. *)
       let cap := DMap.empty CaptureRange.type in

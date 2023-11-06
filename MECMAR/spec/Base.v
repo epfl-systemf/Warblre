@@ -19,8 +19,7 @@ Infix "<=?" := Z.leb (at level 70): Z_scope.
 Infix ">?" := Z.gtb (at level 70): Z_scope.
 Infix ">=?" := Z.geb (at level 70): Z_scope.
 
-Inductive MatchFailure :=
-| Mismatch
+Inductive MatchError :=
 | OutOfFuel
 | AssertionFailed.
 

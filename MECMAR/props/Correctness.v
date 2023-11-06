@@ -8,13 +8,15 @@ Module Correctness.
   Import Notation.
   Import Semantics.
 
+  Notation "'fsuccess' x" := (Success (Some x)) (at level 50, only parsing).
+
   Create HintDb Warblre.
   #[export] Hint Unfold repeatMatcherFuel : Warblre.
   
   Lemma is_not_failure_true_rewrite: forall (r: MatchResult), r is not failure = true <-> r <> failure.
-  Proof. intros [ r | [ | | ] ]; split; easy. Qed.
+  Proof. intros [ [ | ] | [ | ] ]; split; easy. Qed.
   Lemma is_not_failure_false_rewrite: forall (r: MatchResult), r is not failure = false <-> r = failure.
-  Proof. intros [ r | [ | | ] ]; split; easy. Qed.
+  Proof. intros [ [ | ] | [ | ] ]; split; easy. Qed.
   #[export]
   Hint Rewrite -> is_not_failure_true_rewrite is_not_failure_false_rewrite : Warblre.
 
@@ -43,8 +45,9 @@ Module Correctness.
   | pStep: forall dir x y, 
       (MatchState.input x) = (MatchState.input y)
     -> directionalProgress dir x y
-    -> progress dir x (Success y)
-  | pFail: forall dir x f, progress dir x (Failure f).
+    -> progress dir x (fsuccess y)
+  | pMismatch: forall dir x, progress dir x (Success None)
+  | pError: forall dir x f, progress dir x (Failure f).
   #[export]
   Hint Constructors progress: core.
 
@@ -85,17 +88,18 @@ Module Correctness.
   Module Progress.
     Local Ltac hammer :=
       repeat match goal with
-      | [ H: progress _ _ (Success _) |- _ ] => inversion H; clear H; subst
+      | [ H: progress _ _ (fsuccess _) |- _ ] => inversion H; clear H; subst
       | [ H: directionalProgress ?d _ _ |- _ ] => is_constructor d; inversion H; clear H
       | [ _: directionalProgress ?d _ _ |- _ ] => destruct d
       | [ |- progress _ _ ?y ] => is_var y; let Eq := fresh "Eq" y in destruct y eqn:Eq
+      | [ |- progress _ _ (Success ?y) ] => is_var y; let Eq := fresh "Eq" y in destruct y eqn:Eq
       | [ |- progress ?d _ _ ] => is_constructor d; constructor
       | [ |- progress ?d _ _ ] => destruct d
       | [ |- directionalProgress ?d _ _ ] => is_constructor d; constructor
       | [ |- directionalProgress ?d _ _ ] => destruct d
       end.
 
-    Lemma step: forall x dir, progress dir x (Success (match_state 
+    Lemma step: forall x dir, progress dir x (fsuccess (match_state 
         (MatchState.input x)
         (if Direction.eqb dir forward
          then (MatchState.endIndex x + 1)%Z
@@ -103,10 +107,10 @@ Module Correctness.
         (MatchState.captures x))).
     Proof. intros. destruct dir; (constructor; cbn in *; solve [ assumption | constructor; cbn; lia ]). Qed.
 
-    Lemma refl: forall dir x, (progress dir) x (Success x).
+    Lemma refl: forall dir x, (progress dir) x (fsuccess x).
     Proof. intros. hammer. 1,3: congruence. all: lia. Qed.
 
-    Lemma trans: forall dir x y z, (progress dir) x (Success y) -> (progress dir) y z -> (progress dir) x z.
+    Lemma trans: forall dir x y z, (progress dir) x (fsuccess y) -> (progress dir) y z -> (progress dir) x z.
     Proof.
       intros. hammer.
       1,3: congruence.
@@ -114,8 +118,8 @@ Module Correctness.
     Qed.
 
     Lemma ignores_captures_r: forall c1 c2 dir x i n,
-          (progress dir) x (Success (i [@ n $ c1]))
-      <-> (progress dir) x (Success (i [@ n $ c2])).
+          (progress dir) x (fsuccess (i [@ n $ c1]))
+      <-> (progress dir) x (fsuccess (i [@ n $ c2])).
     Proof.
       intros; split; intros; hammer; subst.
       all: try assumption.
@@ -131,7 +135,7 @@ Module Correctness.
       all: cbn in *; lia.
     Qed.
 
-    Lemma progress_same_input: forall dir x y, progress dir x (Success y)
+    Lemma progress_same_input: forall dir x y, progress dir x (fsuccess y)
       -> MatchState.input x = MatchState.input y.
     Proof. intros. inversion H. assumption. Qed.
 
@@ -144,8 +148,8 @@ Module Correctness.
     ||  rewrite <- (ignores_captures_l (DMap.empty _)) in *
     ||  rewrite <- (ignores_captures_r (DMap.empty _)) in *
     ||  lazymatch goal with
-        | [ H: progress _ (?i [@ _ $ _]) (Success (?i [@ _ $ _])) |- _ ] => fail
-        | [ H: progress _ (?i1 [@ _ $ _]) (Success (?i2 [@ _ $ _])) |- _ ] =>
+        | [ H: progress _ (?i [@ _ $ _]) (fsuccess (?i [@ _ $ _])) |- _ ] => fail
+        | [ H: progress _ (?i1 [@ _ $ _]) (fsuccess (?i2 [@ _ $ _])) |- _ ] =>
           let Tmp := fresh in
           pose proof progress_same_input as Tmp;
           specialize Tmp with (1 := H);
@@ -160,7 +164,7 @@ Module Correctness.
     Ltac solve := normalize; solve [ solvers ].
 
     Ltac saturate_step := normalize; match goal with
-    | [ H1: progress ?dir ?x (Success ?y), H2: progress ?dir ?y (Success ?z) |- _ ] =>
+    | [ H1: progress ?dir ?x (fsuccess ?y), H2: progress ?dir ?y (Success ?z) |- _ ] =>
       let H := fresh "ps_trans_" H1 H2 in
       pose proof Progress.trans as H;
       specialize H with (1 := H1) (2 := H2);
@@ -175,12 +179,12 @@ Module Correctness.
       its continuation must succeed on an input the matcher called it with in order for the matcher to itself succeed. *)
   Module IntermediateValue.
     (* y is also most likely Valid; see if we can incorporate this to the definition *)
-    Definition HonoresContinuation (m: Matcher) (dir: direction) := forall x c z, m x c = Success z -> exists y, progress dir x (Success y) /\ c y = Success z.
+    Definition HonoresContinuation (m: Matcher) (dir: direction) := forall x c z, m x c = fsuccess z -> exists y, progress dir x (fsuccess y) /\ c y = fsuccess z.
     #[export]
     Hint Unfold HonoresContinuation : Warblre.
 
     Ltac search := lazymatch goal with
-    | [ H: ?c ?y = Success ?z |- exists x, progress ?dir _ _ /\ ?c x = Success ?z ] =>
+    | [ H: ?c ?y = fsuccess ?z |- exists x, progress ?dir _ _ /\ ?c x = fsuccess ?z ] =>
       exists y; split;
       [ try solve [Progress.saturate]
       | apply H ]
@@ -242,7 +246,7 @@ Module Correctness.
     Lemma compileSubPattern: forall r rer dir, MonotonousMatcher dir (compileSubPattern r rer dir).
     Proof.
       intros r rer dir x c Mc.
-      (focus § _ _ _ []§ do (fun t => destruct t eqn:Suc)); try easy.
+      (focus § _ _ _ []§ do (fun t => destruct t as [ [ s | ] | ] eqn:Suc)); try easy.
       apply IntermediateValue.compileSubPattern with (dir := dir) in Suc.
       destruct Suc as [ y [ Pxy Suc ] ]. rewrite <- Suc.
       apply Progress.trans with (y := y).
@@ -264,7 +268,7 @@ Module Correctness.
     Definition SafeContinuation (x0: MatchState) (dir: direction) (c: MatcherContinuation) :=
       forall x,
           Valid x
-      ->  progress dir x0 (Success x) 
+      ->  progress dir x0 (fsuccess x) 
       ->  c x <> assertion_failed.
     Definition SafeMatcher (dir: direction) (m: Matcher) :=
       forall x c,
@@ -274,7 +278,7 @@ Module Correctness.
     #[export]
     Hint Unfold SafeContinuation SafeMatcher: Warblre.
 
-    Lemma continuation_weakening: forall x x' dir (c: MatcherContinuation), progress dir x (Success x')
+    Lemma continuation_weakening: forall x x' dir (c: MatcherContinuation), progress dir x (fsuccess x')
       -> SafeContinuation x dir c -> SafeContinuation x' dir c.
     Proof. intros. intros y Vy Pxy. apply H0; try assumption. Progress.saturate. Qed.
 
@@ -346,7 +350,7 @@ Module Correctness.
 
   Module Termination.
     Definition TerminatingMatcher (m: Matcher) (dir: direction) :=
-      forall x c, Valid x -> m x c = out_of_fuel -> exists y, Valid y /\ progress dir x (Success y) /\ c y = out_of_fuel.
+      forall x c, Valid x -> m x c = out_of_fuel -> exists y, Valid y /\ progress dir x (fsuccess y) /\ c y = out_of_fuel.
     #[export]
     Hint Unfold TerminatingMatcher: Warblre.
 
@@ -362,7 +366,7 @@ Module Correctness.
     Proof. intros. autounfold with Warblre in *. unfold Valid in *. destruct dir; cbn; lia. Qed.
 
     Lemma fuelDecreases_min: forall dir min min' x x' b, 
-      min' < min -> progress dir x (Success x') 
+      min' < min -> progress dir x (fsuccess x') 
       -> fuelBound min x dir <= S b -> fuelBound min' x' dir <= b.
     Proof.
       intros. autounfold with Warblre in *. inversion H0; destruct dir; inversion H6; subst.
@@ -371,7 +375,7 @@ Module Correctness.
     Qed.
 
     Lemma fuelDecreases_progress: forall dir min x x' b, 
-      progress dir x (Success x') -> ((MatchState.endIndex x) =? (MatchState.endIndex x'))%Z = false
+      progress dir x (fsuccess x') -> ((MatchState.endIndex x) =? (MatchState.endIndex x'))%Z = false
       -> Valid x -> Valid x'
       -> fuelBound min x dir <= S b -> fuelBound min x' dir <= b.
     Proof.
@@ -401,7 +405,7 @@ Module Correctness.
     Lemma repeatMatcher': forall fuel m min max greedy captures x c dir, fuelBound min x dir <= fuel -> Valid x ->
       TerminatingMatcher m dir ->
       repeatMatcher' m min max greedy x c captures fuel = out_of_fuel ->
-      exists y, Valid y /\ progress dir x (Success y) /\ c y = out_of_fuel.
+      exists y, Valid y /\ progress dir x (fsuccess y) /\ c y = out_of_fuel.
     Proof.
       induction fuel; intros m min max greedy captures x c dir INEQ_fuel Vx Tm Falsum.
       - autounfold with Warblre in *. lia.
@@ -510,19 +514,17 @@ Module Correctness.
           (* Intermediate value doesn't help; we have no way of connecting it to y *)
           admit.
         + destruct f; try easy.
-          * (*  If m was systematically failing, this could hide termination issues in its continuation,
+          (*  If m was systematically failing, this could hide termination issues in its continuation,
                 which must terminate in order to apply the IH *)
-            admit.
-          * admit.
+          admit.
       - admit.
-      - (focus § _ (_ [] _) § do (fun t => destruct t eqn:Eq in Tl) in Tl).
+      - (focus § _ (_ [] _) § do (fun t => destruct t as [ [ s | ] | ] eqn:Eq in Tl) in Tl).
         + apply Hm in Eq. destruct Eq as [ y [Pxy Eq] ].
           (focus § _ [] _ § auto destruct in Eq).
           rewrite <- Eq in Tl.
           admit.
-        + destruct f; try easy.
-          * admit.
-          * admit.
+        + admit.
+        + admit.
       - admit.
     Abort.
   End Termination.

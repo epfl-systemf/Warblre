@@ -26,7 +26,7 @@ let test_regex regex input =
 
   match matcher ls_input 0 with
 
-  | Success { MatchState.endIndex = i; MatchState.captures = captures; _ } -> 
+  | Success (Some { MatchState.endIndex = i; MatchState.captures = captures; _ }) -> 
     Printf.printf "Matched %d characters in '%s' (length=%d)\n" i input (length ls_input);
     let f name = 
       match Interop.Ocaml_Map_Int.find_opt name captures with
@@ -37,7 +37,7 @@ let test_regex regex input =
     in
     Interop.Ocaml_Set_Int.iter f (Extracted.StaticSemantics.capturingGroupsWithin regex)
 
-  | Failure Mismatch -> Printf.printf "No match on '%s' \n" input
+  | Success None -> Printf.printf "No match on '%s' \n" input
 
   | Failure OutOfFuel -> Printf.printf "Out of fuel on '%s' \n" input
 

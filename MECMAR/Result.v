@@ -30,6 +30,11 @@ Module Result.
 
   Module Notations.
     Notation "'let!' r '<-' y 'in' z" := (match y with 
+      | Success v => Success ((fun r => z) v)
+      | Failure f => Failure f
+      end)
+      (at level 20, r pattern, y at level 100, z at level 200): result_flow.
+    Notation "'let!' r '=<<' y 'in' z" := (match y with 
       | Success v => (fun r => z) v
       | Failure f => Failure f
       end)
@@ -37,7 +42,7 @@ Module Result.
 
     Notation "'assert!' b ';' z" := (if b then z else assertion_failed) (at level 20, b at level 100, z at level 100): result_flow.
 
-    Notation "'destruct!' r '<-' y ';' z" := (match y with
+    Notation "'destruct!' r '<-' y 'in' z" := (match y with
       | r => z
       | _ => match y with
         | Failure f => Failure f (* Preserve current failure *)

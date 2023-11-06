@@ -50,10 +50,10 @@ Module Notation.
   Export MatchState.Exports.
 
   (* A MatchResult is either a MatchState or the special token failure that indicates that the match failed. *)
-  Definition MatchResult := Result MatchState MatchFailure.
+  Definition MatchResult := Result (option MatchState) MatchError.
   #[export]
-  Instance assertion_error: Result.AssertionError MatchFailure := { f := AssertionFailed }.
-  Notation failure := (Failure Mismatch).
+  Instance assertion_error: Result.AssertionError MatchError := { f := AssertionFailed }.
+  Notation failure := (Success None).
   Notation out_of_fuel := (Failure OutOfFuel).
   Notation assertion_failed := (Failure AssertionFailed).
 

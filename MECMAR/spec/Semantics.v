@@ -13,9 +13,11 @@ Module Semantics.
   (* Some coercions *)
   (* This one is used implicitly by the specification *)
   Coercion SomeCR: CaptureRange >-> CaptureRange_or_undefined.
+  Coercion SomeMS: MatchState >-> ProtoMatchResult.
   (* These are used to wrap things into the error monad we will be using *)
-  Coercion wrap_CaptureRange(cr: CaptureRange) := @Success _ MatchError cr.
-  Coercion state_to_result(x: MatchState) := @Success _ MatchError (Some x).
+(*   Coercion wrap_CaptureRange(cr: CaptureRange) := @Success _ MatchError cr. *)
+  (* Coercion wrap_ProtoMatchState(x: ProtoMatchResult) := @Success _ MatchError x. *)
+  Coercion wrap_ProtoMatchState'(x: option MatchState) := @Success _ MatchError x.
 
   (** 22.2.2.3.1 RepeatMatcher ( m, min, max, greedy, x, c, parenIndex, parenCount )
       The abstract operation RepeatMatcher takes arguments m (a Matcher), min (a non-negative integer), max (a non-
@@ -31,7 +33,7 @@ Module Semantics.
     (* 1. If max = 0, return c(x). *)
     if (max =? 0)%NoI then c x else
     (* 2. Let d be a new MatcherContinuation with parameters (y) that captures m, min, max, greedy, x, c, parenIndex, and parenCount and performs the following steps when called: *)
-    let d := fun (y: MatchState) =>
+    let d: MatcherContinuation := fun (y: MatchState) =>
       (* a. Assert: y is a MatchState. *)
       (* b. If min = 0 and y's endIndex = x's endIndex, return failure. *)
       if (min =? 0)%nat && (MatchState.endIndex y =? MatchState.endIndex x)%Z
@@ -65,7 +67,7 @@ Module Semantics.
     (* 9. If greedy is false, then *)
     if greedy is false then
       (* a. Let z be c(x). *)
-      let z := c x in
+      let! z =<< c x in
       (* b. If z is not failure, return z. *)
       if z is not failure
         then z else
@@ -73,7 +75,7 @@ Module Semantics.
       m xr d
     else
     (* 10. Let z be m(xr, d). *)
-    let z := m xr d in
+    let! z =<< m xr d in
     (* 11. If z is not failure, return z. *)
     if z is not failure
       then z else
@@ -138,7 +140,7 @@ Module Semantics.
                         (* a. Assert: x is a MatchState. *)
                         (* b. Assert: x is a MatchState. *)
                         (* c. Let r be m1(x, c). *)
-                        let r := m1 x c in
+                        let! r =<< m1 x c in
                         (* d. If r is not failure, return r. *)
                         if r is not failure then
                           r
@@ -161,7 +163,7 @@ Module Semantics.
                           (* i. Assert: x is a MatchState. *)
                           (* ii. Assert: c is a MatcherContinuation. *)
                           (* iii. Let d be a new MatcherContinuation with parameters (y) that captures c and m2 and performs the following steps when called: *)
-                          let d := fun (s: MatchState) => 
+                          let d: MatcherContinuation := fun (s: MatchState) => 
                             (* 1. Assert: y is a MatchState. *)
                             (* 2. Return m2(y, c). *)
                             m2 s c
@@ -176,7 +178,7 @@ Module Semantics.
                           (* i. Assert: x is a MatchState. *)
                           (* ii. Assert: x is a MatchState. *)
                           (* iii. Let d be a new MatcherContinuation with parameters (y) that captures c and m1 and performs the following steps when called: *)
-                          let d := fun (s: MatchState) =>
+                          let d: MatcherContinuation := fun (s: MatchState) =>
                             (* 1. Assert: y is a MatchState. *)
                             (* 2. Return m1(y, c). *)
                             m1 s c 
@@ -193,7 +195,7 @@ Module Semantics.
                         (* a. Assert: x is a MatchState. *)
                         (* b. Assert: c is a MatcherContinuation. *)
                         (* c. Let d be a new MatcherContinuation with parameters (y) that captures x, c, direction, and parenIndex and performs the following steps when called: *)
-                        let d := fun (y: MatchState) =>
+                        let d: MatcherContinuation := fun (y: MatchState) =>
                           (* i. Assert: y is a MatchState. *)
                           (* ii. Let cap be a copy of y's captures List. *)
                           let cap := MatchState.captures y in
@@ -235,19 +237,19 @@ Module Semantics.
                         (* a. Assert: x is a MatchState. *)
                         (* b. Assert: c is a MatcherContinuation. *)
                         (* c. Let d be a new MatcherContinuation with parameters (y) that captures nothing and performs the following steps when called: *)
-                        let d := fun (y: MatchState) =>
+                        let d: MatcherContinuation := fun (y: MatchState) =>
                           (* i. Assert: y is a MatchState. *)
                           (* ii. Return y. *)
                           y
                         in
                         (* d. Let r be m(x, d). *)
-                        let r := m x d in
+                        let! r =<< m x d in
                         (* e. If r is failure, return failure. *)
                         if r is failure then
                           failure
                         else
                         (* f. Let y be r's MatchState. *)
-                        destruct! Success (Some y) <- r in
+                        destruct! (SomeMS y) <- r in
                         (* g. Let cap be y's captures List. *)
                         let cap := MatchState.captures y in
                         (* h. Let cap be y's captures List. *)
@@ -273,7 +275,7 @@ Module Semantics.
       (* b. Assert: 0 ≤ index ≤ the number of elements in Input. *)
       assert! (0 <=? index)%nat && (index <=? (length input))%nat ;
       (* c. Let c be a new MatcherContinuation with parameters (y) that captures nothing and performs the following steps when called: *)
-      let c := fun (y: MatchState) =>
+      let c: MatcherContinuation := fun (y: MatchState) =>
         (* i. Assert: y is a MatchState. *)
         (* ii. Return y. *)
         y

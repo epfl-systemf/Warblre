@@ -2,21 +2,22 @@ From Coq Require Import PeanoNat ZArith Bool Lia Program.Equality.
 From Warblre Require Import Tactics Specialize Focus Result Base Patterns StaticSemantics Notation Semantics Definitions.
 
 Import Result.Notations.
+Import Semantics.
 
 Module Correctness.
   Import Patterns.
   Import Notation.
   Import Semantics.
 
-  Notation "'fsuccess' x" := (Success (Some x)) (at level 50, only parsing).
+  Notation "'fsuccess' x" := (Success (SomeMS x)) (at level 50, only parsing).
 
   Create HintDb Warblre.
-  #[export] Hint Unfold repeatMatcherFuel : Warblre.
+  #[export] Hint Unfold repeatMatcherFuel wrap_ProtoMatchState : Warblre.
   
-  Lemma is_not_failure_true_rewrite: forall (r: MatchResult), r is not failure = true <-> r <> failure.
-  Proof. intros [ [ | ] | [ | ] ]; split; easy. Qed.
-  Lemma is_not_failure_false_rewrite: forall (r: MatchResult), r is not failure = false <-> r = failure.
-  Proof. intros [ [ | ] | [ | ] ]; split; easy. Qed.
+  Lemma is_not_failure_true_rewrite: forall (r: ProtoMatchResult), r is not failure = true <-> r <> failure.
+  Proof. intros [ | ]; split; easy. Qed.
+  Lemma is_not_failure_false_rewrite: forall (r: ProtoMatchResult), r is not failure = false <-> r = failure.
+  Proof. intros [ ]; split; easy. Qed.
   #[export]
   Hint Rewrite -> is_not_failure_true_rewrite is_not_failure_false_rewrite : Warblre.
 
@@ -46,7 +47,7 @@ Module Correctness.
       (MatchState.input x) = (MatchState.input y)
     -> directionalProgress dir x y
     -> progress dir x (fsuccess y)
-  | pMismatch: forall dir x, progress dir x (Success None)
+  | pMismatch: forall dir x, progress dir x failure
   | pError: forall dir x f, progress dir x (Failure f).
   #[export]
   Hint Constructors progress: core.
@@ -183,8 +184,9 @@ Module Correctness.
     #[export]
     Hint Unfold HonoresContinuation : Warblre.
 
-    Ltac search := lazymatch goal with
-    | [ H: ?c ?y = fsuccess ?z |- exists x, progress ?dir _ _ /\ ?c x = fsuccess ?z ] =>
+    Ltac search := unfold wrap_ProtoMatchState in *; subst; lazymatch goal with
+    | [ H: Success _ = Success _ |- _ ] => injection H; clear H; intros H; search
+    | [ H: ?c ?y = Success ?z |- exists x, progress ?dir _ _ /\ ?c x = Success ?z ] =>
       exists y; split;
       [ try solve [Progress.saturate]
       | apply H ]

@@ -32,7 +32,9 @@ let test_regex regex input =
       match Interop.Ocaml_Map_Int.find_opt name captures with
       | None ->
           Printf.printf "Group %d: undefined\n" name
-      | Some { CaptureRange.startIndex = s; CaptureRange.endIndex = e } ->
+      | Some Coq_undefined ->
+          Printf.printf "Group %d: undefined\n" name
+      | Some (SomeCR { CaptureRange.startIndex = s; CaptureRange.endIndex = e }) ->
           Printf.printf "Group %d: '%s' (%d-%d)\n" name (from_list (drop s (take e ls_input))) s e
     in
     Interop.Ocaml_Set_Int.iter f (Extracted.StaticSemantics.capturingGroupsWithin regex)

@@ -254,13 +254,13 @@ Module Correctness.
       + apply Mc.
     Qed.
 
-    Lemma compilePattern: forall r rer input i, progress forward (match_state input (Z.of_nat i) (DMap.empty CaptureRange)) (compilePattern r rer input i).
+    Lemma compilePattern: forall r rer input i, progress forward (match_state input (Z.of_nat i) (DMap.empty CaptureRange_or_undefined)) (compilePattern r rer input i).
     Proof.
       intros. delta compilePattern. cbn.
       focus § _ _ _ [] § auto destruct.
+      - constructor.
       - apply compileSubPattern.
         intros x. apply Progress.refl.
-      - constructor.
     Qed.
   End Monotony.
 
@@ -341,10 +341,10 @@ Module Correctness.
     Proof.
       intros. delta compilePattern. cbn.
       focus § _ (_ [] _) § auto destruct.
+      - hypotheses_reflector. spec_reflector Nat.leb_spec0. contradiction.
       - apply Safety.compileSubPattern.
         + hypotheses_reflector. constructor; cbn; lia.
         + easy.
-      - hypotheses_reflector. spec_reflector Nat.leb_spec0. contradiction.
     Qed.
   End Safety.
 
@@ -384,15 +384,6 @@ Module Correctness.
       - inversion H10. subst. rewrite -> H7 in *. lia.
       - inversion H10. lia.
     Qed.
-
-    Ltac boolean_simplifier := repeat
-    (   rewrite -> andb_true_l in *
-    ||  match goal with
-        | [ H: ?c1 = ?c2 |- _ ] => check_type c1 bool; is_constructor c1; is_constructor c2; try discriminate H; clear H
-        | [ H: ?b = _ |- _ ] => check_type b bool; is_constructor b; symmetry in H
-        | [ H: _ = ?b |- _ ] => rewrite -> H in *
-        | [ H: negb _ = _ |- _ ] => apply (f_equal negb) in H; rewrite -> negb_involutive in H; cbn in H
-        end).
 
     Ltac search := lazymatch goal with
     | [ H: ?c ?y = out_of_fuel |- exists x, Valid x /\ progress ?dir _ _ /\ ?c x = out_of_fuel ] =>
@@ -481,7 +472,7 @@ Module Correctness.
       destruct f; try easy.
       pose proof compileSubPattern as Falsum. autounfold with Warblre in *. specialize Falsum with (2 := S).
       focus § _ [] -> _ § do (fun t => assert(Valid t)) in Falsum.
-      - spec_reflector Nat.leb_spec0. constructor; cbn; lia.
+      - boolean_simplifier. spec_reflector Nat.leb_spec0. constructor; cbn; lia.
       - specialize Falsum with (1 := H). Coq.Program.Tactics.destruct_conjs. discriminate.
     Qed.
 

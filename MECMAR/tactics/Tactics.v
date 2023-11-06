@@ -107,13 +107,29 @@ Ltac destruct_match := simpl in *; match goal with
   | [ |- context[ if ?c then _ else _ ] ] => let E := fresh "E" in destruct c eqn:E
   end.
 
-Ltac hypotheses_reflector := repeat match goal with
-  | [ H: andb _ _ = true |- _ ] => pose proof (andb_prop _ _  H); clear H
-  | [ H: andb ?l ?r = false |- _ ] => Reflection.apply_to_iff (Bool.andb_false_iff l r) H; clear H
-  | [ H: orb ?l ?r = false |- _ ] => apply orb_false_elim in H
-  | [ H: _ /\ _ |- _ ] => destruct H
-  | [ H: _ \/ _ |- _ ] => destruct H
-  end.
+Ltac check_type t T := lazymatch type of t with
+| T => idtac
+| _ => fail
+end.
+
+Ltac boolean_simplifier := repeat
+(   rewrite -> andb_true_l in *
+||  match goal with
+    | [ H: ?c1 = ?c2 |- _ ] => check_type c1 bool; is_constructor c1; is_constructor c2; try discriminate H; clear H
+    | [ H: andb _ _ = true |- _ ] => rewrite -> andb_true_iff in H; destruct H
+    | [ H: orb _ _ = false |- _ ] => rewrite -> orb_false_iff in H; destruct H
+    | [ H: ?b = _ |- _ ] => check_type b bool; is_constructor b; symmetry in H
+    | [ H: _ = ?b |- _ ] => rewrite -> H in *
+    | [ H: negb _ = _ |- _ ] => apply (f_equal negb) in H; rewrite -> negb_involutive in H; cbn in H
+    end).
+
+Ltac hypotheses_reflector := repeat 
+(   boolean_simplifier
+||  match goal with
+    | [ H: andb ?l ?r = false |- _ ] => Reflection.apply_to_iff (Bool.andb_false_iff l r) H; clear H
+    | [ H: _ /\ _ |- _ ] => destruct H
+    | [ H: _ \/ _ |- _ ] => destruct H
+    end).
 
 Ltac goal_reflector := repeat match goal with
   | [ |- _ && _ = true ] => apply andb_true_intro; split
@@ -162,8 +178,3 @@ Ltac check_not_duplicated H :=
   | [ _: T, _: T |- _ ] => fail
   | [ |- _ ] => idtac
   end.
-
-Ltac check_type t T := lazymatch type of t with
-| T => idtac
-| _ => fail
-end.

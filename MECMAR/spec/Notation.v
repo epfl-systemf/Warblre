@@ -27,6 +27,10 @@ Module Notation.
   End CaptureRange.
   Export CaptureRange.Exports.
 
+  Inductive CaptureRange_or_undefined :=
+  | SomeCR (cr: CaptureRange)
+  | undefined.
+
   (*  A MatchState is an ordered triple (input, endIndex, captures) where input is a List of characters
       representing the String being matched, endIndex is an integer, and captures is a List of values, one for
       each left-capturing parenthesis in the pattern. States are used to represent partial match states in the
@@ -39,7 +43,7 @@ Module Notation.
     Record type := make {
       input: list Character;
       endIndex: integer; (* one plus the index of the last input character matched so far *)
-      captures: DMap.t CaptureRange;
+      captures: DMap.t CaptureRange_or_undefined;
     }.
 
     Module Exports.
@@ -82,8 +86,7 @@ Module Notation.
   (** Additional datatypes which are never properly defined. *)
   Inductive direction :=
   | forward
-  | backward
-  .
+  | backward.
 
   Module Direction.
     Definition eqb (lhs rhs: direction): bool := match lhs, rhs with
@@ -92,5 +95,10 @@ Module Notation.
     | _, _ => false
     end.
   End Direction.
+
+  Declare Scope direction_scope.
+  Delimit Scope direction_scope with dir.
+  Infix "=?" := Direction.eqb (at level 70): direction_scope.
+  Infix "!=?" := (fun l r => negb (Direction.eqb l r)) (at level 70): direction_scope.
 End Notation.
 Export Notation.

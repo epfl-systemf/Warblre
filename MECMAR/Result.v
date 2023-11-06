@@ -40,7 +40,7 @@ Module Result.
       end)
       (at level 20, r pattern, y at level 100, z at level 200): result_flow.
 
-    Notation "'assert!' b ';' z" := (if b then z else assertion_failed) (at level 20, b at level 100, z at level 100): result_flow.
+    Notation "'assert!' b ';' z" := (if (negb b) then assertion_failed else z) (at level 20, b at level 100, z at level 100): result_flow.
 
     Notation "'destruct!' r '<-' y 'in' z" := (match y with
       | r => z

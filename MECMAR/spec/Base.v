@@ -11,9 +11,47 @@ From Warblre Require Import Tactics Result.
 *)
 Definition integer := Z.
 Definition non_neg_integer := nat.
-Definition non_neg_integer_or_inf := option nat.
+Definition nat_to_nni(n: nat): non_neg_integer := n.
+Coercion nat_to_nni: nat >-> non_neg_integer.
+(* Nat or Infinity *)
+Module NoI.
+  Inductive non_neg_integer_or_inf :=
+  | N (n: non_neg_integer)
+  | Inf.
+
+  Definition eqb (l r: non_neg_integer_or_inf): bool := match l, r with
+  | N l', N r' => Nat.eqb l' r'
+  | Inf, Inf => true
+  | _, _ => false
+  end.
+
+  Definition add (l r: non_neg_integer_or_inf): non_neg_integer_or_inf := match l, r with
+  | N l', N r' => N (Nat.add l' r')
+  | _, _ => Inf
+  end.
+
+  Definition sub (l: non_neg_integer_or_inf) (r: non_neg_integer): non_neg_integer_or_inf := match l with
+  | N l' => N (Nat.sub l' r)
+  | _=> Inf
+  end.
+
+  Module Coercions.
+    Coercion NoI.N: non_neg_integer >-> non_neg_integer_or_inf.
+  End Coercions.
+End NoI.
+Notation "'+∞'" := NoI.Inf.
+Export NoI(non_neg_integer_or_inf).
+
+Infix "!=?" := (fun l r => negb (Nat.eqb l r)) (at level 70): nat_scope.
+
+Declare Scope NoI_scope.
+Delimit Scope NoI_scope with NoI.
+Infix "=?" := NoI.eqb (at level 70): NoI_scope.
+Infix "+" := NoI.add (at level 50, left associativity): NoI_scope.
+Infix "-" := NoI.sub (at level 50, left associativity): NoI_scope.
 
 Infix "=?" := Z.eqb (at level 70): Z_scope.
+Infix "!=?" := (fun l r => negb (Z.eqb l r)) (at level 70): Z_scope.
 Infix "<?" := Z.ltb (at level 70): Z_scope.
 Infix "<=?" := Z.leb (at level 70): Z_scope.
 Infix ">?" := Z.gtb (at level 70): Z_scope.
@@ -23,6 +61,28 @@ Inductive MatchError :=
 | OutOfFuel
 | AssertionFailed.
 
+
+(* We cheat about identifiers for now *)
+Parameter IdentifierName : Type.
+
+
+Module IdSet.
+  Parameter t: Type.
+
+  Parameter empty: t.
+  Parameter union: t -> t -> t.
+  Parameter add: IdentifierName -> t -> t.
+  Parameter fold: forall {T: Type}, (IdentifierName -> T -> T) -> t -> T -> T.
+End IdSet.
+
+Module DMap.
+  Parameter t: Type -> Type.
+
+  Parameter empty: forall T, t T.
+  Parameter add: forall {T: Type}, IdentifierName -> T -> t T -> t T.
+  Parameter remove: forall {T: Type}, IdentifierName -> t T -> t T.
+  (* Parameter removeAll: forall {T: Type}, t T -> IdSet.t -> t T. *)
+End DMap.
 
 Module Indexing.
   Local Close Scope nat.
@@ -67,7 +127,7 @@ Module Indexing.
       + discriminate.
       + cbn in *. congruence.
   Qed.
-  
+
   Lemma failure_kind: forall {T F: Type} {failure: Result.AssertionError F} (ls: list T) (i: Z) (f: F),
     indexing ls i = Result.Failure f -> indexing ls i = Result.assertion_failed.
   Proof. intros. pose proof (failure_is_assertion ls i f H). rewrite -> failure_helper in *. congruence. Qed.
@@ -75,33 +135,10 @@ End Indexing.
 Export Indexing(indexing).
 
 Notation "ls '[' i ']'" := (indexing ls i) (at level 98, left associativity).
-
-Notation "'+∞'" := (@None nat).
+Notation "'set' ls '[' i ']' ':=' v 'in' z" := (let ls := DMap.add i v ls in z) (at level 200, ls at level 97, right associativity).
+Notation "'set' ls '[' is '...]' ':=' v 'in' z" := (let ls := IdSet.fold (fun i => DMap.add i v) is ls in z) (at level 200, ls at level 97, right associativity).
 
 Notation "m 'is' p" := (match m with | p => true | _ => false end) (at level 100, p pattern, no associativity).
 Notation "m 'is' 'not' p" := (match m with | p => false | _ => true end) (at level 100, p pattern, no associativity).
-
-(* Notation "x '<=' y" := (Z.compare x y = Lt \/ Z.compare x y = Eq). *)
-
-(* We cheat about identifiers for now *)
-Parameter IdentifierName : Type.
-
-Module IdSet.
-  Parameter t: Type.
-
-  Parameter empty: t.
-  Parameter union: t -> t -> t.
-  Parameter add: IdentifierName -> t -> t.
-  Parameter fold: forall {T: Type}, (IdentifierName -> T -> T) -> t -> T -> T.
-End IdSet.
-
-Module DMap.
-  Parameter t: Type -> Type.
-
-  Parameter empty: forall T, t T.
-  Parameter add: forall {T: Type}, IdentifierName -> T -> t T -> t T.
-  Parameter remove: forall {T: Type}, IdentifierName -> t T -> t T.
-  (* Parameter removeAll: forall {T: Type}, t T -> IdSet.t -> t T. *)
-End DMap.
 
 Parameter Character: Type.

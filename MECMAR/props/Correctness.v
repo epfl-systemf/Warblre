@@ -244,6 +244,7 @@ Module Correctness.
       + intros. bookkeeper. autounfold with Warblre in *. repeat (specialize_once; Coq.Program.Tactics.destruct_conjs).
         focus §_ [] _§ auto destruct in H1. IntermediateValue.search.
       + intros. IntermediateValue.search.
+      + intros. IntermediateValue.search.
     Qed.
   End IntermediateValue.
 
@@ -352,6 +353,9 @@ Module Correctness.
         + apply Sc; Progress.solve.
         + focus § _ [] _ § auto destruct in AutoDest_;
             destruct dir; try discriminate; inversion Pxy; inversion H3; Zhelper; lia.
+      - apply Sc; Progress.solve.
+      - rewrite <- AutoDest_. apply IHr; try assumption.
+        easy.
       - apply Sc; Progress.solve.
       - rewrite <- AutoDest_. apply IHr; try assumption.
         easy.
@@ -480,6 +484,10 @@ Module Correctness.
         focus § _ [] _ § auto destruct in H4.
         + search.
         + focus § _ [] _ § auto destruct in AutoDest_; congruence.
+      - intros x c Vx H. autounfold with Warblre in *.
+        focus § _ [] _ § auto destruct in H.
+        + search.
+        + rewrite -> H in *; clear H. repeat (auto_specialize; Coq.Program.Tactics.destruct_conjs). discriminate.
       - intros x c Vx H. autounfold with Warblre in *.
         focus § _ [] _ § auto destruct in H.
         + search.

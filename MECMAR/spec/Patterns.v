@@ -21,7 +21,9 @@ Module Patterns.
   | Quantified (r: Regex) (q: Quantifier)
   | Seq (r1 r2: Regex)
   | Group (id: IdentifierName) (r: Regex)
-  | Lookback (r: Regex).
+  (* Assertions: ^ $ \b \B *)
+  | Lookback (r: Regex)
+  | Lookahead (r: Regex).
 
   Implicit Types (r: Regex).
 End Patterns.

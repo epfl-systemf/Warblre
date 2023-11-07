@@ -15,6 +15,7 @@ Module StaticSemantics.
   | Seq r1 r2 => IdSet.union (capturingGroupsWithin r1) (capturingGroupsWithin r2)
   | Group id r => IdSet.add id (capturingGroupsWithin r)
   | Lookback r => capturingGroupsWithin r
+  | Lookahead r => capturingGroupsWithin r
   end.
 
   (** 22.2.1.3 Static Semantics: CountLeftCapturingParensBefore *)

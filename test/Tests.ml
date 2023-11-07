@@ -5,28 +5,85 @@ open Warblre.Notations
 let%expect_test "sequence" =
   test_regex
     ((char 'a') -- (char 'b') -- (char 'b'))
-    "abbb";
+    "abbb"
+    0;
   [%expect {| Matched 3 characters in 'abbb' (length=4) |}]
+
+
+let%expect_test "greedy_star" = 
+  test_regex
+    (!* (char 'a'))
+    "aaaaa"
+    0;
+  [%expect {| Matched 5 characters in 'aaaaa' (length=5) |}]
+
+
+let%expect_test "lazy_star_0" = 
+  test_regex
+    (!*? (char 'a'))
+    "aaaaa"
+    0;
+  [%expect {| Matched 0 characters in 'aaaaa' (length=5) |}]
+
+let%expect_test "lazy_star_1" = 
+  test_regex
+    (!*? (char 'a') -- (char 'b'))
+    "aaaaab"
+    0;
+  [%expect {| Matched 6 characters in 'aaaaab' (length=6) |}]
 
 
 let%expect_test "capture_reset" =
   test_regex
     !*(   group (1, char 'a')
     ||  group (2, char 'b'))
-    "ab";
+    "ab"
+    0;
   [%expect {|
     Matched 2 characters in 'ab' (length=2)
     Group 1: undefined
     Group 2: 'b' (1-2) |}]
 
-let%expect_test "tmp" = 
+
+let%expect_test "lookahead_0_pos" =
   test_regex
-    (group (0, !*(
-          group (1, char 'a')
-      ||  group (2, char 'b'))))
-    "aaaaabaac";
-  [%expect {|
-    Matched 8 characters in 'aaaaabaac' (length=9)
-    Group 0: 'aaaaabaa' (0-8)
-    Group 1: 'a' (7-8)
-    Group 2: undefined |}]
+    (char 'a' -- (?= (char 'b')))
+    "ab"
+    0;
+  [%expect {| Matched 1 characters in 'ab' (length=2) |}]
+
+let%expect_test "lookahead_0_neg_0" =
+  test_regex
+    (char 'a' -- (?= (char 'b')))
+    "a"
+    0;
+  [%expect {| No match on 'a' |}]
+
+let%expect_test "lookahead_0_neg_1" =
+  test_regex
+    (char 'a' -- (?= (char 'b')))
+    "aa"
+    0;
+  [%expect {| No match on 'aa' |}]
+
+
+let%expect_test "lookbehind_0_pos" =
+  test_regex
+    ((?<= (char 'a')) -- char 'b')
+    "ab"
+    1;
+  [%expect {|  |}]
+
+let%expect_test "lookbehind_0_neg_0" =
+  test_regex
+    ((?<= (char 'a')) -- char 'b')
+    "b"
+    1;
+  [%expect {|  |}]
+
+let%expect_test "lookbehind_0_neg_1" =
+  test_regex
+    ((?<= (char 'a')) -- char 'b')
+    "bb"
+    1;
+  [%expect {|  |}]

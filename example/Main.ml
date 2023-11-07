@@ -10,4 +10,4 @@ let regex = Group (0, !* (
       Group (1, char 'a'),
       Group (2, char 'b'))))
 
-let () = test_regex regex str
+let () = test_regex regex str 0

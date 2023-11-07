@@ -11,13 +11,11 @@ Module Semantics.
   Import Notation.
 
   (* Some coercions *)
-  (* This one is used implicitly by the specification *)
-  Coercion SomeCR: CaptureRange >-> CaptureRange_or_undefined.
-  Coercion SomeMS: MatchState >-> ProtoMatchResult.
+  (* These ones is used implicitly by the specification *)
+  Coercion CaptureRange_or_undefined(cr: CaptureRange) := (Some cr).
+  Coercion MatchState_or_failure(x: MatchState) := (Some x).
   (* These are used to wrap things into the error monad we will be using *)
-(*   Coercion wrap_CaptureRange(cr: CaptureRange) := @Success _ MatchError cr. *)
-  (* Coercion wrap_ProtoMatchState(x: ProtoMatchResult) := @Success _ MatchError x. *)
-  Coercion wrap_ProtoMatchState'(x: option MatchState) := @Success _ MatchError x.
+  Coercion wrap_option := fun (T: Type) (t: option T) => @Success (option T) MatchError t.
 
   (** 22.2.2.3.1 RepeatMatcher ( m, min, max, greedy, x, c, parenIndex, parenCount )
       The abstract operation RepeatMatcher takes arguments m (a Matcher), min (a non-negative integer), max (a non-
@@ -87,7 +85,65 @@ Module Semantics.
   Definition repeatMatcher (m: Matcher) (min: non_neg_integer) (max: non_neg_integer_or_inf) (greedy: bool) (x: MatchState) (c: MatcherContinuation) (groupsWithin: IdSet.t): MatchResult :=
     repeatMatcher' m min max greedy x c groupsWithin (repeatMatcherFuel min x).
 
+  (** 22.2.2.6 Runtime Semantics: CompileQuantifierPrefix *)
+  Module CompiledQuantifierPrefix.
+    Record type := make {
+      min: non_neg_integer;
+      max: non_neg_integer_or_inf;
+    }.
+
+    Module Notations.
+      Notation CompiledQuantifierPrefix := type.
+      Notation compiled_quantifier_prefix := make.
+    End Notations.
+  End CompiledQuantifierPrefix.
+  Import CompiledQuantifierPrefix.Notations.
+
+  Definition compileQuantifierPrefix(self: QuantifierPrefix): CompiledQuantifierPrefix := match self with
+  | Star => compiled_quantifier_prefix 0 +∞
+  | Plus => compiled_quantifier_prefix 1 +∞
+  | Question => compiled_quantifier_prefix 0 1
+  | RepExact i => compiled_quantifier_prefix i i
+  | RepPartialRange i => compiled_quantifier_prefix i +∞
+  | RepRange i j _ => compiled_quantifier_prefix i j
+  end.
+
+  (** 22.2.2.5 Runtime Semantics: CompileQuantifier *)
+  Module CompiledQuantifier.
+    Record type := make {
+      min: non_neg_integer;
+      max: non_neg_integer_or_inf;
+      greedy: bool;
+    }.
+
+    Module Notations.
+      Notation CompiledQuantifier := type.
+      Notation compiled_quantifier := make.
+    End Notations.
+  End CompiledQuantifier.
+  Import CompiledQuantifier.Notations.
+
+  Definition compileQuantifier(self: Quantifier): CompiledQuantifier := match self with
+  | Greedy q => (* Quantifier :: QuantifierPrefix *)
+      (* 1. Let qp be CompileQuantifierPrefix of QuantifierPrefix. *)
+      let qp := compileQuantifierPrefix q in
+      (* 2. Return the Record { [[Min]]: qp.[[Min]], [[Max]]: qp.[[Max]], [[Greedy]]: true }. *)
+      compiled_quantifier (CompiledQuantifierPrefix.min qp) (CompiledQuantifierPrefix.max qp) true
+  | Lazy q => (* Quantifier :: QuantifierPrefix ? *)
+      (* 1. Let qp be CompileQuantifierPrefix of QuantifierPrefix. *)
+      let qp := compileQuantifierPrefix q in
+      (* 2. Return the Record { [[Min]]: qp.[[Min]], [[Max]]: qp.[[Max]], [[Greedy]]: false }. *)
+      compiled_quantifier (CompiledQuantifierPrefix.min qp) (CompiledQuantifierPrefix.max qp) false
+  end.
+
   Fixpoint compileSubPattern (self: Regex) (rer: RegExp) (direction: direction): Matcher := match self with
+  | Empty =>          (* Alternative :: [empty] *)
+                      (* 1. Return a new Matcher with parameters (x, c) that captures nothing and performs the following steps when called: *)
+                      fun (x: MatchState) (c: MatcherContinuation) =>
+                        (* a. Assert: x is a MatchState. *)
+                        (* b. Assert: c is a MatcherContinuation. *)
+                        (* c. Return c(x). *)
+                        c x
   | Char A invert =>  (** 22.2.2.7.1 CharacterSetMatcher ( rer, A, invert, direction ) *)
                       (* 1. Return a new Matcher with parameters (x, c) that captures rer, A, invert, and direction and performs the following steps when called: *)
                       fun (x: MatchState) (c: MatcherContinuation) =>
@@ -118,10 +174,10 @@ Module Semantics.
                         (* l. If there exists a member a of A such that Canonicalize(rer, a) is cc, let found be true. Otherwise, let found be false. *)
                         let found := A cc in
                         (* m. If invert is false and found is false, return failure. *)
-                        if Bool.eqb invert false && Bool.eqb found false then
+                        if invert is false && found is false then
                           failure
                         (* n. If invert is true and found is true, return failure. *)
-                        else if Bool.eqb invert true && Bool.eqb found true then
+                        else if invert is true && found is true then
                           failure
                         else
                         (* o. Let cap be x's captures List. *)
@@ -147,10 +203,22 @@ Module Semantics.
                         else
                         (* e. Return m2(x, c). *)
                         m2 x c
-  | Kleene r      =>  let m := compileSubPattern r rer direction in
+  | Quantified r qu => (** Term :: AtomQuantifier *)
+                      (* 1. Let m be CompileAtom of Atom with arguments rer and direction. *)
+                      let m := compileSubPattern r rer direction in
+                      (* 2. Let q be CompileQuantifier of Quantifier. *)
+                      let q := compileQuantifier qu in
+                      (* 3. Assert: q.[[Min]] ≤ q.[[Max]]. *)
+                      (* Holds by construction *)
+                      (* 4. Let parenIndex be CountLeftCapturingParensBefore(Term). *)
+                      (* 5. Let parenCount be CountLeftCapturingParensWithin(Atom). *)
                       let groups := capturingGroupsWithin r in
+                      (* 6. Return a new Matcher with parameters (x, c) that captures m, q, parenIndex, and parenCount and performs the following steps when called: *)
                       fun (x: MatchState) (c: MatcherContinuation) =>
-                        repeatMatcher m 0 +∞ true x c groups 
+                        (* a. Assert: x is a MatchState. *)
+                        (* b. Assert: c is a MatcherContinuation. *)
+                        (* c. Return RepeatMatcher(m, q.[[Min]], q.[[Max]], q.[[Greedy]], x, c, parenIndex, parenCount). *)
+                        repeatMatcher m (CompiledQuantifier.min q) (CompiledQuantifier.max q) (CompiledQuantifier.greedy q) x c groups 
   | Seq r1 r2     =>  (**  Alternative :: Alternative Term *)
                       (* 1. Let m1 be CompileSubpattern of Alternative with arguments rer and direction. *)
                       let m1 := compileSubPattern r1 rer direction in
@@ -249,7 +317,7 @@ Module Semantics.
                           failure
                         else
                         (* f. Let y be r's MatchState. *)
-                        destruct! (SomeMS y) <- r in
+                        destruct! (Some y) <- r in
                         (* g. Let cap be y's captures List. *)
                         let cap := MatchState.captures y in
                         (* h. Let cap be y's captures List. *)
@@ -281,7 +349,7 @@ Module Semantics.
         y
       in
       (* d. Let cap be a List of rer.[[CapturingGroupsCount]] undefined values, indexed 1 through rer.[[CapturingGroupsCount]]. *)
-      let cap := DMap.empty CaptureRange_or_undefined in
+      let cap := DMap.empty (option CaptureRange) in
       (* e. Let x be the MatchState (Input, index, cap). *)
       let x := match_state input (Z.of_nat index) cap in
       (* f. Return m(x, c). *)

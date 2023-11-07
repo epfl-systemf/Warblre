@@ -16,8 +16,6 @@ Module Notation.
     Record type := make {
       startIndex: integer; (* inclusive *)
       endIndex: integer; (* exclusive *)
-
-      (* invariant: startIndex <= endIndex; *)
     }.
 
     Module Exports.
@@ -26,10 +24,6 @@ Module Notation.
     End Exports.
   End CaptureRange.
   Export CaptureRange.Exports.
-
-  Inductive CaptureRange_or_undefined :=
-  | SomeCR (cr: CaptureRange)
-  | undefined.
 
   (*  A MatchState is an ordered triple (input, endIndex, captures) where input is a List of characters
       representing the String being matched, endIndex is an integer, and captures is a List of values, one for
@@ -43,24 +37,22 @@ Module Notation.
     Record type := make {
       input: list Character;
       endIndex: integer; (* one plus the index of the last input character matched so far *)
-      captures: DMap.t CaptureRange_or_undefined;
+      captures: DMap.t (option CaptureRange);
     }.
 
     Module Exports.
       Notation MatchState := type.
       Notation match_state := make.
+      Notation undefined := None (only parsing).
     End Exports.
   End MatchState.
   Export MatchState.Exports.
 
-  Inductive ProtoMatchResult :=
-  | SomeMS (x: MatchState)
-  | failure.
-
   (* A MatchResult is either a MatchState or the special token failure that indicates that the match failed. *)
-  Definition MatchResult := Result ProtoMatchResult MatchError.
+  Definition MatchResult := Result (option MatchState) MatchError.
   #[export]
   Instance assertion_error: Result.AssertionError MatchError := { f := AssertionFailed }.
+  Notation failure := None (only parsing).
   Notation out_of_fuel := (Failure OutOfFuel).
   Notation assertion_failed := (Failure AssertionFailed).
 

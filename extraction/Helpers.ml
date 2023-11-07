@@ -26,20 +26,20 @@ let test_regex regex input =
 
   match matcher ls_input 0 with
 
-  | Success (SomeMS { MatchState.endIndex = i; MatchState.captures = captures; _ }) -> 
+  | Success (Some { MatchState.endIndex = i; MatchState.captures = captures; _ }) -> 
     Printf.printf "Matched %d characters in '%s' (length=%d)\n" i input (length ls_input);
     let f name = 
       match Interop.Ocaml_Map_Int.find_opt name captures with
       | None ->
           Printf.printf "Group %d: undefined\n" name
-      | Some Coq_undefined ->
+      | Some None ->
           Printf.printf "Group %d: undefined\n" name
-      | Some (SomeCR { CaptureRange.startIndex = s; CaptureRange.endIndex = e }) ->
+      | Some (Some { CaptureRange.startIndex = s; CaptureRange.endIndex = e }) ->
           Printf.printf "Group %d: '%s' (%d-%d)\n" name (from_list (drop s (take e ls_input))) s e
     in
     Interop.Ocaml_Set_Int.iter f (Extracted.StaticSemantics.capturingGroupsWithin regex)
 
-  | Success Coq_failure -> Printf.printf "No match on '%s' \n" input
+  | Success None -> Printf.printf "No match on '%s' \n" input
 
   | Failure OutOfFuel -> Printf.printf "Out of fuel on '%s' \n" input
 

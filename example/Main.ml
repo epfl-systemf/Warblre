@@ -5,7 +5,7 @@ open Notations
 open Helpers
 
 let str = "aaaaabaac"
-let regex = Group (0, Kleene (
+let regex = Group (0, !* (
     Disjunction (
       Group (1, char 'a'),
       Group (2, char 'b'))))

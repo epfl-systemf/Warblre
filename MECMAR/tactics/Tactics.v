@@ -36,11 +36,10 @@ Ltac clean_injection H := injection H; clear H; intros.
 Ltac bookkeeper := repeat (
       Coq.Program.Tactics.destruct_conjs 
   ||  Coq.Program.Tactics.clear_dups 
-  ||  match goal with
+  ||  subst
+  ||  lazymatch goal with
       | [ H: _ = _ |- _ ] => clean_injection H || discriminate H
-      end
-  || subst
-  || simpl).
+      end).
 
 Module Decidability.
   Lemma dec_dneg: forall P, {P}+{~P} -> ~~P -> P.

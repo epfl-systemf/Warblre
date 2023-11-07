@@ -35,6 +35,11 @@ Module NoI.
   | _=> Inf
   end.
 
+  Definition leqb (l: non_neg_integer) (r: non_neg_integer_or_inf): bool := match r with
+  | N r' => (l <=? r')%nat
+  | Inf => true
+  end.
+
   Module Coercions.
     Coercion NoI.N: non_neg_integer >-> non_neg_integer_or_inf.
   End Coercions.
@@ -43,12 +48,14 @@ Notation "'+∞'" := NoI.Inf.
 Export NoI(non_neg_integer_or_inf).
 
 Infix "!=?" := (fun l r => negb (Nat.eqb l r)) (at level 70): nat_scope.
+Infix "<=?" := Nat.leb (at level 70, no associativity): nat_scope.
 
 Declare Scope NoI_scope.
 Delimit Scope NoI_scope with NoI.
 Infix "=?" := NoI.eqb (at level 70): NoI_scope.
 Infix "+" := NoI.add (at level 50, left associativity): NoI_scope.
 Infix "-" := NoI.sub (at level 50, left associativity): NoI_scope.
+Infix "<=?" := NoI.leqb (at level 70, no associativity): NoI_scope.
 
 Infix "=?" := Z.eqb (at level 70): Z_scope.
 Infix "!=?" := (fun l r => negb (Z.eqb l r)) (at level 70): Z_scope.

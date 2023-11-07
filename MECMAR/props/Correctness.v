@@ -9,14 +9,14 @@ Module Correctness.
   Import Notation.
   Import Semantics.
 
-  Notation "'fsuccess' x" := (Success (SomeMS x)) (at level 50, only parsing).
+  Notation "'fsuccess' x" := (Success (Some x)) (at level 50, only parsing).
 
   Create HintDb Warblre.
-  #[export] Hint Unfold repeatMatcherFuel wrap_ProtoMatchState : Warblre.
-  
-  Lemma is_not_failure_true_rewrite: forall (r: ProtoMatchResult), r is not failure = true <-> r <> failure.
+  #[export] Hint Unfold repeatMatcherFuel wrap_option : Warblre.
+
+  Lemma is_not_failure_true_rewrite: forall (r: option MatchState), r is not failure = true <-> r <> failure.
   Proof. intros [ | ]; split; easy. Qed.
-  Lemma is_not_failure_false_rewrite: forall (r: ProtoMatchResult), r is not failure = false <-> r = failure.
+  Lemma is_not_failure_false_rewrite: forall (r: option MatchState), r is not failure = false <-> r = failure.
   Proof. intros [ ]; split; easy. Qed.
   #[export]
   Hint Rewrite -> is_not_failure_true_rewrite is_not_failure_false_rewrite : Warblre.
@@ -70,6 +70,21 @@ Module Correctness.
     ||  simpl (MatchState.input _) in *
     ||  simpl (MatchState.endIndex _) in *
     ||  simpl (MatchState.captures _) in *
+    ||  match goal with
+        | [ Eq: _ = _ |- _ ] => match type of Eq with
+          | Success ?x = Success _ =>
+            (check_type x MatchState + check_type x (option MatchState));
+            injection Eq; clear Eq; intros Eq
+          | ?s = ?x =>
+            is_var s;
+            (check_type x MatchState + check_type x (option MatchState) + check_type x (Result (option MatchState) MatchError));
+            subst s
+          | ?x = ?s =>
+            is_var s;
+            (check_type x MatchState + check_type x (option MatchState) + check_type x (Result (option MatchState) MatchError));
+            subst s
+          end
+        end
     ||  lazymatch goal with
         | [ x: MatchState |- _ ] =>
           let input := fresh "input_" x in
@@ -184,7 +199,7 @@ Module Correctness.
     #[export]
     Hint Unfold HonoresContinuation : Warblre.
 
-    Ltac search := unfold wrap_ProtoMatchState in *; subst; lazymatch goal with
+    Ltac search := subst; lazymatch goal with
     | [ H: Success _ = Success _ |- _ ] => injection H; clear H; intros H; search
     | [ H: ?c ?y = Success ?z |- exists x, progress ?dir _ _ /\ ?c x = Success ?z ] =>
       exists y; split;
@@ -208,8 +223,8 @@ Module Correctness.
         focus § _ [] _ § auto destruct in H3.
         auto_specialize; Coq.Program.Tactics.destruct_conjs.
         IntermediateValue.search.
-      - auto_specialize; Coq.Program.Tactics.destruct_conjs.
-        focus § _ [] _ § auto destruct in H3.
+      - bookkeeper. auto_specialize; Coq.Program.Tactics.destruct_conjs.
+        focus § _ [] _ § auto destruct in H2.
         auto_specialize; Coq.Program.Tactics.destruct_conjs.
         IntermediateValue.search.
       - IntermediateValue.search.
@@ -220,12 +235,13 @@ Module Correctness.
       induction r; intros rer dir x c z; cbn;
       focus § _ [] _ -> _ § auto destruct.
       + intros. IntermediateValue.search.
-      + intros. autounfold with Warblre in *. repeat (specialize_once; Coq.Program.Tactics.destruct_conjs). IntermediateValue.search.
-      + intros. autounfold with Warblre in *. repeat (specialize_once; Coq.Program.Tactics.destruct_conjs). IntermediateValue.search.
+      + intros. IntermediateValue.search.
+      + intros. bookkeeper. autounfold with Warblre in *. repeat (specialize_once; Coq.Program.Tactics.destruct_conjs). IntermediateValue.search.
+      + intros. bookkeeper. autounfold with Warblre in *. repeat (specialize_once; Coq.Program.Tactics.destruct_conjs). IntermediateValue.search.
       + apply IntermediateValue.repeatMatcher. apply IHr.
-      + intros. autounfold with Warblre in *. repeat (specialize_once; Coq.Program.Tactics.destruct_conjs). IntermediateValue.search.
-      + intros. autounfold with Warblre in *. repeat (specialize_once; Coq.Program.Tactics.destruct_conjs). IntermediateValue.search.
-      + intros. autounfold with Warblre in *. repeat (specialize_once; Coq.Program.Tactics.destruct_conjs).
+      + intros. bookkeeper. autounfold with Warblre in *. repeat (specialize_once; Coq.Program.Tactics.destruct_conjs). IntermediateValue.search.
+      + intros. bookkeeper. autounfold with Warblre in *. repeat (specialize_once; Coq.Program.Tactics.destruct_conjs). IntermediateValue.search.
+      + intros. bookkeeper. autounfold with Warblre in *. repeat (specialize_once; Coq.Program.Tactics.destruct_conjs).
         focus §_ [] _§ auto destruct in H1. IntermediateValue.search.
       + intros. IntermediateValue.search.
     Qed.
@@ -256,7 +272,7 @@ Module Correctness.
       + apply Mc.
     Qed.
 
-    Lemma compilePattern: forall r rer input i, progress forward (match_state input (Z.of_nat i) (DMap.empty CaptureRange_or_undefined)) (compilePattern r rer input i).
+    Lemma compilePattern: forall r rer input i, progress forward (match_state input (Z.of_nat i) (DMap.empty (option  CaptureRange))) (compilePattern r rer input i).
     Proof.
       intros. delta compilePattern. cbn.
       focus § _ _ _ [] § auto destruct.
@@ -295,18 +311,19 @@ Module Correctness.
         apply IHfuel with (dir := dir); try assumption.
         apply Safety.continuation_weakening with (x := x); try assumption.
         Progress.solve.
-      - apply Sc; try assumption. apply Progress.refl.
       - apply H; try Progress.solve.
         intros y Vy Pxy. focus § _ (_ [] _) § auto destruct.
         apply IHfuel with (dir := dir); try assumption.
         apply Safety.continuation_weakening with (x := x); try assumption.
         Progress.solve.
-      - apply H; try Progress.solve.
+      - rewrite <- AutoDest_2. apply Sc; try assumption. apply Progress.refl.
+      - apply Sc; try assumption. apply Progress.refl.
+      - rewrite <- AutoDest_2.
+        apply H; try Progress.solve.
         intros y Vy Pxy. focus § _ (_ [] _) § auto destruct.
         apply IHfuel with (dir := dir); try assumption.
         apply Safety.continuation_weakening with (x := x); try assumption.
         Progress.solve.
-      - apply Sc; try assumption. apply Progress.refl.
     Qed.
 
     Lemma compileSubPattern: forall r dir rer, SafeMatcher dir (compileSubPattern r rer dir).
@@ -314,11 +331,12 @@ Module Correctness.
       induction r; cbn; intros dir rer x c Vx Sc;
       focus § _ (_ [] _) § auto destruct.
       - apply Sc; try Progress.solve.
+      - apply Sc; try Progress.solve.
       - apply Indexing.failure_kind in AutoDest_0.
         rewrite -> Indexing.failure_bounds in *.
         unfold Valid in *. destruct dir; cbn in *; Zhelper; try lia.
-      - apply IHr1; assumption.
       - apply IHr2; assumption.
+      - rewrite <- AutoDest_. apply IHr1; assumption.
       - apply Safety.repeatMatcher with (x := x) (dir := dir); try assumption.
         intros. apply IHr; try assumption.
       - intros.
@@ -335,7 +353,7 @@ Module Correctness.
         + focus § _ [] _ § auto destruct in AutoDest_;
             destruct dir; try discriminate; inversion Pxy; inversion H3; Zhelper; lia.
       - apply Sc; Progress.solve.
-      - rewrite <- AutoDest_0. apply IHr; try assumption.
+      - rewrite <- AutoDest_. apply IHr; try assumption.
         easy.
     Qed.
 
@@ -388,6 +406,7 @@ Module Correctness.
     Qed.
 
     Ltac search := lazymatch goal with
+    | [ H: Failure _ = out_of_fuel |- _ ] => try rewrite -> H in *; clear H; search
     | [ H: ?c ?y = out_of_fuel |- exists x, Valid x /\ progress ?dir _ _ /\ ?c x = out_of_fuel ] =>
       exists y; split; [ | split ];
       [ try solve [Progress.saturate]
@@ -414,17 +433,6 @@ Module Correctness.
           specialize IHfuel with (1 := FD) (2 := Vy) (3 := Tm) (4 := Falsum). clear Falsum.
           destruct IHfuel as [ z [ Vz [ Pyz Falsum ] ] ].
           search.
-        + search.
-        + apply Tm in Falsum; try Progress.solve. destruct Falsum as [ y [ Vy [ Pxy Falsum ] ] ].
-          (focus § _ [] _ § auto destruct in Falsum).
-          boolean_simplifier. spec_reflector Nat.eqb_spec. subst.
-          assert(FD: fuelBound 0 y dir <= fuel). {
-            (focus § _ [] _ § do (fun t => apply fuelDecreases_progress with (x := t)) in Pxy); try Progress.solve.
-            MatchState.normalize. spec_reflector Z.eqb_spec. congruence.
-          }
-          specialize IHfuel with (1 := FD) (2 := Vy) (3 := Tm) (4 := Falsum). clear Falsum.
-          destruct IHfuel as [ z [ Vz [ Pyz Falsum ] ] ].
-          search.
         + apply Tm in Falsum; try Progress.solve. destruct Falsum as [ y [ Vy [ Pxy Falsum ] ] ].
           (focus § _ [] _ § auto destruct in Falsum).
           boolean_simplifier. spec_reflector Nat.eqb_spec. subst.
@@ -436,6 +444,17 @@ Module Correctness.
           destruct IHfuel as [ z [ Vz [ Pyz Falsum ] ] ].
           search.
         + search.
+        + search.
+        + rewrite -> Falsum in *. clear Falsum. apply Tm in AutoDest_2; try Progress.solve. destruct AutoDest_2 as [ y [ Vy [ Pxy Falsum ] ] ].
+          (focus § _ [] _ § auto destruct in Falsum).
+          boolean_simplifier. spec_reflector Nat.eqb_spec. subst.
+          assert(FD: fuelBound 0 y dir <= fuel). {
+            (focus § _ [] _ § do (fun t => apply fuelDecreases_progress with (x := t)) in Pxy); try Progress.solve.
+            MatchState.normalize. spec_reflector Z.eqb_spec. congruence.
+          }
+          specialize IHfuel with (1 := FD) (2 := Vy) (3 := Tm) (4 := Falsum). clear Falsum.
+          destruct IHfuel as [ z [ Vz [ Pyz Falsum ] ] ].
+          search.
     Qed.
 
     Lemma repeatMatcher: forall m min max greedy captures dir,
@@ -449,10 +468,11 @@ Module Correctness.
     Proof.
       induction r; intros rer dir; cbn -[Semantics.repeatMatcher];
       focus § _ [] _ § auto destruct.
+      - intros x c Vx H. search.
       - intros x c Vx H. autounfold with Warblre in *. focus § _ [] _ § auto destruct in H.
         + search.
         + apply Indexing.failure_is_assertion in AutoDest_0. simpl in AutoDest_0. congruence.
-      - intros x c Vx H. autounfold with Warblre in *. focus § _ [] _ § auto destruct in H; repeat (specialize_once; Coq.Program.Tactics.destruct_conjs); search.
+      - intros x c Vx H. autounfold with Warblre in *. focus § _ [] _ § auto destruct in H; repeat (specialize_once; bookkeeper); search.
       - apply repeatMatcher. apply IHr.
       - intros x c Vx H. autounfold with Warblre in *. repeat (auto_specialize; Coq.Program.Tactics.destruct_conjs). search.
       - intros x c Vx H. autounfold with Warblre in *. repeat (auto_specialize; Coq.Program.Tactics.destruct_conjs). search.
@@ -511,13 +531,10 @@ Module Correctness.
                 which must terminate in order to apply the IH *)
           admit.
       - admit.
-      - (focus § _ (_ [] _) § do (fun t => destruct t as [ [ s | ] | ] eqn:Eq in Tl) in Tl).
-        + apply Hm in Eq. destruct Eq as [ y [Pxy Eq] ].
-          (focus § _ [] _ § auto destruct in Eq).
-          rewrite <- Eq in Tl.
-          admit.
+      - (focus § _ (_ [] _) § do (fun t => destruct t eqn:Eq in Tl) in Tl).
         + admit.
         + admit.
+      - admit.
       - admit.
     Abort.
   End Termination.

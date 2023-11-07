@@ -22,8 +22,10 @@ Module Patterns.
   | Seq (r1 r2: Regex)
   | Group (id: IdentifierName) (r: Regex)
   (* Assertions: ^ $ \b \B *)
+  | Lookahead (r: Regex)
+  | NegativeLookahead (r: Regex)
   | Lookback (r: Regex)
-  | Lookahead (r: Regex).
+  | NegativeLookbehind (r: Regex).
 
   Implicit Types (r: Regex).
 End Patterns.

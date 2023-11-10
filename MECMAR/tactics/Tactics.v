@@ -171,6 +171,14 @@ Ltac spec_denoter spec :=
         | denoter_base_1 spec
         | denoter_base_2 spec ].
 
+(* Lift all computational boolean operators and Z comparisons into Props *)
+Ltac Zhelper := repeat
+(   hypotheses_reflector
+||  goal_reflector
+||  normalize_Z_comp
+||  spec_reflector Z.leb_spec0
+||  spec_reflector Z.ltb_spec0).
+
 Ltac check_not_duplicated H :=
   let T := type of H in
   lazymatch goal with

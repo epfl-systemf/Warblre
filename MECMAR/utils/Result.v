@@ -28,6 +28,19 @@ Module Result.
     let (f) := failure in
     Failure f.
 
+  Ltac assertion_failed_helper := repeat
+  (   unfold Result.assertion_failed in *
+  ||  match goal with
+      | [ f: AssertionError _ |- _ ] => destruct f as [f]
+      | [ E: {| f := _ |} = {| f := _ |} |- _ ] => revert E; intros [=->]
+      | [ E: Failure _ = Failure _ |- _ ] => revert E; intros [=->]
+      end); try easy.
+
+  Definition from_option_assertion {S F: Type} {failure: AssertionError F} (o: option S): Result S F := match o with
+  | Some x => Success x
+  | None => assertion_failed
+  end.
+
   Module Notations.
     Notation "'let!' r '<-' y 'in' z" := (match y with 
       | Success v => Success ((fun r => z) v)

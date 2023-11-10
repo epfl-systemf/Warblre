@@ -21,15 +21,6 @@ Module Correctness.
   #[export]
   Hint Rewrite -> is_not_failure_true_rewrite is_not_failure_false_rewrite : Warblre.
 
-  (* Lift all computational boolean operators and Z comparisons into Props *)
-  Ltac Zhelper := repeat
-  (   hypotheses_reflector
-  ||  goal_reflector
-  ||  normalize_Z_comp
-  ||  spec_reflector Z.leb_spec0
-  ||  spec_reflector Z.ltb_spec0).
-
-
   (** Progress: We say that a MatchState (wrapped in Result) ry has progressed w.r.t to another MatchState x if:
       - ry = Success y, x and y share the same input string and either
         + direction is forward, in which case x's endIndex <= y's endIndex

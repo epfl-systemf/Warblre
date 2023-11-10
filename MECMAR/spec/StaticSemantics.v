@@ -18,6 +18,7 @@ Module StaticSemantics.
   | NegativeLookahead r => capturingGroupsWithin r
   | Lookback r => capturingGroupsWithin r
   | NegativeLookbehind r => capturingGroupsWithin r
+  | BackReference _ => IdSet.empty
   end.
 
   (** 22.2.1.3 Static Semantics: CountLeftCapturingParensBefore *)

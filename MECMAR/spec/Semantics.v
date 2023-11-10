@@ -1,5 +1,5 @@
 From Coq Require Import PeanoNat ZArith Bool Lia Program.Equality.
-From Warblre Require Import Tactics Focus Result Base Patterns StaticSemantics Notation.
+From Warblre Require Import Tactics Focus Result Base Patterns StaticSemantics Notation List.
 
 Import Result.Notations.
 Import NoI.Coercions.
@@ -14,8 +14,10 @@ Module Semantics.
   (* These ones is used implicitly by the specification *)
   Coercion CaptureRange_or_undefined(cr: CaptureRange) := (Some cr).
   Coercion MatchState_or_failure(x: MatchState) := (Some x).
+  Coercion Z.of_nat: nat >-> Z.
   (* These are used to wrap things into the error monad we will be using *)
   Coercion wrap_option := fun (T: Type) (t: option T) => @Success (option T) MatchError t.
+  Coercion wrap_bool := fun (t: bool) => @Success bool MatchError t.
 
   (** 22.2.2.3.1 RepeatMatcher ( m, min, max, greedy, x, c, parenIndex, parenCount )
       The abstract operation RepeatMatcher takes arguments m (a Matcher), min (a non-negative integer), max (a non-
@@ -135,6 +137,57 @@ Module Semantics.
       (* 2. Return the Record { [[Min]]: qp.[[Min]], [[Max]]: qp.[[Max]], [[Greedy]]: false }. *)
       compiled_quantifier (CompiledQuantifierPrefix.min qp) (CompiledQuantifierPrefix.max qp) false
   end.
+
+  (** 22.2.2.7.2 BackreferenceMatcher ( rer, n, direction ) *)
+  Definition backreferenceMatcher (rer: RegExp) (n: IdentifierName) (direction: direction): Matcher :=
+    (* 1. Assert: n ≥ 1. *)
+    (* 2. Return a new Matcher with parameters (x, c) that captures rer, n, and direction and performs the following steps when called: *)
+    fun (x: MatchState) (c: MatcherContinuation) =>
+      (* a. Assert: x is a MatchState. *)
+      (* b. Assert: c is a MatcherContinuation. *)
+      (* c. Let Input be x's input. *)
+      let input := MatchState.input x in
+      (* d. Let cap be x's captures List. *)
+      let cap := MatchState.captures x in
+      (* e. Let r be cap[ n ]. *)
+      let! r =<< cap[n] in
+      (* f. If r is undefined, return c(x). *)
+      if r is undefined
+        then c x else
+      destruct! Some r <- r in
+      (* g. Let e be x's endIndex. *)
+      let e := MatchState.endIndex x in
+      (* h. Let rs be r's startIndex. *)
+      let rs := CaptureRange.startIndex r in
+      (* i. Let re be r's endIndex. *)
+      let re := CaptureRange.endIndex r in
+      (* j. Let len be re - rs. *)
+      let len := (re - rs)%Z in
+      (* k. If direction is forward, let f be e + len. *)
+      let f := if direction is forward
+        then (e + len)%Z
+      (* l. Else, let f be e - len. *)
+        else (e - len)%Z
+      in
+      (* m. Let InputLength be the number of elements in Input. *)
+      let inputLength := length input in
+      (* n. If f < 0 or f > InputLength, return failure. *)
+      if (f <? 0)%Z || (f >? inputLength)%Z
+        then failure else
+      (* o. Let g be min(e, f). *)
+      let g := Z.min e f in
+      (* p. If there exists an integer i in the interval from 0 (inclusive) to len (exclusive) such that Canonicalize(rer, Input[rs + i]) is not Canonicalize(rer, Input[g + i]), return failure. *)
+      let! b: bool =<< List.Exists.exist (List.Range.range 0 len) (fun (i: Z) =>
+        let! rsi: Character =<< input[ (rs + i)%Z ] in
+        let! gi: Character =<< input[ (g + i)%Z ] in
+        (rsi =? gi)%Chr)
+      in
+      if b
+        then failure else
+      (* q. Let y be the MatchState (Input, f, cap). *)
+      let y := match_state input f cap in
+      (* r. Return c(y). *)
+      c y.
 
   Fixpoint compileSubPattern (self: Regex) (rer: RegExp) (direction: direction): Matcher := match self with
   | Empty =>          (* Alternative :: [empty] *)
@@ -399,6 +452,9 @@ Module Semantics.
                           failure
                         else
                         c x
+  | BackReference id => (** AtomEscape :: k GroupName *)
+                      let parenIndex := id in
+                      backreferenceMatcher rer parenIndex direction
   end.
 
   (** 22.2.2.2 Runtime Semantics: CompilePattern
@@ -420,7 +476,7 @@ Module Semantics.
         y
       in
       (* d. Let cap be a List of rer.[[CapturingGroupsCount]] undefined values, indexed 1 through rer.[[CapturingGroupsCount]]. *)
-      let cap := DMap.empty (option CaptureRange) in
+      let cap := List.repeat undefined (RegExp.capturingGroupsCount rer) in
       (* e. Let x be the MatchState (Input, index, cap). *)
       let x := match_state input (Z.of_nat index) cap in
       (* f. Return m(x, c). *)

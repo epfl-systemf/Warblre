@@ -25,7 +25,8 @@ Module Patterns.
   | Lookahead (r: Regex)
   | NegativeLookahead (r: Regex)
   | Lookback (r: Regex)
-  | NegativeLookbehind (r: Regex).
+  | NegativeLookbehind (r: Regex)
+  | BackReference (id: IdentifierName).
 
   Implicit Types (r: Regex).
 End Patterns.

@@ -37,7 +37,7 @@ Module Notation.
     Record type := make {
       input: list Character;
       endIndex: integer; (* one plus the index of the last input character matched so far *)
-      captures: DMap.t (option CaptureRange);
+      captures: list (option CaptureRange);
     }.
 
     Module Exports.
@@ -75,8 +75,16 @@ Module Notation.
   Definition Matcher := MatchState -> MatcherContinuation -> MatchResult.
 
   (** 22.2.2.1.1 RegExp Records *)
-  Record RegExp := {
-  }.
+  Module RegExp.
+    Record type := make {
+      capturingGroupsCount: non_neg_integer;
+    }.
+    Module Notations.
+      Notation RegExp := type.
+      Notation reg_exp := make.
+    End Notations.
+  End RegExp.
+  Export RegExp.Notations.
 
   (** Additional datatypes which are never properly defined. *)
   Inductive direction :=

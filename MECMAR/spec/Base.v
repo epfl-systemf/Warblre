@@ -1,5 +1,8 @@
 From Coq Require Import ZArith Lia.
-From Warblre Require Import Tactics Result.
+From Warblre Require Import Tactics List Result.
+
+Import Result.Notations.
+Local Open Scope result_flow.
 
 (* 5.2.5 Mathematical Operations
    «  Mathematical values: Arbitrary real numbers, used as the default numeric type. »
@@ -70,7 +73,7 @@ Inductive MatchError :=
 
 
 (* We cheat about identifiers for now *)
-Parameter IdentifierName : Type.
+Notation IdentifierName := Z.
 
 
 Module IdSet.
@@ -82,70 +85,27 @@ Module IdSet.
   Parameter fold: forall {T: Type}, (IdentifierName -> T -> T) -> t -> T -> T.
 End IdSet.
 
-Module DMap.
+(* Module DMap.
   Parameter t: Type -> Type.
 
   Parameter empty: forall T, t T.
   Parameter add: forall {T: Type}, IdentifierName -> T -> t T -> t T.
   Parameter remove: forall {T: Type}, IdentifierName -> t T -> t T.
   (* Parameter removeAll: forall {T: Type}, t T -> IdSet.t -> t T. *)
-End DMap.
+End DMap. *)
 
-Module Indexing.
-  Local Close Scope nat.
-  Local Open Scope Z.
-  Local Definition get_failure {F: Type} {failure: Result.AssertionError F}: F := let (f) := failure in f.
-  Local Lemma failure_helper: forall {T F: Type} {failure: Result.AssertionError F}, @Result.assertion_failed T F failure = Result.Failure get_failure.
-  Proof. intros. destruct failure. reflexivity. Qed.
-
-  Definition indexing {T F: Type} (ls: list T) (i: Z) {failure: Result.AssertionError F}: Result.Result T F := match i with
-  | Z0 => Result.from_option (List.nth_error ls 0) get_failure
-  | Zpos i => Result.from_option (List.nth_error ls (Pos.to_nat i)) get_failure
-  | Zneg _ => Result.Failure get_failure
-  end.
-
-  Lemma failure_bounds: forall {T F: Type} {failure: Result.AssertionError F} (ls: list T) (i: Z), @indexing T F ls i failure = Result.assertion_failed <-> (i < 0 \/ (Z.of_nat (length ls)) <= i )%Z.
-  Proof. intros. destruct i; delta indexing; cbn beta iota; split; intros.
-    - destruct ls eqn:Eq.
-      + cbn. lia.
-      + rewrite -> failure_helper in *. easy.
-    - destruct ls eqn:Eq.
-      + rewrite -> failure_helper in *. easy.
-      + subst. destruct H; [ lia | easy ].
-    - destruct (List.nth_error ls (Pos.to_nat p)) eqn:Eq.
-      + rewrite -> failure_helper in *. easy.
-      + rewrite -> List.nth_error_None in Eq. lia.
-    - destruct H; try lia.
-      rewrite <- positive_nat_Z in H. rewrite <- Nat2Z.inj_le in H.
-      rewrite <- List.nth_error_None in H. rewrite -> H.
-      rewrite -> failure_helper in *. easy.
-    - lia.
-    - rewrite -> failure_helper in *. easy.
-  Qed.
-
-  Lemma failure_is_assertion: forall {T F: Type} {failure: Result.AssertionError F} (ls: list T) (i: Z) (f: F),
-    indexing ls i = Result.Failure f -> f = get_failure.
-  Proof.
-    intros. destruct i; destruct ls; cbn in *; try injection H; try easy.
-    - destruct (List.nth_error _ _) eqn:Eq in *.
-      + discriminate.
-      + cbn in *. congruence.
-    - destruct (List.nth_error _ _) eqn:Eq in *.
-      + discriminate.
-      + cbn in *. congruence.
-  Qed.
-
-  Lemma failure_kind: forall {T F: Type} {failure: Result.AssertionError F} (ls: list T) (i: Z) (f: F),
-    indexing ls i = Result.Failure f -> indexing ls i = Result.assertion_failed.
-  Proof. intros. pose proof (failure_is_assertion ls i f H). rewrite -> failure_helper in *. congruence. Qed.
-End Indexing.
-Export Indexing(indexing).
-
-Notation "ls '[' i ']'" := (indexing ls i) (at level 98, left associativity).
-Notation "'set' ls '[' i ']' ':=' v 'in' z" := (let ls := DMap.add i v ls in z) (at level 200, ls at level 97, right associativity).
-Notation "'set' ls '[' is '...]' ':=' v 'in' z" := (let ls := IdSet.fold (fun i => DMap.add i v) is ls in z) (at level 200, ls at level 97, right associativity).
+Notation "ls '[' i ']'" := (List.Indexing.indexing ls i) (at level 98, left associativity).
+Notation "'set' ls '[' i ']' ':=' v 'in' z" := (let! ls =<< List.Updating.updating ls i v in z) (at level 200, ls at level 97, right associativity).
+Notation "'set' ls '[' is '...]' ':=' v 'in' z" := (let! ls =<< IdSet.fold (fun i rls => let! ls =<< rls in List.Updating.updating ls i v) is (Success ls) in z) (at level 200, ls at level 97, right associativity).
 
 Notation "m 'is' p" := (match m with | p => true | _ => false end) (at level 100, p pattern, no associativity).
 Notation "m 'is' 'not' p" := (match m with | p => false | _ => true end) (at level 100, p pattern, no associativity).
 
 Parameter Character: Type.
+Module Character.
+  Parameter eqb: Character -> Character -> bool.
+End Character.
+
+Declare Scope Character_scope.
+Delimit Scope Character_scope with Chr.
+Infix "=?" := Character.eqb (at level 70): Character_scope.

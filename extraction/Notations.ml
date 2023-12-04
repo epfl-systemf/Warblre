@@ -1,6 +1,6 @@
 open Extracted.Patterns
 
-let char c = Char ((fun d -> d == c), false)
+let char c = Char (c)
 
 let group p = Group (fst p, snd p)
 

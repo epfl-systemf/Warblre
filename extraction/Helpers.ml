@@ -1,5 +1,4 @@
 open Extracted.Notation
-open Interop
 
 let rec drop n ls = 
   if n <= 0 then
@@ -22,7 +21,7 @@ let from_list ls = String.init (List.length ls) (List.nth ls)
 
 let test_regex regex input at =
   let groups = Extracted.StaticSemantics.capturingGroupsWithin regex in
-  let maxGroup = (Ocaml_Set_Int.fold (Int.max) groups 0) + 1 in
+  let maxGroup = (List.fold_left (Int.max) 0 groups) + 1 in
   let matcher = Extracted.Semantics.compilePattern regex maxGroup in
   let ls_input = to_list input in
 
@@ -37,7 +36,7 @@ let test_regex regex input at =
       | Some { CaptureRange.startIndex = s; CaptureRange.endIndex = e } ->
           Printf.printf "Group %d: '%s' ([%d-%d])\n" name (from_list (drop s (take e ls_input))) s e
     in
-    Interop.Ocaml_Set_Int.iter f groups
+    List.iter f groups
 
   | Success None -> Printf.printf "No match on '%s' \n" input
 

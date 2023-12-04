@@ -1,4 +1,4 @@
-From Coq Require Import ZArith Lia.
+From Coq Require Import ZArith Lia List ListSet Bool.
 From Warblre Require Import Tactics List Result.
 
 Import Result.Notations.
@@ -67,23 +67,54 @@ Infix "<=?" := Z.leb (at level 70): Z_scope.
 Infix ">?" := Z.gtb (at level 70): Z_scope.
 Infix ">=?" := Z.geb (at level 70): Z_scope.
 
+Parameter Character: Type.
+Module Character.
+  Parameter eqs: forall (l r: Character), {l = r} + {l <> r}.
+  Parameter eqb: forall (l r: Character), bool.
+End Character.
+
+Declare Scope Character_scope.
+Delimit Scope Character_scope with Chr.
+Infix "=?" := Character.eqb (at level 70): Character_scope.
+
 Inductive MatchError :=
 | OutOfFuel
 | AssertionFailed.
 
+#[export]
+Instance assertion_error: Result.AssertionError MatchError := { f := AssertionFailed }.
+Notation failure := None (only parsing).
+Notation out_of_fuel := (Failure OutOfFuel).
+Notation assertion_failed := (Failure AssertionFailed).
 
-(* We cheat about identifiers for now *)
-Notation IdentifierName := Z.
+(*  A CharSet is a mathematical set of characters. In the context of a Unicode pattern, “all characters” means
+    the CharSet containing all code point values; otherwise “all characters” means the CharSet containing all
+    code unit values. *)
+Definition CharSet := list Character.
+
+Module CharSet.
+  Definition empty: CharSet := nil.
+  Definition union (l r: CharSet): CharSet := ListSet.set_union Character.eqs l r.
+  Definition singleton (c: Character): CharSet := c :: nil.
+  Definition unique (s: CharSet): Result Character MatchError := match s with
+  | c :: nil => Success c
+  | _ => assertion_failed
+  end.
+  (* Definition fold {T: Type} (r: T -> Character -> T) (s: CharSet) (zero: T): T :=
+    List.fold_left r s zero. *)
+  Definition exist (s: CharSet) (m: Character -> Result bool MatchError): Result bool MatchError :=
+    List.Exists.exist s m.
+End CharSet.
 
 
-Module IdSet.
+(* Module IdSet.
   Parameter t: Type.
 
   Parameter empty: t.
   Parameter union: t -> t -> t.
   Parameter add: IdentifierName -> t -> t.
   Parameter fold: forall {T: Type}, (IdentifierName -> T -> T) -> t -> T -> T.
-End IdSet.
+End IdSet. *)
 
 (* Module DMap.
   Parameter t: Type -> Type.
@@ -94,18 +125,25 @@ End IdSet.
   (* Parameter removeAll: forall {T: Type}, t T -> IdSet.t -> t T. *)
 End DMap. *)
 
-Notation "ls '[' i ']'" := (List.Indexing.indexing ls i) (at level 98, left associativity).
-Notation "'set' ls '[' i ']' ':=' v 'in' z" := (let! ls =<< List.Updating.updating ls i v in z) (at level 200, ls at level 97, right associativity).
-Notation "'set' ls '[' is '...]' ':=' v 'in' z" := (let! ls =<< IdSet.fold (fun i rls => let! ls =<< rls in List.Updating.updating ls i v) is (Success ls) in z) (at level 200, ls at level 97, right associativity).
+Class Indexer (I: Type) := {
+  index_using: forall (T F: Type) (_: Result.AssertionError F) (ls: list T) (i: I), Result.Result T F;
+}.
+Definition indexing {I T F: Type} {f: Result.AssertionError F} {indexer: Indexer I} (ls: list T) (i: I) :=
+  index_using T F f ls i.
+
+#[export]
+Instance nat_indexer: Indexer nat := {
+  index_using := @List.Indexing.Nat.indexing;
+}.
+#[export]
+Instance int_indexer: Indexer Z := {
+  index_using := @List.Indexing.Int.indexing;
+}.
+
+Notation "ls '[' i ']'" := (indexing ls i) (at level 98, left associativity).
+Notation "'set' ls '[' i ']' ':=' v 'in' z" := (let! ls: list _ =<< List.Update.Nat.One.update v ls i in z) (at level 200, ls at level 97, right associativity).
+Notation "'set' ls '[' is '...]' ':=' v 'in' z" := (let! ls: list _ =<< List.Update.Nat.Batch.update v ls is in z) (at level 200, ls at level 97, right associativity).
 
 Notation "m 'is' p" := (match m with | p => true | _ => false end) (at level 100, p pattern, no associativity).
 Notation "m 'is' 'not' p" := (match m with | p => false | _ => true end) (at level 100, p pattern, no associativity).
 
-Parameter Character: Type.
-Module Character.
-  Parameter eqb: Character -> Character -> bool.
-End Character.
-
-Declare Scope Character_scope.
-Delimit Scope Character_scope with Chr.
-Infix "=?" := Character.eqb (at level 70): Character_scope.

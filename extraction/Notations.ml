@@ -21,3 +21,5 @@ let (?=) r = Lookahead r
 let (?<=) r = Lookback r
 let (?!) r = NegativeLookahead r
 let (?<!) r = NegativeLookbehind r
+
+let (!$) n = BackReference n

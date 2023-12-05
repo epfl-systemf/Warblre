@@ -227,7 +227,7 @@ Module Semantics.
       let! b: bool =<< List.Exists.exist (List.Range.range 0 len) (fun (i: Z) =>
         let! rsi: Character =<< input[ (rs + i)%Z ] in
         let! gi: Character =<< input[ (g + i)%Z ] in
-        (rsi =? gi)%Chr)
+        (rsi !=? gi)%Chr)
       in
       if b
         then failure else

@@ -71,11 +71,13 @@ Parameter Character: Type.
 Module Character.
   Parameter eqs: forall (l r: Character), {l = r} + {l <> r}.
   Parameter eqb: forall (l r: Character), bool.
+  Definition neqb (l r: Character) := negb (eqb l r).
 End Character.
 
 Declare Scope Character_scope.
 Delimit Scope Character_scope with Chr.
 Infix "=?" := Character.eqb (at level 70): Character_scope.
+Infix "!=?" := Character.neqb (at level 70): Character_scope.
 
 Inductive MatchError :=
 | OutOfFuel

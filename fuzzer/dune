@@ -1,0 +1,4 @@
+(executable
+ (public_name fuzzer)
+ (name main)
+ (libraries Warblre))

@@ -12,7 +12,7 @@ Module StaticSemantics.
   | Group _ r0 => r :: (pre_order_walk r0)
   | Lookahead r0 => r :: (pre_order_walk r0)
   | NegativeLookahead r0 => r :: (pre_order_walk r0)
-  | Lookback r0 => r :: (pre_order_walk r0)
+  | Lookbehind r0 => r :: (pre_order_walk r0)
   | NegativeLookbehind r0 => r :: (pre_order_walk r0)
   | BackReference _ => r :: nil
   end.

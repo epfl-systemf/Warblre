@@ -423,7 +423,7 @@ Module Semantics.
                           failure
                         else
                         c x
-  | Lookback r    =>  (**  Assertion :: (?<= Disjunction ) *)
+  | Lookbehind r    =>  (**  Assertion :: (?<= Disjunction ) *)
                       (* 1. Let m be CompileSubpattern of Disjunction with arguments rer and backward. *)
                       let m := compileSubPattern r rer backward in
                       (* 2. Return a new Matcher with parameters (x, c) that captures m and performs the following steps when called: *)

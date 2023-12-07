@@ -18,7 +18,7 @@ let (!??) r = Quantified (r, Lazy Question)
 let (--) r1 r2 = Seq (r1, r2)
 
 let (?=) r = Lookahead r
-let (?<=) r = Lookback r
+let (?<=) r = Lookbehind r
 let (?!) r = NegativeLookahead r
 let (?<!) r = NegativeLookbehind r
 

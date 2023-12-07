@@ -60,7 +60,7 @@ Module Patterns.
   (* Assertions: ^ $ \b \B *)
   | Lookahead (r: Regex)
   | NegativeLookahead (r: Regex)
-  | Lookback (r: Regex)
+  | Lookbehind (r: Regex)
   | NegativeLookbehind (r: Regex)
   | BackReference (id: nat).
 

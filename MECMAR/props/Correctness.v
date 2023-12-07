@@ -50,7 +50,7 @@ Module Correctness.
     (* Assertions: ^ $ \b \B *)
     | gbLookahead: forall r n, Bounded r n -> Bounded (Lookahead r) n
     | gbNegativeLookahead: forall r n, Bounded r n -> Bounded (NegativeLookahead r) n
-    | gbLookback: forall r n, Bounded r n -> Bounded (Lookback r) n
+    | gbLookbehind: forall r n, Bounded r n -> Bounded (Lookbehind r) n
     | gbNegativeLookbehind: forall r n, Bounded r n -> Bounded (NegativeLookbehind r) n
     | gbBackReference: forall id n, (id < n)%nat -> Bounded (BackReference id) n.
 

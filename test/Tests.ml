@@ -34,8 +34,8 @@ let%expect_test "lazy_star_1" =
 
 let%expect_test "groups" =
   test_regex
-    (   group (None, char 'a')
-    ||  group (None, char 'b'))
+    (   group ( char 'a')
+    ||  group ( char 'b'))
     "ab"
     0;
   [%expect {|
@@ -46,8 +46,8 @@ let%expect_test "groups" =
 
 let%expect_test "capture_reset" =
   test_regex
-    !*( group (None, char 'a')
-    ||  group (None, char 'b'))
+    !*( group (char 'a')
+    ||  group (char 'b'))
     "ab"
     0;
   [%expect {|
@@ -146,7 +146,7 @@ let%expect_test "neglookbehind_0_neg" =
 
 let%expect_test "backref_0_pos" =
   test_regex
-    (group (None, (char 'a')) -- !$ 1)
+    (group ((char 'a')) -- !$ 1)
     "aa"
     0;
   [%expect {|
@@ -155,21 +155,21 @@ let%expect_test "backref_0_pos" =
 
 let%expect_test "backref_0_neg_0" =
   test_regex
-    (group (None, (char 'a')) -- !$ 1)
+    (group ((char 'a')) -- !$ 1)
     "ab"
     0;
   [%expect {| No match on 'ab' |}]
 
 let%expect_test "backref_0_neg_1" =
   test_regex
-    (group (None, (char 'a')) -- !$ 1)
+    (group ((char 'a')) -- !$ 1)
     "a"
     0;
   [%expect {| No match on 'a' |}]
 
 let%expect_test "backref_undefined" =
   test_regex
-    ((group (None, (char 'a')) || group (None, (char 'b'))) -- !$ 2)
+    ((group ((char 'a')) || group ((char 'b'))) -- !$ 2)
     "aa"
     0;
   [%expect {|
@@ -179,7 +179,7 @@ let%expect_test "backref_undefined" =
 
 let%expect_test "backref_multiple" =
   test_regex
-    (group (None, (char 'a')) -- !$ 1 -- !$ 2 -- group (None, (char 'b')) -- !$ 1 -- !$ 2)
+    (group ((char 'a')) -- !$ 1 -- !$ 2 -- group ((char 'b')) -- !$ 1 -- !$ 2)
     "aabab"
     0;
   [%expect {|
@@ -189,7 +189,7 @@ let%expect_test "backref_multiple" =
 
 let%expect_test "backref_long_pos" =
   test_regex
-    (group (None, (char 'a') -- (char 'b') -- (char 'a')) -- !$ 1)
+    (group ((char 'a') -- (char 'b') -- (char 'a')) -- !$ 1)
     "abaaba"
     0;
   [%expect {|
@@ -198,28 +198,28 @@ let%expect_test "backref_long_pos" =
 
 let%expect_test "backref_long_neg_0" =
   test_regex
-    (group (None, (char 'a') -- (char 'b') -- (char 'a')) -- !$ 1)
+    (group ((char 'a') -- (char 'b') -- (char 'a')) -- !$ 1)
     "abaab"
     0;
   [%expect {| No match on 'abaab' |}]
 
 let%expect_test "backref_long_neg_1" =
 test_regex
-  (group (None, (char 'a') -- (char 'b') -- (char 'a')) -- !$ 1)
+  (group ((char 'a') -- (char 'b') -- (char 'a')) -- !$ 1)
   "abacba"
   0;
 [%expect {| No match on 'abacba' |}]
 
 let%expect_test "backref_long_neg_2" =
   test_regex
-    (group (None, (char 'a') -- (char 'b') -- (char 'a')) -- !$ 1)
+    (group ((char 'a') -- (char 'b') -- (char 'a')) -- !$ 1)
     "abaaca"
     0;
   [%expect {| No match on 'abaaca' |}]
 
 let%expect_test "backref_long_neg_3" =
   test_regex
-    (group (None, (char 'a') -- (char 'b') -- (char 'a')) -- !$ 1)
+    (group ((char 'a') -- (char 'b') -- (char 'a')) -- !$ 1)
     "abaabc"
     0;
   [%expect {| No match on 'abaabc' |}]

@@ -2,7 +2,7 @@ open Extracted.Patterns
 
 let char c = Char (c)
 
-let group p = Group (fst p, snd p)
+let group r = Group (None, r)
 
 let (||) l r = Disjunction (l, r)
 

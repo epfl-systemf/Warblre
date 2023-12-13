@@ -13,17 +13,17 @@ Module Definitions.
 
   Module RepeatMatcher.
     Definition matcher (m: Matcher) (min: non_neg_integer) (max: non_neg_integer_or_inf) 
-      (greedy: bool) (groups: list nat) (fuel: nat): Matcher :=
-        fun (x : MatchState) (c : MatcherContinuation) => Semantics.repeatMatcher' m min max greedy x c groups fuel.
+      (greedy: bool) (parenIndex parenCount: non_neg_integer) (fuel: nat): Matcher :=
+        fun (x : MatchState) (c : MatcherContinuation) => Semantics.repeatMatcher' m min max greedy x c parenIndex parenCount fuel.
 
     Definition continuation (x: MatchState) (c: MatcherContinuation) (m: Matcher) (min: non_neg_integer) (max: non_neg_integer_or_inf) 
-      (greedy: bool) (groups: list nat) (fuel: nat): MatcherContinuation :=
+      (greedy: bool) (parenIndex parenCount: non_neg_integer) (fuel: nat): MatcherContinuation :=
         fun y : MatchState =>
           if (min =? 0) && (MatchState.endIndex y =? MatchState.endIndex x)%Z
           then Semantics.wrap_option MatchState None
           else
            Semantics.repeatMatcher' m (if min =? 0 then 0 else min - 1)
-             (if (max =? +∞)%NoI then +∞ else (max - 1)%NoI) greedy y c groups fuel.
+             (if (max =? +∞)%NoI then +∞ else (max - 1)%NoI) greedy y c parenIndex parenCount fuel.
   End RepeatMatcher.
 
   Module PositiveLookaround.

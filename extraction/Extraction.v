@@ -11,4 +11,7 @@ From Coq Require extraction.ExtrOcamlZInt.
 Extract Constant Character => "char".
 Extract Constant Character.eqb => "Char.equal".
 
+Extract Constant GroupName => "int".
+Extract Constant GroupName.eqb => "Int.equal".
+
 Extraction "Extracted.ml" Semantics.compilePattern.

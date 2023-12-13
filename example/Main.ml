@@ -5,9 +5,9 @@ open Notations
 open Helpers
 
 let str = "aaaaabaac"
-let regex = Group (0, !* (
+let regex = Group (None, !* (
     Disjunction (
-      Group (1, char 'a'),
-      Group (2, char 'b'))))
+      Group (None, char 'a'),
+      Group (None, char 'b'))))
 
 let () = test_regex regex str 0

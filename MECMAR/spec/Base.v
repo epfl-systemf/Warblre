@@ -14,8 +14,11 @@ Local Open Scope result_flow.
 *)
 Definition integer := Z.
 Definition non_neg_integer := nat.
-Definition nat_to_nni(n: nat): non_neg_integer := n.
+Definition positive_integer := { n: non_neg_integer | (0 < n)%nat }.
+Definition nat_to_nni (n: nat): non_neg_integer := n.
+Definition positive_to_non_neg (n: positive_integer): non_neg_integer := proj1_sig n.
 Coercion nat_to_nni: nat >-> non_neg_integer.
+Coercion positive_to_non_neg: positive_integer >-> non_neg_integer.
 (* Nat or Infinity *)
 Module NoI.
   Inductive non_neg_integer_or_inf :=
@@ -74,10 +77,22 @@ Module Character.
   Definition neqb (l r: Character) := negb (eqb l r).
 End Character.
 
+Parameter GroupName: Type.
+Module GroupName.
+  Parameter eqs: forall (l r: Character), {l = r} + {l <> r}.
+  Parameter eqb: forall (l r: Character), bool.
+  Definition neqb (l r: Character) := negb (eqb l r).
+End GroupName.
+
 Declare Scope Character_scope.
 Delimit Scope Character_scope with Chr.
 Infix "=?" := Character.eqb (at level 70): Character_scope.
 Infix "!=?" := Character.neqb (at level 70): Character_scope.
+
+Declare Scope GroupName_scope.
+Delimit Scope GroupName_scope with GrName.
+Infix "=?" := GroupName.eqb (at level 70): GroupName_scope.
+Infix "!=?" := GroupName.neqb (at level 70): GroupName_scope.
 
 Inductive MatchError :=
 | OutOfFuel
@@ -129,22 +144,32 @@ End DMap. *)
 
 Class Indexer (I: Type) := {
   index_using: forall (T F: Type) (_: Result.AssertionError F) (ls: list T) (i: I), Result.Result T F;
+  update_using: forall (T F: Type) (_: Result.AssertionError F) (ls: list T) (i: I) (v: T), Result.Result (list T) F;
 }.
 Definition indexing {I T F: Type} {f: Result.AssertionError F} {indexer: Indexer I} (ls: list T) (i: I) :=
   index_using T F f ls i.
+Definition update {I T F: Type} {f: Result.AssertionError F} {indexer: Indexer I} (ls: list T) (i: I) (v: T) :=
+  update_using T F f ls i v.
 
 #[export]
 Instance nat_indexer: Indexer nat := {
-  index_using := @List.Indexing.Nat.indexing;
+  index_using := fun T F f ls i => if (i =? 0)%nat then Result.assertion_failed else @List.Indexing.Nat.indexing T F f ls (i - 1);
+  update_using := fun T F f ls i v => if (i =? 0)%nat then Result.assertion_failed else @List.Update.Nat.One.update T F f v ls (i - 1);
+}.
+#[export]
+Instance pos_indexer: Indexer positive_integer := {
+  index_using := fun T F f ls i => @List.Indexing.Nat.indexing T F f ls (proj1_sig i - 1);
+  update_using := fun T F f ls i v => @List.Update.Nat.One.update T F f v ls (proj1_sig i - 1);
 }.
 #[export]
 Instance int_indexer: Indexer Z := {
   index_using := @List.Indexing.Int.indexing;
+  update_using := fun T F f ls i v => Result.assertion_failed;
 }.
 
 Notation "ls '[' i ']'" := (indexing ls i) (at level 98, left associativity).
-Notation "'set' ls '[' i ']' ':=' v 'in' z" := (let! ls: list _ =<< List.Update.Nat.One.update v ls i in z) (at level 200, ls at level 97, right associativity).
-Notation "'set' ls '[' is '...]' ':=' v 'in' z" := (let! ls: list _ =<< List.Update.Nat.Batch.update v ls is in z) (at level 200, ls at level 97, right associativity).
+Notation "'set' ls '[' i ']' ':=' v 'in' z" := (let! ls: list _ =<< update ls i v in z) (at level 200, ls at level 97, i at level 90, right associativity).
+Notation "'set' ls '[' s '---' e ']' ':=' v 'in' z" := (let! ls: list _ =<< List.Update.Nat.Batch.update v ls (List.Range.Nat.Bounds.range (s - 1) (e - 1)) in z) (at level 200, ls at level 97, s at level 90, e at level 90, right associativity).
 
 Notation "m 'is' p" := (match m with | p => true | _ => false end) (at level 100, p pattern, no associativity).
 Notation "m 'is' 'not' p" := (match m with | p => false | _ => true end) (at level 100, p pattern, no associativity).

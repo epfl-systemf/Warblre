@@ -1,4 +1,4 @@
-From Coq Require Import PeanoNat ZArith Bool Lia Program.Equality.
+From Coq Require Import PeanoNat ZArith Bool Lia Program.Equality List.
 From Warblre Require Import Tactics Focus Result Base Patterns StaticSemantics Notation List.
 
 Import Result.Notations.
@@ -29,7 +29,7 @@ Module Semantics.
       called:
     *)
   (* Coq wants to make sure the function will terminate; we do so by bounding recursion by an arbitrary fuel amount *)
-  Fixpoint repeatMatcher' (m: Matcher) (min: non_neg_integer) (max: non_neg_integer_or_inf) (greedy: bool) (x: MatchState) (c: MatcherContinuation) (groupsWithin: list nat) (fuel: nat): MatchResult :=
+  Fixpoint repeatMatcher' (m: Matcher) (min: non_neg_integer) (max: non_neg_integer_or_inf) (greedy: bool) (x: MatchState) (c: MatcherContinuation) (parenIndex parenCount: non_neg_integer) (fuel: nat): MatchResult :=
   match fuel with
   | 0 => out_of_fuel
   | S fuel' =>
@@ -52,12 +52,12 @@ Module Semantics.
         else (max - 1)%NoI
       in
       (* e. Return RepeatMatcher(m, min2, max2, greedy, y, c, parenIndex, parenCount). *)
-      repeatMatcher' m min2 max2 greedy y c groupsWithin fuel'
+      repeatMatcher' m min2 max2 greedy y c parenIndex parenCount fuel'
     in
     (* 3. Let cap be a copy of x's captures List. *)
     let cap := MatchState.captures x in
     (* 4. For each integer k in the inclusive interval from parenIndex + 1 to parenIndex + parenCount, set cap[k] to undefined. *)
-    set cap[groupsWithin ...] := undefined in
+    set cap[(parenIndex + 1) --- (parenIndex + parenCount + 1) ] := undefined in
     (* 5. Let Input be x's input. *)
     let input := MatchState.input x in
     (* 6. Let e be x's endIndex. *)
@@ -87,8 +87,8 @@ Module Semantics.
   end.
 
   Definition repeatMatcherFuel (min: non_neg_integer) (x: MatchState) := min + length (MatchState.input x) + 1.
-  Definition repeatMatcher (m: Matcher) (min: non_neg_integer) (max: non_neg_integer_or_inf) (greedy: bool) (x: MatchState) (c: MatcherContinuation) (groupsWithin: list nat): MatchResult :=
-    repeatMatcher' m min max greedy x c groupsWithin (repeatMatcherFuel min x).
+  Definition repeatMatcher (m: Matcher) (min: non_neg_integer) (max: non_neg_integer_or_inf) (greedy: bool) (x: MatchState) (c: MatcherContinuation) (parenIndex parenCount: non_neg_integer): MatchResult :=
+    repeatMatcher' m min max greedy x c parenIndex parenCount (repeatMatcherFuel min x).
 
   (** 22.2.2.6 Runtime Semantics: CompileQuantifierPrefix *)
   Module CompiledQuantifierPrefix.
@@ -186,7 +186,7 @@ Module Semantics.
       c y.
 
   (** 22.2.2.7.2 BackreferenceMatcher ( rer, n, direction ) *)
-  Definition backreferenceMatcher (rer: RegExp) (n: nat) (direction: direction): Matcher :=
+  Definition backreferenceMatcher (rer: RegExp) (n: positive_integer) (direction: direction): Matcher :=
     (* 1. Assert: n ≥ 1. *)
     (* 2. Return a new Matcher with parameters (x, c) that captures rer, n, and direction and performs the following steps when called: *)
     fun (x: MatchState) (c: MatcherContinuation) =>
@@ -224,7 +224,7 @@ Module Semantics.
       (* o. Let g be min(e, f). *)
       let g := Z.min e f in
       (* p. If there exists an integer i in the interval from 0 (inclusive) to len (exclusive) such that Canonicalize(rer, Input[rs + i]) is not Canonicalize(rer, Input[g + i]), return failure. *)
-      let! b: bool =<< List.Exists.exist (List.Range.range 0 len) (fun (i: Z) =>
+      let! b: bool =<< List.Exists.exist (List.Range.Int.Bounds.range 0 len) (fun (i: Z) =>
         let! rsi: Character =<< input[ (rs + i)%Z ] in
         let! gi: Character =<< input[ (g + i)%Z ] in
         (rsi !=? gi)%Chr)
@@ -246,7 +246,7 @@ Module Semantics.
       CharSet.singleton c
   end.
 
-  Fixpoint compileSubPattern (self: Regex) (rer: RegExp) (direction: direction): Matcher := match self with
+  Fixpoint compileSubPattern (self: Regex) (ctx: RegexContext) (rer: RegExp) (direction: direction): Matcher := match self with
   | Empty =>          (* Alternative :: [empty] *)
                       (* 1. Return a new Matcher with parameters (x, c) that captures nothing and performs the following steps when called: *)
                       fun (x: MatchState) (c: MatcherContinuation) =>
@@ -263,9 +263,9 @@ Module Semantics.
       characterSetMatcher rer A false direction
   | Disjunction r1 r2 => (** 22.2.2.3 Runtime Semantics: CompileSubpattern *)
                       (* 1. Let m1 be CompileSubpattern of Alternative with arguments rer and direction. *)
-                      let m1 := compileSubPattern r1 rer direction in
+                      let m1 := compileSubPattern r1 (Disjunction_left r2 :: ctx) rer direction in
                       (* 2. Let m2 be CompileSubpattern of Disjunction with arguments rer and direction. *)
-                      let m2 := compileSubPattern r2 rer direction in
+                      let m2 := compileSubPattern r2 (Disjunction_right r1 :: ctx) rer direction in
                       (* 3. Return a new Matcher with parameters (x, c) that captures m1 and m2 and performs the following steps when called: *)
                       fun (x: MatchState) (c: MatcherContinuation) =>
                         (* a. Assert: x is a MatchState. *)
@@ -278,27 +278,28 @@ Module Semantics.
                         else
                         (* e. Return m2(x, c). *)
                         m2 x c
-  | Quantified r qu => (** Term :: AtomQuantifier *)
+  | Quantified r qu => (** Term :: Atom Quantifier *)
                       (* 1. Let m be CompileAtom of Atom with arguments rer and direction. *)
-                      let m := compileSubPattern r rer direction in
+                      let m := compileSubPattern r  (Quantified_inner qu :: ctx) rer direction in
                       (* 2. Let q be CompileQuantifier of Quantifier. *)
                       let q := compileQuantifier qu in
                       (* 3. Assert: q.[[Min]] ≤ q.[[Max]]. *)
                       (* Holds by construction *)
                       (* 4. Let parenIndex be CountLeftCapturingParensBefore(Term). *)
+                      let parenIndex := countLeftCapturingParensBefore r ctx in
                       (* 5. Let parenCount be CountLeftCapturingParensWithin(Atom). *)
-                      let groups := capturingGroupsWithin r in
+                      let parenCount := countLeftCapturingParensWithin r (Quantified_inner qu :: ctx) in
                       (* 6. Return a new Matcher with parameters (x, c) that captures m, q, parenIndex, and parenCount and performs the following steps when called: *)
                       fun (x: MatchState) (c: MatcherContinuation) =>
                         (* a. Assert: x is a MatchState. *)
                         (* b. Assert: c is a MatcherContinuation. *)
                         (* c. Return RepeatMatcher(m, q.[[Min]], q.[[Max]], q.[[Greedy]], x, c, parenIndex, parenCount). *)
-                        repeatMatcher m (CompiledQuantifier.min q) (CompiledQuantifier.max q) (CompiledQuantifier.greedy q) x c groups 
+                        repeatMatcher m (CompiledQuantifier.min q) (CompiledQuantifier.max q) (CompiledQuantifier.greedy q) x c parenIndex parenCount 
   | Seq r1 r2     =>  (**  Alternative :: Alternative Term *)
                       (* 1. Let m1 be CompileSubpattern of Alternative with arguments rer and direction. *)
-                      let m1 := compileSubPattern r1 rer direction in
+                      let m1 := compileSubPattern r1 (Seq_left r2 :: ctx) rer direction in
                       (* 2. Let m2 be CompileSubpattern of Term with arguments rer and direction. *)
-                      let m2 := compileSubPattern r2 rer direction in
+                      let m2 := compileSubPattern r2 (Seq_right r1 :: ctx) rer direction in
                       (* 3. If direction is forward, then *)
                       if direction is forward then
                         (* a. Return a new Matcher with parameters (x, c) that captures m1 and m2 and performs the following steps when called: *)
@@ -329,10 +330,10 @@ Module Semantics.
                           (* iv. Return m2(x, d). *)
                           m2 s d
   | Group id r    =>  (**  Atom :: ( GroupSpecifier_opt Disjunction ) *)
-                      (* 1. Atom :: ( GroupSpecifieropt Disjunction ) *)
-                      let m := compileSubPattern r rer direction in
+                      (* 1.  *)
+                      let m := compileSubPattern r (Group_inner id :: ctx) rer direction in
                       (* 2. Let parenIndex be CountLeftCapturingParensBefore(Atom). *)
-                      let parenIndex := id in
+                      let parenIndex := countLeftCapturingParensBefore r ctx in
                       (* 3. Return a new Matcher with parameters (x, c) that captures direction, m, and parenIndex and performs the following steps when called: *)
                       fun (x: MatchState) (c: MatcherContinuation) =>
                         (* a. Assert: x is a MatchState. *)
@@ -364,7 +365,7 @@ Module Semantics.
                               CaptureRange.make ye xe
                           in
                           (* viii. Set cap[parenIndex + 1] to r. *)
-                          set cap[id] := r in
+                          set cap[parenIndex + 1] := r in
                           (* ix. Let z be the MatchState (Input, ye, cap). *)
                           let z := match_state input ye cap in
                           (* x. Return c(z). *)
@@ -374,7 +375,7 @@ Module Semantics.
                         m x d
   | Lookahead r    => (**  Assertion :: (?= Disjunction ) *)
                       (* 1. Let m be CompileSubpattern of Disjunction with arguments rer and forward. *)
-                      let m := compileSubPattern r rer forward in
+                      let m := compileSubPattern r (Lookahead_inner :: ctx) rer forward in
                       (* 2. Return a new Matcher with parameters (x, c) that captures m and performs the following steps when called: *)
                       fun (x: MatchState) (c: MatcherContinuation) =>
                         (* a. Assert: x is a MatchState. *)
@@ -405,7 +406,7 @@ Module Semantics.
                         c z
   | NegativeLookahead r  => (**  Assertion :: (?! Disjunction ) *)
                       (* 1. Let m be CompileSubpattern of Disjunction with arguments rer and forward. *)
-                      let m := compileSubPattern r rer forward in
+                      let m := compileSubPattern r (NegativeLookahead_inner :: ctx) rer forward in
                       (* 2. Return a new Matcher with parameters (x, c) that captures m and performs the following steps when called: *)
                       fun (x: MatchState) (c: MatcherContinuation) =>
                         (* a. Assert: x is a MatchState. *)
@@ -425,7 +426,7 @@ Module Semantics.
                         c x
   | Lookbehind r    =>  (**  Assertion :: (?<= Disjunction ) *)
                       (* 1. Let m be CompileSubpattern of Disjunction with arguments rer and backward. *)
-                      let m := compileSubPattern r rer backward in
+                      let m := compileSubPattern r (Lookbehind_inner :: ctx) rer backward in
                       (* 2. Return a new Matcher with parameters (x, c) that captures m and performs the following steps when called: *)
                       fun (x: MatchState) (c: MatcherContinuation) =>
                         (* a. Assert: x is a MatchState. *)
@@ -456,7 +457,7 @@ Module Semantics.
                         c z
   | NegativeLookbehind r  => (**  Assertion :: (?<! Disjunction ) *)
                       (* 1. Let m be CompileSubpattern of Disjunction with arguments rer and backward. *)
-                      let m := compileSubPattern r rer backward in
+                      let m := compileSubPattern r (NegativeLookbehind_inner :: ctx) rer backward in
                       (* 2. Return a new Matcher with parameters (x, c) that captures m and performs the following steps when called: *)
                       fun (x: MatchState) (c: MatcherContinuation) =>
                         (* a. Assert: x is a MatchState. *)
@@ -474,9 +475,13 @@ Module Semantics.
                           failure
                         else
                         c x
-  | BackReference id => (** AtomEscape :: k GroupName *)
-                      let parenIndex := id in
-                      backreferenceMatcher rer parenIndex direction
+  | BackReference de => (** AtomEscape :: DecimalEscape *)
+                      (* 1. Let n be the CapturingGroupNumber of DecimalEscape. *)
+                      let n := de in
+                      (* 2. Assert: n ≤ rer.[[CapturingGroupsCount]]. *)
+                      (* assert! (n <=? RegExp.capturingGroupsCount rer); *)
+                      (* 3. Return BackreferenceMatcher(rer, n, direction).*)
+                      backreferenceMatcher rer n direction
   end.
 
   (** 22.2.2.2 Runtime Semantics: CompilePattern
@@ -485,7 +490,7 @@ Module Semantics.
       defined piecewise over the following productions: *)
   Definition compilePattern (r: Regex) (rer: RegExp): list Character -> non_neg_integer -> MatchResult :=
     (* 1. Let m be CompileSubpattern of Disjunction with arguments rer and forward. *)
-    let m := compileSubPattern r rer forward in
+    let m := compileSubPattern r nil rer forward in
     (* 2. Return a new Abstract Closure with parameters (Input, index) that captures rer and m and performs the following steps when called: *)
     fun (input: list Character) (index: non_neg_integer) =>
       (* a. Assert: Input is a List of characters. *)

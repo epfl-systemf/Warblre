@@ -22,4 +22,4 @@ let (?<=) r = Lookbehind r
 let (?!) r = NegativeLookahead r
 let (?<!) r = NegativeLookbehind r
 
-let (!$) n = BackReference n
+let (!$) n = assert(0 < n); BackReference n

@@ -1,6 +1,8 @@
 open Warblre
 open Extracted.Patterns
 open Extracted.StaticSemantics
+open Extracted.Result
+open Extracted.Notation
 open Notations
 open Helpers
 
@@ -84,8 +86,49 @@ let get_js_result (regex:coq_Regex) (str:string) : string option =
   if (String.length result = 0) then None else Some result
 
 (** * Calling the Reference Implementation *)
+
+let print_slice (string_input:string) single_capture : string =
+  match single_capture with
+  | None -> "Undefined"
+  | Some { CaptureRange.startIndex = s; CaptureRange.endIndex = e } ->
+     String.sub string_input s e
+
+(* printing the results of a match *)
+let print_result result (start:int) (string_input:string) : string =
+  let s = ref "" in
+  match result with
+  | { MatchState.endIndex = i; MatchState.captures = captures; _ } ->
+     (* the substring corresponding to group #0 *)
+     let zero_slice = String.sub string_input start i in
+     s := !s ^ "#0:" ^ zero_slice ^ "\n" ;
+     (* all other capture group slices *)
+     for i = 1 to ((List.length captures)) do
+       s := !s ^ "#" ^ string_of_int i ^ ":";
+       s := !s ^ print_slice string_input (List.nth captures (i-1)) ^ "\n"
+     done;
+     !s ^ "\n"
+       
+(* calling the matcher at different starting position until a match is found *)
+let rec get_first_result matcher list_str string_input start: string option =
+  let maxlength = List.length list_str in
+  let open Extracted in
+  match (matcher list_str start) with
+  | Success (Some result) ->
+     Some (print_result result start string_input)
+  | Success None ->
+     if (maxlength = start) then (Some "NoMatch\n\n") (* reached the end *)
+     else get_first_result matcher list_str string_input (start+1)
+(* trying to find a match starting at the next string position *)
+  | Failure OutOfFuel -> failwith "Failure"
+  | Failure AssertionFailed -> failwith "Failure"
+
+(* calling the reference implementation *)
 let get_reference_result (regex:coq_Regex) (str:string) : string option =
-  None
+  let maxgroup = Extracted.StaticSemantics.countLeftCapturingParensWithin regex [] in
+  let matcher = Extracted.Semantics.compilePattern regex maxgroup in
+  let list_input = List.init (String.length str) (String.get str) in
+  get_first_result matcher list_input str 0
+  
 
 (** * Comparing 2 engine results *)
 
@@ -99,9 +142,9 @@ let compare_engines (regex:coq_Regex) (str:string) : unit =
   Printf.printf "\027[36mJS Regex:\027[0m %s\n " (regex_to_string regex);
   Printf.printf "\027[36mString:\027[0m \"%s\"\n%!" str;
   let node_result = get_js_result regex str in
-  Printf.printf "\027[35mIrregexp  result:\027[0m %s\n%!" (print_result node_result);
+  Printf.printf "\027[35mIrregexp  result:\n\027[0m%s\n%!" (print_result node_result);
   let ref_result = get_reference_result regex str in
-  Printf.printf "\027[35mReference result:\027[0m %s\n%!" (print_result ref_result);
+  Printf.printf "\027[35mReference result:\n\027[0m%s\n%!" (print_result ref_result);
   match (node_result, ref_result) with
   | Some noderes, Some refres ->
      assert (String.compare noderes refres = 0)

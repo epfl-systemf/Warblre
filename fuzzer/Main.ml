@@ -1,7 +1,27 @@
 open Warblre
 open Extracted.Patterns
+open Extracted.StaticSemantics
 open Notations
 open Helpers
+
+
+(** * Fuzzer parameters  *)
+
+(* we restrict ourselves to a small alphabet *)
+(* with a dash (non-ascii) to test word boundaries *)
+let alphabet : char list = ['a'; 'b'; '-']
+
+(* maximum bound for counted repetition *)
+let max_counted = 10
+
+(* maximum string length *)
+let max_string = 100
+
+(* maximum regex AST depth *)
+let max_depth = 50
+
+(* number of tests the fuzzer does *)
+let max_tests = 1000
 
 
 (** * JS Regex pretty-printing *)
@@ -39,16 +59,10 @@ let rec regex_to_string (r:coq_Regex) : string =
 
 
 (** * Generating random regexes *)
-(* we restrict ourselves to a small alphabet *)
-(* with a dash (non-ascii) to test word boundaries *)
-let alphabet : char list = ['a'; 'b'; '-']
 
 let random_char () : char =
   let idx = Random.int (List.length alphabet) in
   List.nth alphabet idx
-
-(* maximum bound for counted repetition *)
-let max_counted = 10
 
 let random_qp () : coq_QuantifierPrefix =
   match (Random.int 6) with
@@ -75,26 +89,78 @@ let random_quant () : coq_Quantifier =
 (* Next we replace the backreference indices by indices between 1 and the maximum group index *)
 (* If no groups are available, we replace backreferences with empty *)
 
+let rec random_ast (depth:int) : coq_Regex =
+  (* maximum cases *)
+  let max = 13 in
+  (* if at max depth, generate only terminals *)
+  let rand = if (depth=0) then (Random.int 5) else (Random.int max) in
+  match rand with
+  | 0 -> Empty
+  | 1 | 2 | 3 -> let c = random_char() in Char(c)
+  | 4 -> BackReference 0        (* group id to be replaced later *)
+  | 5 -> let r1 = random_ast (depth-1) in
+         let r2 = random_ast (depth-1) in
+         Disjunction (r1, r2)
+  | 6 | 7 -> let r1 = random_ast (depth-1) in
+         let quant = random_quant () in
+         Quantified (r1, quant)
+  | 8 -> let r1 = random_ast (depth-1) in
+         Group (None, r1)       (* TODO: generate named groups *)
+  | 9 -> let r1 = random_ast (depth-1) in
+         Lookahead (r1)
+  | 10 -> let r1 = random_ast (depth-1) in
+         NegativeLookahead (r1)
+  | 11 -> let r1 = random_ast (depth-1) in
+          Lookbehind (r1)
+  | 12 -> let r1 = random_ast (depth-1) in
+          NegativeLookbehind (r1)
+  | _ -> failwith "random range error"
+
+let max_group (r:coq_Regex) : int =
+  countLeftCapturingParensWithin_impl r
+
+(* replacing each backreference number with a legal one, between 1 and the maximum group id  *)
+let rec fill_backref (r:coq_Regex) (maxgroup:int) : coq_Regex =
+  match r with
+  | Empty | Char _ -> r
+  | Disjunction (r1,r2) -> Disjunction (fill_backref r1 maxgroup, fill_backref r2 maxgroup)
+  | Quantified (r1,quant) -> Quantified (fill_backref r1 maxgroup, quant)
+  | Seq (r1,r2) -> Seq (fill_backref r1 maxgroup, fill_backref r2 maxgroup)
+  | Group (nameop, r1) -> Group (nameop, fill_backref r1 maxgroup)
+  | Lookahead (r1) -> Lookahead (fill_backref r1 maxgroup)
+  | NegativeLookahead (r1) -> NegativeLookahead (fill_backref r1 maxgroup)
+  | Lookbehind (r1) -> Lookbehind (fill_backref r1 maxgroup)
+  | NegativeLookbehind (r1) -> NegativeLookbehind (fill_backref r1 maxgroup)
+  | BackReference _ ->
+     if (maxgroup = 0) then Empty
+     else let groupid = (Random.int maxgroup) + 1 in
+          BackReference groupid
+
+(* generates an AST then fills the backreferences numbers *)
+let random_regex (): coq_Regex =
+  let ast = random_ast (Random.int max_depth) in
+  let maxgroup = max_group ast in
+  fill_backref ast maxgroup
+
+(** * Creating Random Strings  *)
+
+let random_string () : string =
+  let size = (Random.int max_string) in
+  String.init size (fun _ -> random_char())
 
 
+(** * Differential Fuzzer  *)
 
-(* let max_depth = 50 *)
+let fuzzer () : unit =
+  for _ = 0 to max_tests do
+    let rgx = random_regex () in
+    let str = random_string () in
+    test_regex rgx str 0
+  done;
+  Printf.printf "Finished %d tests.\n" max_tests
 
-(* let max_string = 100 *)
-
-
-
-
-let str = "aaaaabaac"
-let regex = Group (None, !* (
-    Disjunction (
-      Group (None, char 'a'),
-      Group (None, char 'b'))))
 
 let () =
-  ignore (random_char());
-  ignore (random_quant());
-  let js_regex = regex_to_string regex in
-  Printf.printf "regex: %s\n" js_regex; 
-  test_regex regex str 0;
-  Printf.printf "done\n"
+  Random.self_init();
+  ignore (regex_to_string Empty);
+  fuzzer ()

@@ -2,3 +2,7 @@
  (public_name fuzzer)
  (name main)
  (libraries Warblre))
+
+(env
+  (dev
+    (flags (:standard -w -33))))

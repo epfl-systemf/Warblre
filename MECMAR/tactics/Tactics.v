@@ -118,7 +118,7 @@ Ltac boolean_simplifier := repeat
     | [ H: andb _ _ = true |- _ ] => rewrite -> andb_true_iff in H; destruct H
     | [ H: orb _ _ = false |- _ ] => rewrite -> orb_false_iff in H; destruct H
     | [ H: ?b = _ |- _ ] => check_type b bool; is_constructor b; symmetry in H
-    | [ H: _ = ?b |- _ ] => rewrite -> H in *
+    | [ H: _ = ?b |- _ ] => check_type b bool; rewrite -> H in *
     | [ H: negb _ = _ |- _ ] => apply (f_equal negb) in H; rewrite -> negb_involutive in H; cbn in H
     end).
 
@@ -184,4 +184,8 @@ Ltac check_not_duplicated H :=
   lazymatch goal with
   | [ _: T, _: T |- _ ] => fail
   | [ |- _ ] => idtac
+  end.
+
+Ltac split_conjs := repeat match goal with
+  | [|- _ /\ _ ] => split
   end.

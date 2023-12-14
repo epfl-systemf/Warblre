@@ -1,13 +1,8 @@
 From Coq Require Import ZArith List.
-From Warblre Require Import Result Base.
+From Warblre Require Import Result Base List.
 
 (** 22.2.2.1 Notation *)
 Module Notation.
-  (*  A CharSet is a mathematical set of characters. In the context of a Unicode pattern, “all characters” means
-      the CharSet containing all code point values; otherwise “all characters” means the CharSet containing all
-      code unit values. *)
-  Definition CharSet := Character -> bool.
-
   (*  A CaptureRange is an ordered pair (startIndex, endIndex) that represents the range of characters included
       in a capture, where startIndex is an integer representing the start index (inclusive) of the range within
       Input, and endIndex is an integer representing the end index (exclusive) of the range within Input. For any
@@ -50,11 +45,6 @@ Module Notation.
 
   (* A MatchResult is either a MatchState or the special token failure that indicates that the match failed. *)
   Definition MatchResult := Result (option MatchState) MatchError.
-  #[export]
-  Instance assertion_error: Result.AssertionError MatchError := { f := AssertionFailed }.
-  Notation failure := None (only parsing).
-  Notation out_of_fuel := (Failure OutOfFuel).
-  Notation assertion_failed := (Failure AssertionFailed).
 
   (*  A MatcherContinuation is an Abstract Closure that takes one MatchState argument and returns a
       MatchResult result. The MatcherContinuation attempts to match the remaining portion (specified by the

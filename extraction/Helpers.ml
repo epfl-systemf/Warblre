@@ -1,5 +1,4 @@
 open Extracted.Notation
-open Interop
 
 let rec drop n ls = 
   if n <= 0 then
@@ -21,23 +20,23 @@ let to_list s = List.init (String.length s) (String.get s)
 let from_list ls = String.init (List.length ls) (List.nth ls)
 
 let test_regex regex input at =
-  let groups = Extracted.StaticSemantics.capturingGroupsWithin regex in
-  let maxGroup = (Ocaml_Set_Int.fold (Int.max) groups 0) + 1 in
-  let matcher = Extracted.Semantics.compilePattern regex maxGroup in
+  let groups = (Extracted.StaticSemantics.countLeftCapturingParensWithin regex []) in
+  let matcher = Extracted.Semantics.compilePattern regex groups in
   let ls_input = to_list input in
 
   match matcher ls_input at with
 
   | Success (Some { MatchState.endIndex = i; MatchState.captures = captures; _ }) -> 
+    assert (List.length captures == groups);
     Printf.printf "Matched %d characters ([%d-%d]) in '%s' (length=%d)\n" (i - at) at i input (List.length ls_input);
-    let f name = 
-      match List.nth captures name with
+    let f id = 
+      match List.nth captures (id - 1) with
       | None ->
-          Printf.printf "Group %d: undefined\n" name
+          Printf.printf "Group %d: undefined\n" id
       | Some { CaptureRange.startIndex = s; CaptureRange.endIndex = e } ->
-          Printf.printf "Group %d: '%s' ([%d-%d])\n" name (from_list (drop s (take e ls_input))) s e
+          Printf.printf "Group %d: '%s' ([%d-%d])\n" id (from_list (drop s (take e ls_input))) s e
     in
-    Interop.Ocaml_Set_Int.iter f groups
+    List.iter f (Extracted.List.Range.Nat.Length.range 1 groups)
 
   | Success None -> Printf.printf "No match on '%s' \n" input
 

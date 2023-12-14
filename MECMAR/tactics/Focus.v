@@ -81,7 +81,7 @@ Ltac focus_replace_goal With By :=
   [ idtac | By ].
 Ltac focus_replace_hypothesis H With By :=
   cbn in H;
-  let g := focus_get_hypothesis in
+  let g := focus_get_hypothesis H in
   replace g with With in H;
   [ idtac | By ].
 
@@ -148,6 +148,9 @@ Tactic Notation "focus" constr(f) "replace" "using" tactic(t) "in" hyp(H) := (
 Tactic Notation "focus" constr(f) "replace" "with" constr(r) "in" hyp(H) := (
   let r' := (fun _ => r) in
   focus f replace using r' in H).
+Tactic Notation "focus" constr(f) "remember" "as" simple_intropattern(I) "in" hyp(H) := (
+  let r := (fun t => remember t as I) in
+  focus f do r in H).
 Tactic Notation "focus" constr(f) "replace" "with" constr(r) "by" tactic(s) "in" hyp(H) := (
   let r' := (fun _ => r) in
   focus f replace using r' by s in H).
@@ -179,6 +182,9 @@ Tactic Notation "focused" "replace" "using" tactic(t) := (
 Tactic Notation "focused" "replace" "with" constr(r) := (
   let f := focus_get_focus in
   focus f replace with r).
+Tactic Notation "focus" constr(f) "remember" "as" simple_intropattern(I) := (
+  let r := (fun t => remember t as I) in
+  focus f do r).
 Tactic Notation "focused" "replace" "with" constr(r) "by" tactic(s) := (
   let f := focus_get_focus in
   focus f replace with r by s).

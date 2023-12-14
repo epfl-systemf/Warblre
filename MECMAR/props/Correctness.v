@@ -182,7 +182,8 @@ Module Correctness.
           repeat rewrite -> Nat.add_assoc in *;
           split; try (assumption + lia).
         + rewrite <- Nat.add_1_r in R. apply shift_neg_defs with (s := 1) in R; try lia.
-          repeat rewrite -> Nat.add_sub in *. assumption.
+          repeat rewrite -> Nat.add_sub in *.
+          apply shift_defs. assumption.
     Qed.
   End Groups.
 

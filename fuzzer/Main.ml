@@ -91,7 +91,7 @@ let print_slice (string_input:string) single_capture : string =
   match single_capture with
   | None -> "Undefined"
   | Some { CaptureRange.startIndex = s; CaptureRange.endIndex = e } ->
-     String.sub string_input s e
+     String.sub string_input s (e-s)
 
 (* printing the results of a match *)
 let print_result result (start:int) (string_input:string) : string =
@@ -99,7 +99,7 @@ let print_result result (start:int) (string_input:string) : string =
   match result with
   | { MatchState.endIndex = i; MatchState.captures = captures; _ } ->
      (* the substring corresponding to group #0 *)
-     let zero_slice = String.sub string_input start i in
+     let zero_slice = String.sub string_input start (i-start) in
      s := !s ^ "#0:" ^ zero_slice ^ "\n" ;
      (* all other capture group slices *)
      for i = 1 to ((List.length captures)) do
@@ -248,7 +248,6 @@ let fuzzer () : unit =
   for _ = 0 to max_tests do
     let rgx = random_regex () in
     let str = random_string () in
-    (* test_regex rgx str 0; *)
     compare_engines rgx str
   done;
   Printf.printf "Finished %d tests.\n" max_tests

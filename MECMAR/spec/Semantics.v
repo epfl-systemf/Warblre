@@ -333,7 +333,7 @@ Module Semantics.
                       (* 1.  *)
                       let m := compileSubPattern r (Group_inner id :: ctx) rer direction in
                       (* 2. Let parenIndex be CountLeftCapturingParensBefore(Atom). *)
-                      let parenIndex := countLeftCapturingParensBefore r ctx in
+                      let parenIndex := countLeftCapturingParensBefore self ctx in
                       (* 3. Return a new Matcher with parameters (x, c) that captures direction, m, and parenIndex and performs the following steps when called: *)
                       fun (x: MatchState) (c: MatcherContinuation) =>
                         (* a. Assert: x is a MatchState. *)

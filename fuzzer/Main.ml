@@ -93,7 +93,7 @@ let print_slice (string_input:string) single_capture : string =
   | Some { CaptureRange.startIndex = s; CaptureRange.endIndex = e } ->
      String.sub string_input s (e-s)
 
-(* printing the results of a match *)
+(* printing the result of a match *)
 let print_result result (start:int) (string_input:string) : string =
   let s = ref "" in
   match result with
@@ -256,28 +256,29 @@ let fuzzer () : unit =
 let () =
   Random.self_init();
 
-  let original_bug_regex : coq_Regex =
-    Quantified (
-        Group(None,
-              Quantified(
-                  Quantified(
-                      Disjunction(
-                          Group(None
-                               ,BackReference 2)
-                         ,Empty)
-                     ,Greedy(Plus))
-                 ,Greedy(RepRange(8,16)))
-          )
-       ,Greedy(RepExact(6))) in
-  let original_bug_string = "-bbabaa" in
+  (* let original_bug_regex : coq_Regex = *)
+  (*   Quantified ( *)
+  (*       Group(None, *)
+  (*             Quantified( *)
+  (*                 Quantified( *)
+  (*                     Disjunction( *)
+  (*                         Group(None *)
+  (*                              ,BackReference 2) *)
+  (*                        ,Empty) *)
+  (*                    ,Greedy(Plus)) *)
+  (*                ,Greedy(RepRange(8,16))) *)
+  (*         ) *)
+  (*      ,Greedy(RepExact(6))) in *)
+  (* let original_bug_string = "-bbabaa" in *)
 
   
-  let bug_regex : coq_Regex =
-    Group(None, Group(None, BackReference 2)) in
+  (* let bug_regex : coq_Regex = *)
+  (*   Group(None,Group(None, Seq(Char('a'),Group(None, Char('b'))))) in *)
   
   
-  let bug_string = "-" in
-  compare_engines bug_regex bug_string
+  (* let bug_string = "ab" in *)
+  (* compare_engines bug_regex bug_string *)
+  (* This bug was fixed by fixing the computation of parens before *)
 
   
-  (* fuzzer () *)
+  fuzzer ()

@@ -49,7 +49,7 @@ Module StaticSemantics.
       | Quantified_inner _ => 0
       | Seq_left _ => 0
       | Seq_right l => countLeftCapturingParensWithin_impl l
-      | Group_inner _ => 0
+      | Group_inner _ => 1
       | Lookahead_inner => 0
       | NegativeLookahead_inner => 0
       | Lookbehind_inner => 0

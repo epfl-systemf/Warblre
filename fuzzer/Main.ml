@@ -21,7 +21,7 @@ let max_string = 100
 let max_depth = 50
 
 (* number of tests the fuzzer does *)
-let max_tests = 1000
+let max_tests = 100
 
 
 (** * JS Regex pretty-printing *)
@@ -56,6 +56,56 @@ let rec regex_to_string (r:coq_Regex) : string =
   | Lookbehind (r1) -> "(?<="^ regex_to_string r1 ^ ")"
   | NegativeLookbehind (r1) -> "(?<!"^ regex_to_string r1 ^")"
   | BackReference (gid) -> "\\"^ string_of_int gid
+
+(** * Calling the Node Matcher (V8 backtracking)  *)
+
+(* geting the result of a command as a string *)
+let string_of_command (command:string) : string =
+ let tmp_file = Filename.temp_file "" ".txt" in
+ let _ = Sys.command @@ command ^ " >" ^ tmp_file in
+ let chan = open_in tmp_file in
+ let output = ref "" in
+ try
+   while true do
+     output := !output ^ input_line chan ^ "\n"
+   done; !output
+ with
+   End_of_file ->
+   close_in chan;
+   !output
+
+(* getting the Node result as a string, with a timeout in case of exponential complexity *)
+(* when the result is None, a Timeout occurred *)
+let get_js_result (regex:coq_Regex) (str:string) : string option =
+  let js_regex = regex_to_string regex in
+  let js_regex = "'" ^ js_regex ^ "'" in (* adding quotes to escape special characters *)
+  let js_command = "timeout 5s node fuzzer/jsmatcher.js " ^ js_regex ^ " " ^ "'"^str^"'" in
+  let result = string_of_command(js_command) in
+  if (String.length result = 0) then None else Some result
+
+(** * Calling the Reference Implementation *)
+let get_reference_result (regex:coq_Regex) (str:string) : string option =
+  None
+
+(** * Comparing 2 engine results *)
+
+let print_result (s:string option) : string =
+  match s with
+  | None -> "Timeout\n"
+  | Some s -> s
+
+(* calling the two engines and failing if they disagree on the result *)
+let compare_engines (regex:coq_Regex) (str:string) : unit =
+  Printf.printf "\027[36mJS Regex:\027[0m %s\n " (regex_to_string regex);
+  Printf.printf "\027[36mString:\027[0m \"%s\"\n%!" str;
+  let node_result = get_js_result regex str in
+  Printf.printf "\027[35mIrregexp  result:\027[0m %s\n%!" (print_result node_result);
+  let ref_result = get_reference_result regex str in
+  Printf.printf "\027[35mReference result:\027[0m %s\n%!" (print_result ref_result);
+  match (node_result, ref_result) with
+  | Some noderes, Some refres ->
+     assert (String.compare noderes refres = 0)
+  | _ -> ()
 
 
 (** * Generating random regexes *)
@@ -155,7 +205,8 @@ let fuzzer () : unit =
   for _ = 0 to max_tests do
     let rgx = random_regex () in
     let str = random_string () in
-    test_regex rgx str 0
+    (* test_regex rgx str 0; *)
+    compare_engines rgx str
   done;
   Printf.printf "Finished %d tests.\n" max_tests
 

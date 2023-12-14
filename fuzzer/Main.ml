@@ -255,5 +255,29 @@ let fuzzer () : unit =
 
 let () =
   Random.self_init();
-  ignore (regex_to_string Empty);
-  fuzzer ()
+
+  let original_bug_regex : coq_Regex =
+    Quantified (
+        Group(None,
+              Quantified(
+                  Quantified(
+                      Disjunction(
+                          Group(None
+                               ,BackReference 2)
+                         ,Empty)
+                     ,Greedy(Plus))
+                 ,Greedy(RepRange(8,16)))
+          )
+       ,Greedy(RepExact(6))) in
+  let original_bug_string = "-bbabaa" in
+
+  
+  let bug_regex : coq_Regex =
+    Group(None, Group(None, BackReference 2)) in
+  
+  
+  let bug_string = "-" in
+  compare_engines bug_regex bug_string
+
+  
+  (* fuzzer () *)

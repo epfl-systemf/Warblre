@@ -55,6 +55,10 @@ Export NoI(non_neg_integer_or_inf).
 
 Infix "!=?" := (fun l r => negb (Nat.eqb l r)) (at level 70): nat_scope.
 Infix "<=?" := Nat.leb (at level 70, no associativity): nat_scope.
+Infix "<?" := Nat.ltb (at level 70): nat_scope.
+Infix ">?" := (fun l r => Nat.ltb r l) (at level 70): nat_scope.
+Infix ">=?" := (fun l r => Nat.leb r l) (at level 70): nat_scope.
+Infix "=?" := Nat.eqb (at level 70): nat_scope.
 
 Declare Scope NoI_scope.
 Delimit Scope NoI_scope with NoI.

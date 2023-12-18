@@ -37,7 +37,7 @@ Module Definitions.
             match v with
             | Some y =>
                 c (match_state (MatchState.input x) (MatchState.endIndex x) (MatchState.captures y))
-            | None => assertion_failed
+            | None => match_assertion_failed
             end
        | Failure f => Failure f
        end.

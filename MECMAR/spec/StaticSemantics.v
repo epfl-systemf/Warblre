@@ -6,6 +6,8 @@ Module StaticSemantics.
   Fixpoint pre_order_walk (r: Regex): list Regex := match r with
   | Empty => r :: nil
   | Char _ => r :: nil
+  | Dot => r :: nil
+  | CharacterClass _ => r :: nil
   | Disjunction r1 r2 => r :: (pre_order_walk r1 ++ pre_order_walk r2)
   | Quantified r0 _ => r :: (pre_order_walk r0)
   | Seq r1 r2 => r :: (pre_order_walk r1 ++ pre_order_walk r2)
@@ -27,6 +29,8 @@ Module StaticSemantics.
     match r with
     | Empty => 0
     | Char _ => 0
+    | Dot => 0
+    | CharacterClass _ => 0
     | Disjunction r1 r2 => (countLeftCapturingParensWithin_impl r1) + (countLeftCapturingParensWithin_impl r2)
     | Quantified r0 _ => countLeftCapturingParensWithin_impl r0
     | Seq r1 r2 => (countLeftCapturingParensWithin_impl r1) + (countLeftCapturingParensWithin_impl r2)

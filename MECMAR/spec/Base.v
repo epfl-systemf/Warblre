@@ -74,6 +74,8 @@ Parameter Character: Type.
 Module Character.
   Parameter eqs: forall (l r: Character), {l = r} + {l <> r}.
   Parameter eqb: forall (l r: Character), bool.
+  Parameter numeric_value: Character -> nat.
+  Parameter from_numeric_value: nat -> Character.
   Definition neqb (l r: Character) := negb (eqb l r).
 End Character.
 
@@ -94,15 +96,28 @@ Delimit Scope GroupName_scope with GrName.
 Infix "=?" := GroupName.eqb (at level 70): GroupName_scope.
 Infix "!=?" := GroupName.neqb (at level 70): GroupName_scope.
 
-Inductive MatchError :=
-| OutOfFuel
-| AssertionFailed.
+Module CompileError.
+  (* https://github.com/coq/coq/issues/7424 *)
+  Inductive type: let t := Type in t :=
+  | AssertionFailed.
+End CompileError.
+Notation CompileError := CompileError.type.
+
+Module MatchError.
+  Inductive type :=
+  | OutOfFuel
+  | AssertionFailed.
+End MatchError.
+Notation MatchError := MatchError.type.
 
 #[export]
-Instance assertion_error: Result.AssertionError MatchError := { f := AssertionFailed }.
+Instance compile_assertion_error: Result.AssertionError CompileError := { f := CompileError.AssertionFailed }.
+#[export]
+Instance match_assertion_error: Result.AssertionError MatchError := { f := MatchError.AssertionFailed }.
+Notation compile_assertion_failed := (Failure CompileError.AssertionFailed).
 Notation failure := None (only parsing).
-Notation out_of_fuel := (Failure OutOfFuel).
-Notation assertion_failed := (Failure AssertionFailed).
+Notation out_of_fuel := (Failure MatchError.OutOfFuel).
+Notation match_assertion_failed := (Failure MatchError.AssertionFailed).
 
 (*  A CharSet is a mathematical set of characters. In the context of a Unicode pattern, “all characters” means
     the CharSet containing all code point values; otherwise “all characters” means the CharSet containing all
@@ -113,14 +128,23 @@ Module CharSet.
   Definition empty: CharSet := nil.
   Definition union (l r: CharSet): CharSet := ListSet.set_union Character.eqs l r.
   Definition singleton (c: Character): CharSet := c :: nil.
-  Definition unique (s: CharSet): Result Character MatchError := match s with
-  | c :: nil => Success c
-  | _ => assertion_failed
-  end.
+  Definition size (s: CharSet): nat := List.length s.
+  Definition unique {F: Type} {_: Result.AssertionError F} (s: CharSet): Result Character F :=
+    match s with
+    | c :: nil => Success c
+    | _ => Result.assertion_failed
+    end.
+  Definition remove_all(l r: CharSet): CharSet := ListSet.set_diff Character.eqs l r.
   (* Definition fold {T: Type} (r: T -> Character -> T) (s: CharSet) (zero: T): T :=
     List.fold_left r s zero. *)
   Definition exist (s: CharSet) (m: Character -> Result bool MatchError): Result bool MatchError :=
     List.Exists.exist s m.
+
+  Definition range (l h: nat): CharSet :=
+    List.map Character.from_numeric_value (List.Range.Nat.Bounds.range l (S h)).
+
+  Parameter all: CharSet.
+  Parameter line_terminators: CharSet.
 End CharSet.
 
 

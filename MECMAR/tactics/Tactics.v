@@ -111,8 +111,18 @@ Ltac check_type t T := lazymatch type of t with
 | _ => fail
 end.
 
+Module BooleanSimplifier.
+  Lemma identity_if: forall (b: bool), (if b then true else false) = b.
+  Proof. intros [ ]; reflexivity. Qed.
+
+  Lemma negating_if: forall (b: bool), (if b then false else true) = negb b.
+  Proof. intros [ ]; reflexivity. Qed.
+End BooleanSimplifier.
+
 Ltac boolean_simplifier := repeat
 (   rewrite -> andb_true_l in *
+||  rewrite -> BooleanSimplifier.identity_if in *
+||  rewrite -> BooleanSimplifier.negating_if in *
 ||  match goal with
     | [ H: ?c1 = ?c2 |- _ ] => check_type c1 bool; is_constructor c1; is_constructor c2; try discriminate H; clear H
     | [ H: andb _ _ = true |- _ ] => rewrite -> andb_true_iff in H; destruct H
@@ -127,7 +137,7 @@ Ltac hypotheses_reflector := repeat
 ||  match goal with
     | [ H: andb ?l ?r = false |- _ ] => Reflection.apply_to_iff (Bool.andb_false_iff l r) H; clear H
     | [ H: _ /\ _ |- _ ] => destruct H
-    | [ H: _ \/ _ |- _ ] => destruct H
+    (* | [ H: _ \/ _ |- _ ] => destruct H *)
     end).
 
 Ltac goal_reflector := repeat match goal with

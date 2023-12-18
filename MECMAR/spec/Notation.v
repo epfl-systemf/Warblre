@@ -67,6 +67,10 @@ Module Notation.
   (** 22.2.2.1.1 RegExp Records *)
   Module RegExp.
     Record type := make {
+      ignoreCase: bool;
+      multiline: bool;
+      dotAll: bool;
+      unicode: bool;
       capturingGroupsCount: non_neg_integer;
     }.
     Module Notations.

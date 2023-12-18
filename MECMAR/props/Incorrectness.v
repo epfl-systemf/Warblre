@@ -1,8 +1,9 @@
 From Coq Require Import PeanoNat ZArith Bool Lia Program.Equality List.
-From Warblre Require Import Tactics Specialize Focus Result Base Patterns StaticSemantics Notation Semantics Definitions.
+From Warblre Require Import Tactics Specialize Focus Result Base Patterns StaticSemantics Notation Semantics Definitions Compile Correctness ClutterFree.
 
 Import Result.Notations.
 Import Semantics.
+Import ClutterFree.
 
 Parameter a: Character.
 Parameter b: Character.
@@ -37,13 +38,32 @@ End RegexNotations.
 Import RegexNotations.
 
 Module Incorrectness.
-  Example disjunction_commutativity: exists (r_1 r_2: Regex) (flags: RegExp) (str: list Character) (start: non_neg_integer),
-    compilePattern </ r_1 | r_2 /> flags str start <> compilePattern </ r_2 | r_1 /> flags str start.
+ (*  Example disjunction_commutativity: exists (r_1 r_2: Regex) (flags: RegExp) (str: list Character) (start: non_neg_integer)
+    (P00: Compile.EarlyErrorsFree.Regex </ r_1 | r_2 />)
+    (P01: Compile.EarlyErrorsFree.Regex </ r_2 | r_1 />)
+    (P10: Correctness.Groups.Ranges </ r_1 | r_2 /> 1 (RegExp.capturingGroupsCount flags) (RegExp.capturingGroupsCount flags))
+    (P11: Correctness.Groups.Ranges </ r_2 | r_1 /> 1 (RegExp.capturingGroupsCount flags) (RegExp.capturingGroupsCount flags))
+    (P2: 0 <= start <= (length str)),
+    (proj1_sig (regex_match </ r_1 | r_2 /> flags str start P00 P10 P2)) <> (proj1_sig (regex_match </ r_2 | r_1 /> flags str start P01 P11 P2)).
   Proof.
-    exists </ a ~ b />. exists </ a />.
-    exists (reg_exp 0).
-    exists (a :: b :: nil). exists 0.
-    exec.
-    easy.
-  Qed.
+    remember </ a ~ b /> as r1.
+    remember </ a /> as r2.
+    remember (reg_exp false false false false 0) as flags.
+    remember (a :: b :: nil) as str.
+    assert (P00: Compile.EarlyErrorsFree.Regex </ r1 | r2 />). {
+      subst. repeat constructor.
+    }
+    assert (P01: Compile.EarlyErrorsFree.Regex </ r2 | r1 />). {
+      subst. repeat constructor.
+    }
+    assert (P10: Correctness.Groups.Ranges </ r1 | r2 /> 1 (RegExp.capturingGroupsCount flags) (RegExp.capturingGroupsCount flags)). {
+      admit.
+    }
+    assert (P11: Correctness.Groups.Ranges </ r2 | r1 /> 1 (RegExp.capturingGroupsCount flags) (RegExp.capturingGroupsCount flags)). {
+      admit.
+    }
+    assert (P2: 0 <= 0 <= (length str)). { subst. cbn. lia. }
+    exists r1. exists r2. exists flags. exists str. exists 0. exists P00. exists P01. exists P10. exists P11. exists P2.
+    (* Execution gets stuck due to subset types *)
+  Admitted. *)
 End Incorrectness.

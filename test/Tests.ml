@@ -2,6 +2,115 @@ open! Warblre.Extracted.Patterns
 open Warblre.Helpers
 open Warblre.Notations
 
+let%expect_test "char_class_atom_0_pos" =
+  test_regex
+    (CharacterClass (NoninvertedCC (ClassAtomCR ('a', EmptyCR))))
+    "abbb"
+    0;
+  [%expect {| Matched 1 characters ([0-1]) in 'abbb' (length=4) |}]
+
+let%expect_test "char_class_atom_0_neg" =
+  test_regex
+    (CharacterClass (NoninvertedCC (ClassAtomCR ('b', EmptyCR))))
+    "abbb"
+    0;
+  [%expect {| No match on 'abbb' |}]
+
+let%expect_test "negated_char_class_atom_0_pos" =
+  test_regex
+    (CharacterClass (InvertedCC (ClassAtomCR ('b', EmptyCR))))
+    "abbb"
+    0;
+  [%expect {| Matched 1 characters ([0-1]) in 'abbb' (length=4) |}]
+
+let%expect_test "negated_char_class_atom_0_neg" =
+  test_regex
+    (CharacterClass (InvertedCC (ClassAtomCR ('a', EmptyCR))))
+    "abbb"
+    0;
+  [%expect {| No match on 'abbb' |}]
+
+
+
+
+let%expect_test "char_class_seq_0_pos_0" =
+  test_regex
+    (CharacterClass (NoninvertedCC (RangeCR ('a', 'c', EmptyCR))))
+    "abbb"
+    0;
+  [%expect {| Matched 1 characters ([0-1]) in 'abbb' (length=4) |}]
+
+let%expect_test "char_class_seq_0_pos_1" =
+  test_regex
+    (CharacterClass (NoninvertedCC (RangeCR ('a', 'c', EmptyCR))))
+    "bbbb"
+    0;
+  [%expect {| Matched 1 characters ([0-1]) in 'bbbb' (length=4) |}]
+
+let%expect_test "char_class_seq_0_pos_2" =
+  test_regex
+    (CharacterClass (NoninvertedCC (RangeCR ('a', 'c', EmptyCR))))
+    "cbbb"
+    0;
+  [%expect {| Matched 1 characters ([0-1]) in 'cbbb' (length=4) |}]
+
+let%expect_test "char_class_seq_0_neg_0" =
+  test_regex
+    (CharacterClass (NoninvertedCC (RangeCR ('a', 'c', EmptyCR))))
+    " bbb"
+    0;
+  [%expect {| No match on ' bbb' |}]
+
+let%expect_test "char_class_seq_0_neg_1" =
+  test_regex
+    (CharacterClass (NoninvertedCC (RangeCR ('a', 'c', EmptyCR))))
+    "dbbb"
+    0;
+  [%expect {| No match on 'dbbb' |}]
+
+
+
+
+
+let%expect_test "negated_char_class_seq_0_neg_0" =
+  test_regex
+    (CharacterClass (InvertedCC (RangeCR ('a', 'c', EmptyCR))))
+    "abbb"
+    0;
+  [%expect {| No match on 'abbb' |}]
+
+let%expect_test "negated_char_class_seq_0_neg_1" =
+  test_regex
+    (CharacterClass (InvertedCC (RangeCR ('a', 'c', EmptyCR))))
+    "bbbb"
+    0;
+  [%expect {| No match on 'bbbb' |}]
+
+let%expect_test "negated_char_class_seq_0_neg_2" =
+  test_regex
+    (CharacterClass (InvertedCC (RangeCR ('a', 'c', EmptyCR))))
+    "cbbb"
+    0;
+  [%expect {| No match on 'cbbb' |}]
+
+let%expect_test "negated_char_class_seq_0_pos_0" =
+  test_regex
+    (CharacterClass (InvertedCC (RangeCR ('a', 'c', EmptyCR))))
+    " bbb"
+    0;
+  [%expect {| Matched 1 characters ([0-1]) in ' bbb' (length=4) |}]
+
+let%expect_test "negated_char_class_seq_0_pos_1" =
+  test_regex
+    (CharacterClass (InvertedCC (RangeCR ('a', 'c', EmptyCR))))
+    "dbbb"
+    0;
+  [%expect {|Matched 1 characters ([0-1]) in 'dbbb' (length=4) |}]
+
+
+
+
+
 let%expect_test "sequence" =
   test_regex
     ((char 'a') -- (char 'b') -- (char 'b'))

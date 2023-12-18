@@ -30,30 +30,48 @@ Module Patterns.
     Proof. decide equality. apply Character.eqb. Defined.
   End ClassAtom. *)
 
+(*   Inductive CharacterClassEscape :=
+  | Digit
+  | DigitNegated
+  | Whitespace
+  | WhitespaceNegated
+  | Word
+  | WordNegated. *)
+  (* Unicode property *)
+
+  Inductive ClassAtom :=
+  | SourceCharacter (chr: Character).
+  (* Class escape *)
+  Module ClassAtom.
+    Definition eqs (l r: ClassAtom): {l = r} + {~ l = r}.
+    Proof. decide equality. apply Character.eqs. Defined.
+  End ClassAtom.
+
   Inductive ClassRanges :=
   | EmptyCR
-  | AtomChar (chr: Character)
-  (* Escapes: \b \w ...*)
-  (*| AtomHead (atom: ClassRanges) (rem: ClassRanges)
-  | RangeHead (from to: ClassRanges) (rem: ClassRanges)*).
+  | ClassAtomCR (ca: ClassAtom) (t: ClassRanges)
+  | RangeCR (l h: ClassAtom) (t: ClassRanges).
 
-(*   Module ClassRanges.
+  Module ClassRanges.
     Definition eqb (l r: ClassRanges): {l = r} + {~ l = r}.
-    Proof. decide equality; apply ClassAtom.eqb. Defined.
-  End ClassRanges. *)
-
-  Inductive CharacterClass :=
-  | PositiveCC (crs: ClassRanges)
-  | NegativeCC (crs: ClassRanges).
+    Proof. decide equality; apply ClassAtom.eqs. Defined.
+  End ClassRanges.
 
 (*   Module CharacterClass.
     Definition eqb (l r: CharacterClass): {l = r} + {~ l = r}.
     Proof. decide equality; apply ClassRanges.eqb. Defined.
   End CharacterClass. *)
 
+  Inductive CharClass :=
+  | NoninvertedCC (crs: ClassRanges)
+  | InvertedCC (crs: ClassRanges).
+
   Inductive Regex :=
   | Empty
   | Char (chr: Character)
+  | Dot
+  (* Atom escape *)
+  | CharacterClass (cc: CharClass)
   | Disjunction (r1 r2: Regex)
   | Quantified (r: Regex) (q: Quantifier)
   | Seq (r1 r2: Regex)

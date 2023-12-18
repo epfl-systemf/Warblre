@@ -1,10 +1,10 @@
-(lang dune 3.7)
+(lang dune 3.8)
 
 (name Warblre)
 
 (generate_opam_files true)
 
-(using coq 0.7)
+(using coq 0.8)
 
 (source
  (github username/reponame))

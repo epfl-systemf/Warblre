@@ -49,6 +49,8 @@ let rec regex_to_string (r:coq_Regex) : string =
   match r with
   | Empty -> ""
   | Char (c) -> String.make 1 c
+  | Dot -> String.make 1 '.'
+  | CharacterClass cc -> failwith "TODO"
   | Disjunction (r1, r2) -> noncap(regex_to_string r1) ^ "|" ^ noncap(regex_to_string r2)
   | Quantified (r1, q) -> noncap(regex_to_string r1) ^ quantifier_to_string q
   | Seq (r1, r2) -> noncap(regex_to_string r1) ^ noncap(regex_to_string r2)
@@ -119,15 +121,24 @@ let rec get_first_result matcher list_str string_input start: string option =
      if (maxlength = start) then (Some "NoMatch\n\n") (* reached the end *)
      else get_first_result matcher list_str string_input (start+1)
 (* trying to find a match starting at the next string position *)
-  | Failure OutOfFuel -> failwith "Failure"
-  | Failure AssertionFailed -> failwith "Failure"
+  | Failure MatchError.OutOfFuel -> failwith "Match failure"
+  | Failure MatchError.AssertionFailed -> failwith "Match failure"
 
 (* calling the reference implementation *)
 let get_reference_result (regex:coq_Regex) (str:string) : string option =
   let maxgroup = Extracted.StaticSemantics.countLeftCapturingParensWithin regex [] in
-  let matcher = Extracted.Semantics.compilePattern regex maxgroup in
-  let list_input = List.init (String.length str) (String.get str) in
-  get_first_result matcher list_input str 0
+  let rer = {
+    RegExp.ignoreCase = false;
+    RegExp.multiline = false;
+    RegExp.dotAll = false;
+    RegExp.unicode = false;
+    RegExp.capturingGroupsCount = maxgroup;
+  } in
+  match Extracted.Semantics.compilePattern regex rer with
+  | Success matcher ->
+    let list_input = List.init (String.length str) (String.get str) in
+    get_first_result matcher list_input str 0
+  | Failure Extracted.CompileError.AssertionFailed -> failwith "Compile failure"
   
 
 (** * Comparing 2 engine results *)
@@ -215,7 +226,7 @@ let max_group (r:coq_Regex) : int =
 (* replacing each backreference number with a legal one, between 1 and the maximum group id  *)
 let rec fill_backref (r:coq_Regex) (maxgroup:int) : coq_Regex =
   match r with
-  | Empty | Char _ -> r
+  | Empty | Char _ | Dot | CharacterClass _ -> r
   | Disjunction (r1,r2) -> Disjunction (fill_backref r1 maxgroup, fill_backref r2 maxgroup)
   | Quantified (r1,quant) -> Quantified (fill_backref r1 maxgroup, quant)
   | Seq (r1,r2) -> Seq (fill_backref r1 maxgroup, fill_backref r2 maxgroup)

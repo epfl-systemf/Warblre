@@ -16,11 +16,12 @@ Module Semantics.
   Coercion MatchState_or_failure(x: MatchState) := (Some x).
   Coercion Z.of_nat: nat >-> Z.
   (* These are used to wrap things into the error monad we will be using *)
-  Coercion wrap_option := fun (T: Type) (t: option T) => @Success (option T) MatchError t.
-  Coercion wrap_bool := fun (t: bool) => @Success bool MatchError t.
+  Coercion wrap_option := fun (T: Type) (t: option T) => @Success _ MatchError t.
+  Coercion wrap_bool := fun (t: bool) => @Success _ MatchError t.
+  Coercion wrap_char := fun (c: Character) => @Success _ MatchError c.
 
-  Coercion wrap_Matcher := fun (m: Matcher) => @Success Matcher CompileError m.
-  Coercion wrap_CharSet := fun (s: CharSet) => @Success CharSet CompileError s.
+  Coercion wrap_Matcher := fun (m: Matcher) => @Success _ CompileError m.
+  Coercion wrap_CharSet := fun (s: CharSet) => @Success _ CompileError s.
   Create HintDb Warblre_coercions.
   #[export]
   Hint Unfold CaptureRange_or_undefined MatchState_or_failure wrap_option wrap_bool : Warblre_coercions.
@@ -144,6 +145,39 @@ Module Semantics.
       compiled_quantifier (CompiledQuantifierPrefix.min qp) (CompiledQuantifierPrefix.max qp) false
   end.
 
+  (** 22.2.2.7 *)
+
+  (** 22.2.2.7.3 Canonicalize ( rer, ch ) *)
+  Definition canonicalize (rer: RegExp) (ch: Character): Result Character MatchError :=
+    (* 1. If rer.[[Unicode]] is true and rer.[[IgnoreCase]] is true, then *)
+    if (RegExp.unicode rer is true) && (RegExp.ignoreCase rer is true) then
+      (* a. If the file https://unicode.org/Public/UCD/latest/ucd/CaseFolding.txt of the Unicode Character Database provides a simple or common case folding mapping for ch, return the result of applying that mapping to ch. *)
+      let ch := Character.Unicode.case_fold ch in
+      (* b. Return ch. *)
+      ch
+    else
+    (* 2. If rer.[[IgnoreCase]] is false, return ch. *)
+    if (RegExp.ignoreCase rer is false) then ch
+    else
+    (* 3. Assert: ch is a UTF-16 code unit. *)
+    (* TODO: what to do? *)
+    (* 4. Let cp be the code point whose numeric value is the numeric value of ch. *)
+    let cp := Character.code_point ch in
+    (* 5. Let u be the result of toUppercase(« cp »), according to the Unicode Default Case Conversion algorithm. *)
+    let u := CodePoint.to_upper_case cp in
+    (* 6. Let uStr be CodePointsToString(u). *)
+    let uStr := CodePoint.code_points_to_string u in
+    (* 7. If the length of uStr ≠ 1, return ch. *)
+    if (length uStr !=? 1)%nat then ch
+    else
+    (* 8. Let cu be uStr's single code unit element. *)
+    let! cu =<< List.Unique.unique uStr in
+    (* 9. If the numeric value of ch ≥ 128 and the numeric value of cu < 128, return ch. *)
+    if (Character.numeric_value ch >=? 128) && (Character.numeric_value cu <? 128) then ch
+    else
+    (* 10. Return cu. *)
+    cu.
+
   (** 22.2.2.7.1 CharacterSetMatcher ( rer, A, invert, direction ) *)
   Definition characterSetMatcher (rer: RegExp) (A: CharSet) (invert: bool) (direction: direction): Matcher :=
     (* 1. Return a new Matcher with parameters (x, c) that captures rer, A, invert, and direction and performs the following steps when called: *)
@@ -171,9 +205,11 @@ Module Semantics.
       (* j. Let ch be the character Input[index]. *)
       let! chr =<< input[ index ] in
       (* k. Let cc be Canonicalize(rer, ch). *)
-      let cc := chr in
+      let! cc =<< canonicalize rer chr in
       (* l. If there exists a member a of A such that Canonicalize(rer, a) is cc, let found be true. Otherwise, let found be false. *)
-      let! found =<< CharSet.exist A (fun a => Character.eqb a cc) in
+      let! found =<< CharSet.exist A (
+        fun a => let! ca =<< (canonicalize rer a) in (ca =? cc)%Chr
+      ) in
       (* m. If invert is false and found is false, return failure. *)
       if (invert is false) && (found is false) then
         failure
@@ -228,8 +264,10 @@ Module Semantics.
       let g := Z.min e f in
       (* p. If there exists an integer i in the interval from 0 (inclusive) to len (exclusive) such that Canonicalize(rer, Input[rs + i]) is not Canonicalize(rer, Input[g + i]), return failure. *)
       let! b: bool =<< List.Exists.exist (List.Range.Int.Bounds.range 0 len) (fun (i: Z) =>
-        let! rsi: Character =<< input[ (rs + i)%Z ] in
-        let! gi: Character =<< input[ (g + i)%Z ] in
+        let! rsi =<< input[ (rs + i)%Z ] in
+        let! rsi =<< canonicalize rer rsi in
+        let! gi =<< input[ (g + i)%Z ] in
+        let! gi =<< canonicalize rer gi in
         (rsi !=? gi)%Chr)
       in
       if b
@@ -238,6 +276,7 @@ Module Semantics.
       let y := match_state input f cap in
       (* r. Return c(y). *)
       c y.
+
 
   (** 22.2.2.9 Runtime Semantics: CompileToCharSet *)
 

@@ -19,15 +19,8 @@ let rec take n ls =
 let to_list s = List.init (String.length s) (String.get s)
 let from_list ls = String.init (List.length ls) (List.nth ls)
 
-let test_regex regex input at =
-  let groups = (Extracted.StaticSemantics.countLeftCapturingParensWithin regex []) in
-  let rer = {
-    RegExp.ignoreCase = false;
-    RegExp.multiline = false;
-    RegExp.dotAll = false;
-    RegExp.unicode = false;
-    RegExp.capturingGroupsCount = groups;
-  } in
+let test_regex_using_record regex input at rer =
+  let groups = RegExp.capturingGroupsCount rer in
   match Extracted.Semantics.compilePattern regex rer with
   | Success matcher ->
     let ls_input = to_list input in
@@ -52,3 +45,15 @@ let test_regex regex input at =
 
     | Failure AssertionFailed -> Printf.printf "Assertion error during matching on '%s' \n" input)
   | Failure AssertionFailed -> Printf.printf "Assertion error during compilation \n"
+
+
+let test_regex regex input at ?(ignoreCase=false) ?(multiline=false) ?(dotAll=false) ?(unicode=false) () =
+  let groups = (Extracted.StaticSemantics.countLeftCapturingParensWithin regex []) in
+  let rer = {
+    RegExp.ignoreCase = ignoreCase;
+    RegExp.multiline = multiline;
+    RegExp.dotAll = dotAll;
+    RegExp.unicode = unicode;
+    RegExp.capturingGroupsCount = groups;
+  } in
+  test_regex_using_record regex input at rer

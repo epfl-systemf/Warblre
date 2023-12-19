@@ -25,6 +25,16 @@ Module List.
 
   Definition empty {T: Type} := @nil T.
 
+  Module Unique.
+    Definition unique {T F: Type} {_: Result.AssertionError F} (ls: list T): Result T F := match ls with
+      | h :: nil => Success h
+      | _ => Result.assertion_failed
+      end.
+
+    Lemma failure_bounds {T F: Type} {_: Result.AssertionError F}: forall (ls: list T) f, unique ls = Failure f -> (length ls <> 1)%nat.
+    Proof. intros. destruct ls; cbn. - lia. - destruct ls; cbn. + discriminate. + lia. Qed.
+  End Unique.
+
   Module FoldResult.
     Fixpoint fold_left_result0 {S T F: Type} (r: T -> S -> Result T F) (ls: list S) (racc: Result T F): Result T F := match ls with
       | nil => racc

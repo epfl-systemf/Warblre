@@ -55,6 +55,7 @@ Export NoI(non_neg_integer_or_inf).
 
 Infix "!=?" := (fun l r => negb (Nat.eqb l r)) (at level 70): nat_scope.
 Infix "<=?" := Nat.leb (at level 70, no associativity): nat_scope.
+Infix ">=?" := (fun l r => Nat.leb r l) (at level 70, no associativity): nat_scope.
 
 Declare Scope NoI_scope.
 Delimit Scope NoI_scope with NoI.
@@ -71,13 +72,23 @@ Infix ">?" := Z.gtb (at level 70): Z_scope.
 Infix ">=?" := Z.geb (at level 70): Z_scope.
 
 Parameter Character: Type.
+Parameter CodePoint: Type.
 Module Character.
   Parameter eqs: forall (l r: Character), {l = r} + {l <> r}.
   Parameter eqb: forall (l r: Character), bool.
+  Definition neqb (l r: Character) := negb (eqb l r).
+
   Parameter numeric_value: Character -> nat.
   Parameter from_numeric_value: nat -> Character.
-  Definition neqb (l r: Character) := negb (eqb l r).
+  Parameter code_point: Character -> CodePoint.
+  Module Unicode.
+    Parameter case_fold: Character -> Character.
+  End Unicode.
 End Character.
+Module CodePoint.
+    Parameter to_upper_case: CodePoint -> CodePoint.
+    Parameter code_points_to_string: CodePoint -> list Character.
+End CodePoint.
 
 Parameter GroupName: Type.
 Module GroupName.

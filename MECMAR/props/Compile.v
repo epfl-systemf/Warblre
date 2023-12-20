@@ -6,8 +6,21 @@ Import Semantics.
 
 Module Compile.
 
+  Inductive SingletonCharacterEscape: CharacterEscape -> Character -> Prop :=
+  | Singleton_ctrl_t: SingletonCharacterEscape (CharacterEscape.ControlEsc ControlEscape.t) Characters.CHARACTER_TABULATION
+  | Singleton_ctrl_n: SingletonCharacterEscape (CharacterEscape.ControlEsc ControlEscape.n) Characters.LINE_FEED
+  | Singleton_ctrl_v: SingletonCharacterEscape (CharacterEscape.ControlEsc ControlEscape.v) Characters.LINE_TABULATION
+  | Singleton_ctrl_f: SingletonCharacterEscape (CharacterEscape.ControlEsc ControlEscape.f) Characters.FORM_FEED
+  | Singleton_ctrl_r: SingletonCharacterEscape (CharacterEscape.ControlEsc ControlEscape.r) Characters.CARRIAGE_RETURN
+  | Singleton_zero: SingletonCharacterEscape CharacterEscape.Zero Characters.NULL
+  | Singleton_id: forall c, SingletonCharacterEscape (CharacterEscape.IdentityEsc c) c.
+
   Inductive SingletonClassAtom: ClassAtom -> Character -> Prop :=
-  | Singleton_SourceCharacter: forall c, SingletonClassAtom (SourceCharacter c) c.
+  | Singleton_SourceCharacter: forall c, SingletonClassAtom (SourceCharacter c) c
+  | Singleton_b: SingletonClassAtom (ClassEsc ClassEscape.b) Characters.BACKSPACE
+  | Singleton_dash: SingletonClassAtom (ClassEsc ClassEscape.Dash) Characters.HYPHEN_MINUS
+  | Singleton_char_esc: forall ce c,
+      SingletonCharacterEscape ce c -> SingletonClassAtom (ClassEsc (ClassEscape.CharacterEsc ce)) c.
 
   Module EarlyErrorsFree.
 
@@ -43,16 +56,68 @@ Module Compile.
 
   Module Safety.
 
+    Lemma canonicalize: forall c rer, canonicalize rer c <> compile_assertion_failed.
+    Proof.
+      intros c rer. unfold canonicalize. focus § _ (_ [] _) § auto destruct.
+      apply List.Unique.failure_bounds in AutoDest_2. boolean_simplifier. spec_reflector Nat.eqb_spec.
+      contradiction.
+    Qed.
+
+    Lemma wordCharacters: forall rer, wordCharacters rer <> compile_assertion_failed.
+    Proof.
+      intros rer. unfold wordCharacters. focus § _ (_ [] _) § auto destruct.
+      unfold CharSet.filter in AutoDest_. apply List.Filter.failure_kind in AutoDest_ as [ i [ v [ Eq_indexed Eq_f ]]].
+      destruct (Semantics.canonicalize rer v) eqn:Eq_canon.
+      - discriminate.
+      - injection Eq_f as ->. exfalso. destruct f. apply (canonicalize _ _ Eq_canon).
+    Qed.
+
+    Lemma compileToCharSet_ClassAtom_rel_ind: forall (P: ClassAtom -> Prop),
+      (forall chr, P (SourceCharacter chr)) ->
+      P (ClassEsc (ClassEscape.b)) ->
+      P (ClassEsc (ClassEscape.Dash)) ->
+      (forall esc, P (ClassEsc (ClassEscape.CharacterEsc esc))) ->
+      P (ClassEsc (ClassEscape.CharacterClassEsc CharacterClassEscape.d)) ->
+      P (ClassEsc (ClassEscape.CharacterClassEsc CharacterClassEscape.s)) ->
+      P (ClassEsc (ClassEscape.CharacterClassEsc CharacterClassEscape.w)) ->
+      (P (ClassEsc (ClassEscape.CharacterClassEsc CharacterClassEscape.d)) -> P (ClassEsc (ClassEscape.CharacterClassEsc CharacterClassEscape.D)) ) ->
+      (P (ClassEsc (ClassEscape.CharacterClassEsc CharacterClassEscape.s)) -> P (ClassEsc (ClassEscape.CharacterClassEsc CharacterClassEscape.S)) ) ->
+      (P (ClassEsc (ClassEscape.CharacterClassEsc CharacterClassEscape.w)) -> P (ClassEsc (ClassEscape.CharacterClassEsc CharacterClassEscape.W)) ) ->
+      forall ca, P ca.
+    Proof.
+      intros P H_char H_b H_dash H_char_esc H_d H_s H_w H_D H_S H_W.
+      destruct ca; auto.
+      destruct esc; auto.
+      destruct esc; auto.
+    Qed.
+
     Lemma compileToCharSet_ClassAtom: forall ca rer, compileToCharSet_ClassAtom ca rer <> compile_assertion_failed.
-    Proof. intros [ c ] rer. cbn. easy. Qed.
+    Proof.
+      induction ca using compileToCharSet_ClassAtom_rel_ind; intros rer;
+        repeat match goal with
+        | [ t: ?T |- _ ] => lazymatch T with
+            | RegExp => fail
+            | Character => fail
+            | CharacterClassEscape => fail
+            | _ => destruct t
+            end
+        end; try solve [ cbn; try easy ].
+      - cbn. apply wordCharacters.
+      - cbn. destruct (Semantics.wordCharacters rer) eqn:Eq_wc.
+        + easy.
+        + destruct f. exfalso. apply (wordCharacters _ Eq_wc).
+    Qed.
 
     Lemma compileToCharSet_ClassAtom_singleton: forall a rer r c,
       SingletonClassAtom a c ->
       Semantics.compileToCharSet_ClassAtom a rer = Success r ->
       r = c :: nil.
     Proof.
-      induction a; intros rer c r Sing_a Eq_r; dependent destruction Sing_a.
-      cbn in Eq_r. injection Eq_r as <-. reflexivity.
+      induction a; intros rer c r Sing_a Eq_r; dependent destruction Sing_a; cbn in Eq_r; try rewrite -> Character.numeric_pseudo_bij in Eq_r;
+        try injection Eq_r as <-; try reflexivity.
+      - focus § _ [] _ § auto destruct in Eq_r.
+        focus § _ [] _ § auto destruct in AutoDest_; injection AutoDest_ as <-;
+          rewrite -> Character.numeric_pseudo_bij in Eq_r; subst; dependent destruction H; injection Eq_r as <-; reflexivity.
     Qed.
 
     Lemma compileToCharSet: forall crs rer,

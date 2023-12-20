@@ -1,5 +1,7 @@
 From Coq Require Import List.
-From Warblre Require Import Base Patterns.
+From Warblre Require Import Base Result Patterns.
+
+Import Coercions.
 
 Module StaticSemantics.
 
@@ -64,6 +66,50 @@ Module StaticSemantics.
   (** 22.2.1.5 Static Semantics: IsCharacterClass *)
 
   (** 22.2.1.6 Static Semantics: CharacterValue *)
+  Definition characterValue {F: Type} {_: Result.AssertionError F} (self: ClassAtom): Result non_neg_integer F := match self with
+  (** ClassAtomNoDash :: SourceCharacter *)
+  | SourceCharacter chr =>
+      (* 1. Let ch be the code point matched by SourceCharacter. *)
+      (*+ TODO: What is that sentence supposed to mean ?!? *)
+      let ch := chr in
+      (* 2. Return the numeric value of ch. *)
+      Character.numeric_value ch
+
+  (** ClassEscape :: b *)
+  | ClassEsc (ClassEscape.b) =>
+      (* 1. Return the numeric value of U+0008 (BACKSPACE). *)
+      Character.numeric_value Characters.BACKSPACE
+
+  (** ClassEscape :: - *)
+  | ClassEsc (ClassEscape.Dash) =>
+      (* 1. Return the numeric value of U+002D (HYPHEN-MINUS). *)
+      Character.numeric_value Characters.HYPHEN_MINUS
+
+  (** CharacterEscape :: ControlEscape *)
+  | ClassEsc (ClassEscape.CharacterEsc (CharacterEscape.ControlEsc esc)) =>
+      (* 1. Return the numeric value according to Table 63. *)
+      match esc with
+      | ControlEscape.t => Character.numeric_value Characters.CHARACTER_TABULATION
+      | ControlEscape.n => Character.numeric_value Characters.LINE_FEED
+      | ControlEscape.v => Character.numeric_value Characters.LINE_TABULATION
+      | ControlEscape.f => Character.numeric_value Characters.FORM_FEED
+      | ControlEscape.r => Character.numeric_value Characters.CARRIAGE_RETURN
+      end
+
+  (** CharacterEscape :: 0 *)
+  | ClassEsc (ClassEscape.CharacterEsc (CharacterEscape.Zero)) =>
+      (* 1. Return the MV of HexEscapeSequence. *)
+      Character.numeric_value Characters.NULL
+
+  (** CharacterEscape :: IdentityEscape *)
+  | ClassEsc (ClassEscape.CharacterEsc (CharacterEscape.IdentityEsc chr)) =>
+      (* 1. Let ch be the code point matched by IdentityEscape. *)
+      let ch := chr in
+      (* 2. Return the numeric value of ch. *)
+      Character.numeric_value ch
+
+  | _ => Result.assertion_failed
+  end.
 
   (** 22.2.1.7 Static Semantics: GroupSpecifiersThatMatch ( thisGroupName ) *)
 

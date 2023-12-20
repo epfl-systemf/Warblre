@@ -78,9 +78,12 @@ Module Character.
   Parameter eqb: forall (l r: Character), bool.
   Definition neqb (l r: Character) := negb (eqb l r).
 
-  Parameter numeric_value: Character -> nat.
-  Parameter from_numeric_value: nat -> Character.
+  Parameter numeric_value: Character -> non_neg_integer.
+  Parameter from_numeric_value: non_neg_integer -> Character.
   Parameter code_point: Character -> CodePoint.
+
+  Axiom numeric_pseudo_bij: forall c, Character.from_numeric_value (Character.numeric_value c) = c.
+
   Module Unicode.
     Parameter case_fold: Character -> Character.
   End Unicode.
@@ -89,6 +92,17 @@ Module CodePoint.
     Parameter to_upper_case: CodePoint -> CodePoint.
     Parameter code_points_to_string: CodePoint -> list Character.
 End CodePoint.
+
+Module Characters.
+  Definition NULL: Character := Character.from_numeric_value 0.
+  Definition BACKSPACE: Character := Character.from_numeric_value 8.
+  Definition CHARACTER_TABULATION: Character := Character.from_numeric_value 9.
+  Definition LINE_FEED: Character := Character.from_numeric_value 10.
+  Definition LINE_TABULATION: Character := Character.from_numeric_value 11.
+  Definition FORM_FEED: Character := Character.from_numeric_value 12.
+  Definition CARRIAGE_RETURN: Character := Character.from_numeric_value 13.
+  Definition HYPHEN_MINUS: Character := Character.from_numeric_value 55.
+End Characters.
 
 Parameter GroupName: Type.
 Module GroupName.
@@ -145,17 +159,27 @@ Module CharSet.
     | c :: nil => Success c
     | _ => Result.assertion_failed
     end.
-  Definition remove_all(l r: CharSet): CharSet := ListSet.set_diff Character.eqs l r.
-  (* Definition fold {T: Type} (r: T -> Character -> T) (s: CharSet) (zero: T): T :=
-    List.fold_left r s zero. *)
+  Definition remove_all (l r: CharSet): CharSet := ListSet.set_diff Character.eqs l r.
   Definition exist (s: CharSet) (m: Character -> Result bool MatchError): Result bool MatchError :=
     List.Exists.exist s m.
+  Definition is_empty (s: CharSet): bool :=
+    match s with
+    | nil => true
+    | _ :: _ => false
+    end.
+  Definition filter {F: Type} {_: Result.AssertionError F} (s: CharSet) (f: Character -> Result bool F): Result CharSet F :=
+    List.Filter.filter s f.
+
+  Definition contains (s: CharSet) (c: Character): bool := ListSet.set_mem Character.eqs c s.
 
   Definition range (l h: nat): CharSet :=
     List.map Character.from_numeric_value (List.Range.Nat.Bounds.range l (S h)).
 
   Parameter all: CharSet.
   Parameter line_terminators: CharSet.
+  Parameter digits: CharSet.
+  Parameter white_spaces: CharSet.
+  Parameter ascii_word_characters: CharSet.
 End CharSet.
 
 
@@ -208,4 +232,8 @@ Notation "'set' ls '[' s '---' e ']' ':=' v 'in' z" := (let! ls: list _ =<< List
 
 Notation "m 'is' p" := (match m with | p => true | _ => false end) (at level 100, p pattern, no associativity).
 Notation "m 'is' 'not' p" := (match m with | p => false | _ => true end) (at level 100, p pattern, no associativity).
+
+Module Coercions.
+  Coercion wrap_result := fun (F: Type) (v: non_neg_integer) => @Success _ F v.
+End Coercions.
 

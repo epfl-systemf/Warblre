@@ -1,4 +1,4 @@
-From Coq Require Import PeanoNat ZArith Bool Lia Program.Equality List.
+From Coq Require Import PeanoNat ZArith Bool Lia Program.Equality List Program.Wf.
 From Warblre Require Import Tactics Focus Result Base Patterns StaticSemantics Notation List.
 
 Import Result.Notations.
@@ -17,11 +17,11 @@ Module Semantics.
   Coercion Z.of_nat: nat >-> Z.
   (* These are used to wrap things into the error monad we will be using *)
   Coercion wrap_option := fun (T: Type) (t: option T) => @Success _ MatchError t.
-  Coercion wrap_bool := fun (t: bool) => @Success _ MatchError t.
-  Coercion wrap_char := fun (c: Character) => @Success _ MatchError c.
+  Coercion wrap_char := fun (F: Type) (c: Character) => @Success _ F c.
 
+  Coercion wrap_bool := fun (F: Type) (t: bool) => @Success _ F t.
   Coercion wrap_Matcher := fun (m: Matcher) => @Success _ CompileError m.
-  Coercion wrap_CharSet := fun (s: CharSet) => @Success _ CompileError s.
+  Coercion wrap_CharSet := fun (F: Type) (s: CharSet) => @Success _ F s.
   Create HintDb Warblre_coercions.
   #[export]
   Hint Unfold CaptureRange_or_undefined MatchState_or_failure wrap_option wrap_bool : Warblre_coercions.
@@ -108,7 +108,7 @@ Module Semantics.
 
   (** 22.2.2.7 Runtime Semantics: CompileAtom *)
   (** 22.2.2.7.3 Canonicalize ( rer, ch ) *)
-  Definition canonicalize (rer: RegExp) (ch: Character): Result Character MatchError :=
+  Definition canonicalize {F: Type} {_: Result.AssertionError F} (rer: RegExp) (ch: Character): Result Character F :=
     (* 1. If rer.[[Unicode]] is true and rer.[[IgnoreCase]] is true, then *)
     if (RegExp.unicode rer is true) && (RegExp.ignoreCase rer is true) then
       (* a. If the file https://unicode.org/Public/UCD/latest/ucd/CaseFolding.txt of the Unicode Character Database provides a simple or common case folding mapping for ch, return the result of applying that mapping to ch. *)
@@ -244,7 +244,6 @@ Module Semantics.
   (** 22.2.2.9 Runtime Semantics: CompileToCharSet *)
 
   (** 22.2.2.9.1 CharacterRange ( A, B ) *)
-
   Definition characterRange (a b: CharSet): Result CharSet CompileError :=
     (* 1. Assert: A and B each contain exactly one character. *)
     assert! (CharSet.size a =? 1)%nat && (CharSet.size b =? 1)%nat ;
@@ -260,15 +259,90 @@ Module Semantics.
     assert! (i <=? j)%nat ;
     (* 7. Return the CharSet containing all characters with a character value in the inclusive interval from i to j. *)
     CharSet.range i j.
-
   (** End --- 22.2.2.9.1 CharacterRange ( A, B ) *)
 
-  Definition compileToCharSet_ClassAtom (self: ClassAtom) (rer: RegExp): Result CharSet CompileError  := match self with
+  (** 22.2.2.9.2 WordCharacters ( rer ) *)
+  Definition wordCharacters (rer: RegExp): Result CharSet CompileError :=
+    (* 1. Let basicWordChars be the CharSet containing every character in the ASCII word characters. *)
+    let basicWordChars := CharSet.ascii_word_characters in
+    (* 2. Let extraWordChars be the CharSet containing all characters c such that c is not in basicWordChars but Canonicalize(rer, c) is in basicWordChars. *)
+    let! extraWordChars =<< CharSet.filter CharSet.all (fun (c: Character) =>
+      let! canonicalized_c =<< canonicalize rer c in
+      negb (CharSet.contains basicWordChars c) && (CharSet.contains basicWordChars canonicalized_c)
+    ) in
+    (* 3. Assert: extraWordChars is empty unless rer.[[Unicode]] is true and rer.[[IgnoreCase]] is true. *)
+    (*+ TODO: check interpretation and whether we want to keep it *)
+    (* assert! (CharSet.is_empty extraWordChars) || ((RegExp.unicode rer is true) && (RegExp.ignoreCase rer is true)) ; *)
+    (* 4. Return the union of basicWordChars and extraWordChars. *)
+    CharSet.union basicWordChars extraWordChars.
+
+  Inductive compileToCharSet_ClassAtom_rel: ClassAtom -> ClassAtom -> Prop :=
+  | CTCS_d_rel: compileToCharSet_ClassAtom_rel (ClassEsc (ClassEscape.CharacterClassEsc CharacterClassEscape.d)) (ClassEsc (ClassEscape.CharacterClassEsc CharacterClassEscape.D))
+  | CTCS_s_rel: compileToCharSet_ClassAtom_rel (ClassEsc (ClassEscape.CharacterClassEsc CharacterClassEscape.s)) (ClassEsc (ClassEscape.CharacterClassEsc CharacterClassEscape.S))
+  | CTCS_w_rel: compileToCharSet_ClassAtom_rel (ClassEsc (ClassEscape.CharacterClassEsc CharacterClassEscape.w)) (ClassEsc (ClassEscape.CharacterClassEsc CharacterClassEscape.W)).
+  Lemma compileToCharSet_ClassAtom_rel_wf: well_founded compileToCharSet_ClassAtom_rel.
+  Proof.
+    intros [ ? | [ ] ]; constructor; intros ?; unfold MR; cbn; intros H; dependent destruction H.
+    all: constructor; intros ? H; cbn in H; dependent destruction H.
+  Defined.
+
+  #[program=yes]
+  Fixpoint compileToCharSet_ClassAtom (self: ClassAtom) (rer: RegExp)
+    {wf compileToCharSet_ClassAtom_rel self} : Result CharSet CompileError := match self with
   (** ClassAtom :: SourceCharacter *)
   (*+ Doesn't really follow the spec, as it poorly mimics ClassAtomNoDash :: SourceCharacter but not one of ... *)
   | SourceCharacter chr =>
       CharSet.singleton chr
+
+  (** ClassEscape ::
+        b
+        -
+        CharacterEscape *)
+  | ClassEsc (ClassEscape.b)
+  | ClassEsc (ClassEscape.Dash)
+  | ClassEsc (ClassEscape.CharacterEsc _) =>
+      (* 1. Let cv be the CharacterValue of this ClassEscape. *)
+      let! cv =<< characterValue self in
+      (* 2. Let c be the character whose character value is cv. *)
+      let c := Character.from_numeric_value cv in
+      (* 3. Return the CharSet containing the single character c. *)
+      CharSet.singleton c
+
+  (** CharacterClassEscape :: d *)
+  | ClassEsc (ClassEscape.CharacterClassEsc CharacterClassEscape.d) =>
+      (* 1. Return the ten-element CharSet containing the characters 0, 1, 2, 3, 4, 5, 6, 7, 8, and 9. *)
+      CharSet.digits
+
+  (** CharacterClassEscape :: D *)
+  | ClassEsc (ClassEscape.CharacterClassEsc CharacterClassEscape.D) =>
+      (* 1. Return the CharSet containing all characters not in the CharSet returned by CharacterClassEscape :: d . *)
+      let! d_set =<< compileToCharSet_ClassAtom (ClassEsc (ClassEscape.CharacterClassEsc CharacterClassEscape.d)) rer in
+      CharSet.remove_all CharSet.all d_set
+
+  (** CharacterClassEscape :: s *)
+  | ClassEsc (ClassEscape.CharacterClassEsc CharacterClassEscape.s) =>
+      (* 1. Return the CharSet containing all characters corresponding to a code point on the right-hand side of the WhiteSpace or LineTerminator productions. *)
+      CharSet.union CharSet.white_spaces CharSet.line_terminators
+
+  (** CharacterClassEscape :: S *)
+  | ClassEsc (ClassEscape.CharacterClassEsc CharacterClassEscape.S) =>
+      (* 1. Return the CharSet containing all characters not in the CharSet returned by CharacterClassEscape :: s . *)
+      let! s_set =<< compileToCharSet_ClassAtom (ClassEsc (ClassEscape.CharacterClassEsc CharacterClassEscape.s)) rer in
+      CharSet.remove_all CharSet.all s_set
+
+  (** CharacterClassEscape :: w *)
+  | ClassEsc (ClassEscape.CharacterClassEsc CharacterClassEscape.w) =>
+      (* 1. Return WordCharacters(rer). *)
+      wordCharacters rer
+
+  (** CharacterClassEscape :: W *)
+  | ClassEsc (ClassEscape.CharacterClassEsc CharacterClassEscape.W) =>
+      (* 1. Return the CharSet containing all characters not in the CharSet returned by CharacterClassEscape :: w . *)
+      let! w_set =<< compileToCharSet_ClassAtom (ClassEsc (ClassEscape.CharacterClassEsc CharacterClassEscape.w)) rer in
+      CharSet.remove_all CharSet.all w_set
   end.
+  Solve Obligations of compileToCharSet_ClassAtom_func with Tactics.program_simpl; constructor.
+  Final Obligation. apply measure_wf. apply compileToCharSet_ClassAtom_rel_wf. Defined.
 
   Fixpoint compileToCharSet (self: ClassRanges) (rer: RegExp): Result CharSet CompileError := match self with
   (** ClassRanges :: [empty] *)

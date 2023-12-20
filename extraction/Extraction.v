@@ -23,7 +23,10 @@ Extract Constant CodePoint.to_upper_case => "Interop.to_upper_case".
 Extract Constant GroupName => "int".
 Extract Constant GroupName.eqb => "Int.equal".
 
-Extract Constant CharSet.line_terminators => "Interop.line_terminators".
 Extract Constant CharSet.all => "Interop.all_chars".
+Extract Constant CharSet.line_terminators => "Interop.line_terminators".
+Extract Constant CharSet.white_spaces => "Interop.line_terminators".
+Extract Constant CharSet.digits => "Interop.line_terminators".
+Extract Constant CharSet.ascii_word_characters => "Interop.line_terminators".
 
 Extraction "Extracted.ml" Semantics.compilePattern.

@@ -5,6 +5,80 @@ From Warblre Require Import Base Notation.
 (* The RegExp constructor applies the following grammar to the input pattern String. An error occurs if the
   grammar cannot interpret the String as an expansion of Pattern *)
 Module Patterns.
+
+  (** CharacterClassEscape :: *)
+  Module CharacterClassEscape.
+    Inductive type :=
+    (* d *)
+    | d
+    (* D *)
+    | D
+    (* s *)
+    | s
+    (* S *)
+    | S
+    (* w *)
+    | w
+    (* W *)
+    | W.
+    (*+ TODO: Unicode property p P *)
+
+    Definition eqs (l r: type): {l = r} + {~ l = r}.
+    Proof. decide equality. Defined.
+  End CharacterClassEscape.
+  Notation CharacterClassEscape := CharacterClassEscape.type.
+
+  (** ControlEscape :: *)
+  Module ControlEscape.
+    Inductive type :=
+    (* f *)
+    | f
+    (* n *)
+    | n
+    (* r *)
+    | r
+    (* t *)
+    | t
+    (* v *)
+    | v.
+
+    Definition eqs (l r: type): {l = r} + {~ l = r}.
+    Proof. decide equality. Defined.
+  End ControlEscape.
+  Notation ControlEscape := ControlEscape.type.
+
+  (** CharacterEscape :: *)
+  Module CharacterEscape.
+    Inductive type :=
+    | ControlEsc (esc: ControlEscape)
+    (*+ TODO: c *)
+    (* 0 *)
+    | Zero
+    (*+ TODO: x *)
+    (*+ TODO: u *)
+    | IdentityEsc (chr: Character).
+
+    Definition eqs (l r: type): {l = r} + {~ l = r}.
+    Proof. decide equality; try apply ControlEscape.eqs; try apply Character.eqs. Defined.
+  End CharacterEscape.
+  Notation CharacterEscape := CharacterEscape.type.
+
+  (** ClassEscape :: *)
+  Module ClassEscape.
+    Inductive type :=
+    (* b *)
+    | b
+    (* - *)
+    | Dash
+    | CharacterClassEsc (esc: CharacterClassEscape)
+    | CharacterEsc (esc: CharacterEscape).
+
+    Definition eqs (l r: type): {l = r} + {~ l = r}.
+    Proof. decide equality; try apply CharacterClassEscape.eqs; try apply CharacterEscape.eqs. Defined.
+  End ClassEscape.
+  Notation ClassEscape := ClassEscape.type.
+
+
   (** QuantifierPrefix :: *)
   Inductive QuantifierPrefix :=
   | Star
@@ -22,11 +96,11 @@ Module Patterns.
   (** ClassAtom :: *)
   (** ClassAtomNoDash :: *)
   Inductive ClassAtom :=
-  | SourceCharacter (chr: Character).
-  (* Class escape *)
+  | SourceCharacter (chr: Character)
+  | ClassEsc (esc: ClassEscape).
   Module ClassAtom.
     Definition eqs (l r: ClassAtom): {l = r} + {~ l = r}.
-    Proof. decide equality. apply Character.eqs. Defined.
+    Proof. decide equality; try apply Character.eqs; try apply ClassEscape.eqs. Defined.
   End ClassAtom.
 
   (** ClassRanges :: *)
@@ -57,13 +131,13 @@ Module Patterns.
   | Empty
   | Char (chr: Character)
   | Dot
-  (* Atom escape *)
+  (*+ Atom escape *)
   | CharacterClass (cc: CharClass)
   | Disjunction (r1 r2: Regex)
   | Quantified (r: Regex) (q: Quantifier)
   | Seq (r1 r2: Regex)
   | Group (name: option GroupName) (r: Regex)
-  (* Assertions: ^ $ \b \B *)
+  (*+ Assertions: ^ $ \b \B *)
   | Lookahead (r: Regex)
   | NegativeLookahead (r: Regex)
   | Lookbehind (r: Regex)

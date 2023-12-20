@@ -436,6 +436,35 @@ Module List.
     Qed.
   End Exists.
 
+  Module Filter.
+    Fixpoint filter {T F: Type} (ls: list T) (f: T -> Result bool F): Result (list T) F := match ls with
+      | nil => Success nil
+      | h :: t =>
+        let! b: bool =<< f h in
+        let! t' =<< filter t f in
+        if b then
+          Success (h :: t')
+        else
+          Success t'
+      end.
+
+    Lemma failure_kind {T F: Type} {_: Result.AssertionError F}: forall ls g f,
+      @filter T F ls g = Failure f -> exists i v, Indexing.Nat.indexing ls i = Success v /\ g v = Failure f.
+    Proof.
+      induction ls; intros g f Ex; try discriminate.
+      cbn in Ex. destruct (g a) as [ [ | ] | ] eqn:Eq.
+      - destruct (filter ls g) eqn:Eq_rec.
+        + discriminate.
+        + injection Ex as ->. specialize IHls with (1 := Eq_rec) as [ i [ v [ Eq_indexed Eq_filter ]]].
+          exists (S i). exists v. split; assumption.
+      - destruct (filter ls g) eqn:Eq_rec.
+        + discriminate.
+        + injection Ex as ->. specialize IHls with (1 := Eq_rec) as [ i [ v [ Eq_indexed Eq_filter ]]].
+          exists (S i). exists v. split; assumption.
+      - injection Ex as ->. exists 0%nat. exists a. cbn. split; [ reflexivity | assumption].
+    Qed.
+  End Filter.
+
   Module Range.
     Module Nat.
       Definition IsRange (from to: nat) (ls: list nat) :=

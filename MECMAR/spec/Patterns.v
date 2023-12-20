@@ -2,7 +2,10 @@ From Coq Require Import List Program.Equality.
 From Warblre Require Import Base Notation.
 
 (** 22.2.1 Patterns *)
+(* The RegExp constructor applies the following grammar to the input pattern String. An error occurs if the
+  grammar cannot interpret the String as an expansion of Pattern *)
 Module Patterns.
+  (** QuantifierPrefix :: *)
   Inductive QuantifierPrefix :=
   | Star
   | Plus
@@ -11,34 +14,13 @@ Module Patterns.
   | RepPartialRange (min: non_neg_integer)
   | RepRange (min: non_neg_integer) (max: non_neg_integer) (inv: (min <=? max)%nat = true).
 
-(*   Module QuantifierPrefix.
-    Definition eqb (l r: QuantifierPrefix): {l = r} + {~ l = r}.
-    Proof. repeat decide equality. Defined.
-  End QuantifierPrefix. *)
-
+  (** Quantifier :: *)
   Inductive Quantifier :=
   | Greedy (p: QuantifierPrefix)
   | Lazy (p: QuantifierPrefix).
 
-(*   Module Quantifier.
-    Definition eqb (l r: Quantifier): {l = r} + {~ l = r}.
-    Proof. decide equality; apply QuantifierPrefix.eqb. Defined.
-  End Quantifier. *)
-
-(*   Module ClassAtom.
-    Definition eqb (l r: ClassAtom): {l = r} + {~ l = r}.
-    Proof. decide equality. apply Character.eqb. Defined.
-  End ClassAtom. *)
-
-(*   Inductive CharacterClassEscape :=
-  | Digit
-  | DigitNegated
-  | Whitespace
-  | WhitespaceNegated
-  | Word
-  | WordNegated. *)
-  (* Unicode property *)
-
+  (** ClassAtom :: *)
+  (** ClassAtomNoDash :: *)
   Inductive ClassAtom :=
   | SourceCharacter (chr: Character).
   (* Class escape *)
@@ -47,6 +29,9 @@ Module Patterns.
     Proof. decide equality. apply Character.eqs. Defined.
   End ClassAtom.
 
+  (** ClassRanges :: *)
+  (** NonemptyClassRanges :: *)
+  (** NonemptyClassRangesNoDash :: *)
   Inductive ClassRanges :=
   | EmptyCR
   | ClassAtomCR (ca: ClassAtom) (t: ClassRanges)
@@ -57,15 +42,17 @@ Module Patterns.
     Proof. decide equality; apply ClassAtom.eqs. Defined.
   End ClassRanges.
 
-(*   Module CharacterClass.
-    Definition eqb (l r: CharacterClass): {l = r} + {~ l = r}.
-    Proof. decide equality; apply ClassRanges.eqb. Defined.
-  End CharacterClass. *)
-
+  (** CharacterClass :: *)
   Inductive CharClass :=
   | NoninvertedCC (crs: ClassRanges)
   | InvertedCC (crs: ClassRanges).
 
+  (** Pattern *)
+  (** Disjunction *)
+  (** Alternative :: *)
+  (** Term :: *)
+  (** Assertion :: *)
+  (** Atom :: *)
   Inductive Regex :=
   | Empty
   | Char (chr: Character)
@@ -180,36 +167,6 @@ Module Patterns.
 
     Ltac down := auto with down.
   End Zip.
-
-(*   Inductive ZippedRegexPattern :=
-  | Empty
-  | Char (chr: Character)
-  | Disjunction (r1 r2: Regex)
-  | Quantified (r: Regex) (q: Quantifier)
-  | Seq (r1 r2: Regex)
-  | Group (id: nat) (r: Regex)
-  (* Assertions: ^ $ \b \B *)
-  | Lookahead (r: Regex)
-  | NegativeLookahead (r: Regex)
-  | Lookbehind (r: Regex)
-  | NegativeLookbehind (r: Regex)
-  | BackReference (id: nat).
-
-  Definition down (r: Regex): ZippedRegexPattern :=
-    let (r, ctx) := r in
-    match r with
-    | Empty_p => Empty
-    | Char_p chr => Char chr
-    | Disjunction_p l r => Disjunction (l, Disjunction_left r :: ctx) (r, Disjunction_right l :: ctx)
-    | Quantified_p r q => Quantified (r, Quantified_inner q :: ctx) q
-    | Seq_p l r => Seq (l, Seq_left r :: ctx) (r, Seq_right l :: ctx)
-    | Group_p id r => Group id (r, Group_inner id :: ctx)
-    | Lookahead_p r => Lookahead (r, Lookahead_inner :: ctx)
-    | NegativeLookahead_p r => Lookahead (r, Lookahead_inner :: ctx)
-    | Lookbehind_p r  => Lookbehind (r, Lookbehind_inner :: ctx)
-    | NegativeLookbehind_p r  => NegativeLookbehind (r, NegativeLookbehind_inner :: ctx)
-    | BackReference_p id  => BackReference id
-    end. *)
 
 End Patterns.
 Export Patterns.

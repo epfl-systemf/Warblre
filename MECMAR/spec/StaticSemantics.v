@@ -20,9 +20,6 @@ Module StaticSemantics.
   end.
 
   (** 22.2.1.1 Static Semantics: Early Errors *)
-  Inductive SyntaxStatus :=
-  | SyntaxOK
-  | SyntaxError.
 
   (** 22.2.1.2 Static Semantics: CountLeftCapturingParensWithin *)
   Fixpoint countLeftCapturingParensWithin_impl (r: Regex): non_neg_integer :=
@@ -61,21 +58,19 @@ Module StaticSemantics.
       end
     end.
   Definition countLeftCapturingParensBefore (r: Regex) (ctx: RegexContext): non_neg_integer := countLeftCapturingParensBefore_impl ctx.
-(*   Fixpoint countLeftCapturingParensBefore_rec (target: Regex) (acc: non_neg_integer) (walk: list Regex): option non_neg_integer :=
-    match walk with
-    | nil => None
-    | iter :: walk' =>
-      if Regex.eqb target iter then
-        Some acc
-      else match iter with
-        | Group _ _ => countLeftCapturingParensBefore_rec target (S acc) walk'
-        | _ => countLeftCapturingParensBefore_rec target acc walk'
-        end
-    end.
-
-  Definition countLeftCapturingParensBefore (node pattern: Regex): option non_neg_integer :=
-    countLeftCapturingParensBefore_rec node 0 (pre_order_walk pattern). *)
 
   (** 22.2.1.4 Static Semantics: CapturingGroupNumber *)
+
+  (** 22.2.1.5 Static Semantics: IsCharacterClass *)
+
+  (** 22.2.1.6 Static Semantics: CharacterValue *)
+
+  (** 22.2.1.7 Static Semantics: GroupSpecifiersThatMatch ( thisGroupName ) *)
+
+  (** 22.2.1.8 Static Semantics: CapturingGroupName *)
+
+  (** 22.2.1.9 Static Semantics: RegExpIdentifierCodePoints *)
+
+  (** 22.2.1.10 Static Semantics: RegExpIdentifierCodePoint *)
 End StaticSemantics.
 Export StaticSemantics.

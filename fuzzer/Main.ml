@@ -51,6 +51,8 @@ let rec regex_to_string (r:coq_Regex) : string =
   | Char (c) -> String.make 1 c
   | Dot -> String.make 1 '.'
   | CharacterClass cc -> failwith "TODO"
+  | AtomEsc (AtomEscape.DecimalEsc gid) ->"\\"^ string_of_int gid
+  | AtomEsc _ -> failwith "TODO"
   | Disjunction (r1, r2) -> noncap(regex_to_string r1) ^ "|" ^ noncap(regex_to_string r2)
   | Quantified (r1, q) -> noncap(regex_to_string r1) ^ quantifier_to_string q
   | Seq (r1, r2) -> noncap(regex_to_string r1) ^ noncap(regex_to_string r2)
@@ -59,7 +61,6 @@ let rec regex_to_string (r:coq_Regex) : string =
   | NegativeLookahead (r1) -> "(?!"^ regex_to_string r1 ^")"
   | Lookbehind (r1) -> "(?<="^ regex_to_string r1 ^ ")"
   | NegativeLookbehind (r1) -> "(?<!"^ regex_to_string r1 ^")"
-  | BackReference (gid) -> "\\"^ string_of_int gid
 
 (** * Calling the Node Matcher (V8 backtracking)  *)
 
@@ -201,7 +202,7 @@ let rec random_ast (depth:int) : coq_Regex =
   match rand with
   | 0 -> Empty
   | 1 | 2 | 3 -> let c = random_char() in Char(c)
-  | 4 -> BackReference 0        (* group id to be replaced later *)
+  | 4 -> AtomEsc (AtomEscape.DecimalEsc 0)        (* group id to be replaced later *)
   | 5 -> let r1 = random_ast (depth-1) in
          let r2 = random_ast (depth-1) in
          Disjunction (r1, r2)
@@ -226,7 +227,12 @@ let max_group (r:coq_Regex) : int =
 (* replacing each backreference number with a legal one, between 1 and the maximum group id  *)
 let rec fill_backref (r:coq_Regex) (maxgroup:int) : coq_Regex =
   match r with
-  | Empty | Char _ | Dot | CharacterClass _ -> r
+  | Empty | Char _ | Dot| CharacterClass _ -> r
+  | AtomEsc (AtomEscape.DecimalEsc _) ->
+      if (maxgroup = 0) then Empty
+      else let groupid = (Random.int maxgroup) + 1 in
+        AtomEsc (AtomEscape.DecimalEsc groupid)
+  | AtomEsc _ -> r
   | Disjunction (r1,r2) -> Disjunction (fill_backref r1 maxgroup, fill_backref r2 maxgroup)
   | Quantified (r1,quant) -> Quantified (fill_backref r1 maxgroup, quant)
   | Seq (r1,r2) -> Seq (fill_backref r1 maxgroup, fill_backref r2 maxgroup)
@@ -235,10 +241,6 @@ let rec fill_backref (r:coq_Regex) (maxgroup:int) : coq_Regex =
   | NegativeLookahead (r1) -> NegativeLookahead (fill_backref r1 maxgroup)
   | Lookbehind (r1) -> Lookbehind (fill_backref r1 maxgroup)
   | NegativeLookbehind (r1) -> NegativeLookbehind (fill_backref r1 maxgroup)
-  | BackReference _ ->
-     if (maxgroup = 0) then Empty
-     else let groupid = (Random.int maxgroup) + 1 in
-          BackReference groupid
 
 (* generates an AST then fills the backreferences numbers *)
 let random_regex (): coq_Regex =

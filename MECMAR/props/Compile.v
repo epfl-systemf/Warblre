@@ -50,8 +50,7 @@ Module Compile.
     | Lookahead: forall r, Regex r -> Regex (Patterns.Lookahead r)
     | NegativeLookahead: forall r, Regex r -> Regex (Patterns.NegativeLookahead r)
     | Lookbehind: forall r, Regex r -> Regex (Patterns.Lookbehind r)
-    | NegativeLookbehind: forall r, Regex r -> Regex (Patterns.NegativeLookbehind r)
-    | BackReference: forall id, Regex (BackReference id).
+    | NegativeLookbehind: forall r, Regex r -> Regex (Patterns.NegativeLookbehind r).
   End EarlyErrorsFree.
 
   Module Safety.

@@ -62,6 +62,9 @@ Module Correctness.
     | gbEmpty: forall n m, Ranges Empty n n m
     | gbChar: forall c n m, Ranges (Char c) n n m
     | gbDot: forall n m, Ranges Dot n n m
+    | gbAtomEsc_decimal: forall (id: positive_integer) n m, (proj1_sig id <= m)%nat -> Ranges (AtomEsc (AtomEscape.DecimalEsc id)) n n m
+    | gbAtomEsc_char_class_esc: forall esc n m, Ranges (AtomEsc (AtomEscape.CharacterClassEsc esc)) n n m
+    | gbAtomEsc_char_esc: forall esc n m, Ranges (AtomEsc (AtomEscape.CharacterEsc esc)) n n m
     | gbCharClass: forall cc n m, Ranges (CharacterClass cc) n n m
     | gbDisjunction: forall r1 r2 n1 n2 n3 m, Ranges r1 n1 n2 m -> Ranges r2 n2 n3 m -> Ranges (Disjunction r1 r2) n1 n3 m
     | gbQuantified: forall r q n1 n2 m, Ranges r n1 n2 m -> Ranges (Quantified r q) n1 n2 m
@@ -71,8 +74,7 @@ Module Correctness.
     | gbLookahead: forall r n1 n2 m, Ranges r n1 n2 m -> Ranges (Lookahead r) n1 n2 m
     | gbNegativeLookahead: forall r n1 n2 m, Ranges r n1 n2 m -> Ranges (NegativeLookahead r) n1 n2 m
     | gbLookbehind: forall r n1 n2 m, Ranges r n1 n2 m -> Ranges (Lookbehind r) n1 n2 m
-    | gbNegativeLookbehind: forall r n1 n2 m, Ranges r n1 n2 m -> Ranges (NegativeLookbehind r) n1 n2 m
-    | gbBackReference: forall (id: positive_integer) n m, (proj1_sig id <= m)%nat -> Ranges (BackReference id) n n m.
+    | gbNegativeLookbehind: forall r n1 n2 m, Ranges r n1 n2 m -> Ranges (NegativeLookbehind r) n1 n2 m.
     #[export]
     Hint Constructors Ranges : Warblre.
 
@@ -118,6 +120,10 @@ Module Correctness.
       - exists 0. constructor.
       - exists 0. constructor.
       - exists 0. constructor.
+      - destruct ae.
+        + exists (proj1_sig n + 1). constructor; lia.
+        + exists 0. constructor.
+        + exists 0. constructor.
       - exists 0. constructor.
       - destruct IHr1 as [ m1 H1 ].
         destruct IHr2 as [ m2 H2 ].
@@ -143,7 +149,6 @@ Module Correctness.
       - destruct IHr as [ m H ]. exists m. constructor. assumption.
       - destruct IHr as [ m H ]. exists m. constructor. assumption.
       - destruct IHr as [ m H ]. exists m. constructor. assumption.
-      - exists (proj1_sig id + 1). constructor; lia.
     Qed.
 
     Lemma unique_length_defs: forall r n n' m, Ranges r n n' m -> (n' - n) = (countLeftCapturingParensWithin_impl r).
@@ -582,6 +587,11 @@ Module Correctness.
       - injection Eq_m as <-. intros; search.
       - injection Eq_m as <-. apply characterSetMatcher.
       - injection Eq_m as <-. apply characterSetMatcher.
+      - destruct ae.
+        + focus § _ [] _ § auto destruct in Eq_m. injection Eq_m as <-.
+          apply backreferenceMatcher.
+        + destruct esc; focus § _ [] _ § auto destruct in Eq_m; injection Eq_m as <-; apply characterSetMatcher.
+        + destruct esc; focus § _ [] _ § auto destruct in Eq_m; injection Eq_m as <-; apply characterSetMatcher.
       - focus § _ [] _ § auto destruct in Eq_m. injection Eq_m as <-.
         apply characterSetMatcher.
       - focus § _ [] _ § auto destruct in Eq_m. injection Eq_m as <-.
@@ -630,8 +640,6 @@ Module Correctness.
         focus § _ [] _ § auto destruct in Eq_m; injection Eq_m as <-.
         focus § _ [] _ § auto destruct in Eq_z.
         search.
-      - focus § _ [] _ § auto destruct in Eq_m. injection Eq_m as <-.
-        apply backreferenceMatcher.
     Qed.
   End IntermediateValue.
 
@@ -854,6 +862,13 @@ Module Correctness.
         apply characterSetMatcher.
       - focus § _ [] _ § auto destruct in Eq_m; injection Eq_m as <-.
         apply characterSetMatcher.
+      - destruct ae.
+        + focus § _ [] _ § auto destruct in Eq_m; injection Eq_m as <-.
+          apply backreferenceMatcher.
+          apply Groups.counted_ranges with (2 := GR_r) in R_r as [ R _ ].
+          inversion R. assumption.
+        + destruct esc; focus § _ [] _ § auto destruct in Eq_m; injection Eq_m as <-; apply characterSetMatcher.
+        + destruct esc; focus § _ [] _ § auto destruct in Eq_m; injection Eq_m as <-; apply characterSetMatcher.
       - focus § _ [] _ § auto destruct in Eq_m; injection Eq_m as <-.
         apply characterSetMatcher.
       - intros x c Vx Sc.
@@ -919,10 +934,6 @@ Module Correctness.
         + apply IHr with (3 := AutoDest_); [ Zip.down | assumption ].
       - focus § _ [] _ § auto destruct in Eq_m; injection Eq_m as <-.
         apply negativeLookaroundMatcher with (dir' := backward). apply IHr with (3 := AutoDest_); [ Zip.down | assumption ].
-      - focus § _ [] _ § auto destruct in Eq_m; injection Eq_m as <-.
-        apply backreferenceMatcher.
-        apply Groups.counted_ranges with (2 := GR_r) in R_r as [ R _ ].
-        inversion R. assumption.
     Qed.
 
     Theorem compilePattern: forall r rer input i m,
@@ -1186,6 +1197,11 @@ Module Correctness.
         apply characterSetMatcher.
       - focus § _ [] _ § auto destruct in Eq_m; injection Eq_m as <-.
         apply characterSetMatcher.
+      - destruct ae.
+        + focus § _ [] _ § auto destruct in Eq_m; injection Eq_m as <-.
+          apply backreferenceMatcher.
+        + destruct esc; focus § _ [] _ § auto destruct in Eq_m; injection Eq_m as <-; apply characterSetMatcher.
+        + destruct esc; focus § _ [] _ § auto destruct in Eq_m; injection Eq_m as <-; apply characterSetMatcher.
       - focus § _ [] _ § auto destruct in Eq_m; injection Eq_m as <-.
         apply characterSetMatcher.
       - intros x c Vx H. unfold TerminatingMatcher in IHr1,IHr2.
@@ -1231,8 +1247,6 @@ Module Correctness.
         + apply IHr with (1 := AutoDest_).
       - focus § _ [] _ § auto destruct in Eq_m; injection Eq_m as <-.
         apply negativeLookaroundMatcher with (dir' := backward). apply IHr with (1 := AutoDest_).
-      - focus § _ [] _ § auto destruct in Eq_m; injection Eq_m as <-.
-        apply backreferenceMatcher.
     Qed.
 
     Lemma compilePattern: forall r rer input i m,

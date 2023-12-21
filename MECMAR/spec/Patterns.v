@@ -78,6 +78,18 @@ Module Patterns.
   End ClassEscape.
   Notation ClassEscape := ClassEscape.type.
 
+  (** AtomEscape :: *)
+  Module AtomEscape.
+    Inductive type :=
+    | DecimalEsc (n: positive_integer)
+    | CharacterClassEsc (esc: CharacterClassEscape)
+    | CharacterEsc (esc: CharacterEscape).
+    (* | GroupEsc (id: positive_integer). *)
+
+    (* Definition eqs (l r: type): {l = r} + {~ l = r}.
+    Proof. decide equality; try apply CharacterClassEscape.eqs; try apply CharacterEscape.eqs. Defined. *)
+  End AtomEscape.
+  Notation AtomEscape := AtomEscape.type.
 
   (** QuantifierPrefix :: *)
   Inductive QuantifierPrefix :=
@@ -131,7 +143,7 @@ Module Patterns.
   | Empty
   | Char (chr: Character)
   | Dot
-  (*+ Atom escape *)
+  | AtomEsc (ae: AtomEscape)
   | CharacterClass (cc: CharClass)
   | Disjunction (r1 r2: Regex)
   | Quantified (r: Regex) (q: Quantifier)
@@ -141,8 +153,8 @@ Module Patterns.
   | Lookahead (r: Regex)
   | NegativeLookahead (r: Regex)
   | Lookbehind (r: Regex)
-  | NegativeLookbehind (r: Regex)
-  | BackReference (id: positive_integer).
+  | NegativeLookbehind (r: Regex).
+  (* | BackReference (id: positive_integer). *)
 
   Inductive RegexContextLayer :=
   | Disjunction_left (r: Regex)

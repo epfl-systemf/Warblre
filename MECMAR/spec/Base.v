@@ -17,8 +17,7 @@ Definition non_neg_integer := nat.
 Definition positive_integer := { n: non_neg_integer | (0 < n)%nat }.
 Definition nat_to_nni (n: nat): non_neg_integer := n.
 Definition positive_to_non_neg (n: positive_integer): non_neg_integer := proj1_sig n.
-Coercion nat_to_nni: nat >-> non_neg_integer.
-Coercion positive_to_non_neg: positive_integer >-> non_neg_integer.
+Definition positive_to_nat (n: positive_integer): nat := proj1_sig n.
 (* Nat or Infinity *)
 Module NoI.
   Inductive non_neg_integer_or_inf :=
@@ -234,6 +233,9 @@ Notation "m 'is' p" := (match m with | p => true | _ => false end) (at level 100
 Notation "m 'is' 'not' p" := (match m with | p => false | _ => true end) (at level 100, p pattern, no associativity).
 
 Module Coercions.
+  Coercion nat_to_nni: nat >-> non_neg_integer.
+  Coercion positive_to_non_neg: positive_integer >-> non_neg_integer.
+  Coercion positive_to_nat: positive_integer >-> nat.
   Coercion wrap_result := fun (F: Type) (v: non_neg_integer) => @Success _ F v.
 End Coercions.
 

@@ -2,6 +2,7 @@ From Coq Require Import PeanoNat ZArith Bool Lia Program.Equality List Program.W
 From Warblre Require Import Tactics Focus Result Base Patterns StaticSemantics Notation List.
 
 Import Result.Notations.
+Import Coercions.
 Import NoI.Coercions.
 Local Open Scope result_flow.
 
@@ -15,6 +16,12 @@ Module Semantics.
   Coercion CaptureRange_or_undefined(cr: CaptureRange) := (Some cr).
   Coercion MatchState_or_failure(x: MatchState) := (Some x).
   Coercion Z.of_nat: nat >-> Z.
+  Coercion CharacterClassEscape_to_ClassEscape := fun (cce: CharacterClassEscape) => ClassEscape.CharacterClassEsc cce.
+  Coercion CharacterEscape_to_ClassEscape := fun (ce: CharacterEscape) => ClassEscape.CharacterEsc ce.
+  Coercion ClassEscape_to_ClassAtom := fun (ce: ClassEscape) => ClassEsc ce.
+  Coercion ClassAtom_to_range := fun (c: ClassAtom) => ClassAtomCR c EmptyCR.
+
+
   (* These are used to wrap things into the error monad we will be using *)
   Coercion wrap_option := fun (T: Type) (t: option T) => @Success _ MatchError t.
   Coercion wrap_char := fun (F: Type) (c: Character) => @Success _ F c.
@@ -717,13 +724,32 @@ Module Semantics.
           m x d): Matcher
 
       (** AtomEscape :: DecimalEscape *)
-      | BackReference de =>
+      | AtomEsc (AtomEscape.DecimalEsc de) =>
           (* 1. Let n be the CapturingGroupNumber of DecimalEscape. *)
           let n := de in
           (* 2. Assert: n ≤ rer.[[CapturingGroupsCount]]. *)
-          (* assert! (n <=? RegExp.capturingGroupsCount rer); *)
+          assert! (n <=? RegExp.capturingGroupsCount rer)%nat;
           (* 3. Return BackreferenceMatcher(rer, n, direction).*)
           backreferenceMatcher rer n direction
+
+      (** AtomEscape :: CharacterEscape *)
+      | AtomEsc (AtomEscape.CharacterEsc ce) =>
+          (* 1. Let cv be the CharacterValue of CharacterEscape. *)
+          let! cv =<< characterValue ce in
+          (* 2. Let ch be the character whose character value is cv. *)
+          let! ch =<< Character.from_numeric_value cv in
+          (* 3. Let A be a one-element CharSet containing the character ch. *)
+          let a := CharSet.singleton ch in
+          (* 4. Return CharacterSetMatcher(rer, A, false, direction). *)
+          characterSetMatcher rer a false direction
+
+      (** AtomEscape :: CharacterClassEscape *)
+      | AtomEsc (AtomEscape.CharacterClassEsc cce) =>
+          (* 1. Let A be CompileToCharSet of CharacterClassEscape with argument rer. *)
+          let! a =<< compileToCharSet cce rer in
+          (* 2. Return CharacterSetMatcher(rer, A, false, direction). *)
+          characterSetMatcher rer a false direction
+
       (** End --- 22.2.2.7 Runtime Semantics: CompileAtom *)
 
   (** Term :: Atom Quantifier *)

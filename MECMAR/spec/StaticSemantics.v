@@ -9,6 +9,7 @@ Module StaticSemantics.
   | Empty => r :: nil
   | Char _ => r :: nil
   | Dot => r :: nil
+  | AtomEsc _ => r :: nil
   | CharacterClass _ => r :: nil
   | Disjunction r1 r2 => r :: (pre_order_walk r1 ++ pre_order_walk r2)
   | Quantified r0 _ => r :: (pre_order_walk r0)
@@ -18,7 +19,6 @@ Module StaticSemantics.
   | NegativeLookahead r0 => r :: (pre_order_walk r0)
   | Lookbehind r0 => r :: (pre_order_walk r0)
   | NegativeLookbehind r0 => r :: (pre_order_walk r0)
-  | BackReference _ => r :: nil
   end.
 
   (** 22.2.1.1 Static Semantics: Early Errors *)
@@ -29,6 +29,7 @@ Module StaticSemantics.
     | Empty => 0
     | Char _ => 0
     | Dot => 0
+    | AtomEsc _ => 0
     | CharacterClass _ => 0
     | Disjunction r1 r2 => (countLeftCapturingParensWithin_impl r1) + (countLeftCapturingParensWithin_impl r2)
     | Quantified r0 _ => countLeftCapturingParensWithin_impl r0
@@ -38,7 +39,6 @@ Module StaticSemantics.
     | NegativeLookahead r0 => countLeftCapturingParensWithin_impl r0
     | Lookbehind r0 => countLeftCapturingParensWithin_impl r0
     | NegativeLookbehind r0 => countLeftCapturingParensWithin_impl r0
-    | BackReference _ => 0
     end.
   Definition countLeftCapturingParensWithin (r: Regex) (ctx: RegexContext): non_neg_integer := countLeftCapturingParensWithin_impl r.
 

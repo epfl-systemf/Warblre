@@ -10,8 +10,8 @@ open Helpers
 (** * Fuzzer parameters  *)
 
 (* we restrict ourselves to a small alphabet *)
-(* with a dash (non-ascii) to test word boundaries *)
-let alphabet : char list = ['a'; 'b'; '-']
+(* with a sharp to test word boundaries *)
+let alphabet : char list = ['#'; 'a'; 'b']
 
 (* maximum bound for counted repetition *)
 let max_counted = 10
@@ -50,7 +50,21 @@ let rec regex_to_string (r:coq_Regex) : string =
   | Empty -> ""
   | Char (c) -> String.make 1 c
   | Dot -> String.make 1 '.'
-  | CharacterClass cc -> failwith "TODO"
+  | CharacterClass cc ->
+    let class_atom_to_string ca = match ca with
+      | SourceCharacter '-' -> failwith "Unsupported char '-'"
+      | SourceCharacter c -> String.make 1 c
+      | ClassEsc _ -> failwith "TODO"
+    in
+    let rec range_to_string r = match r with
+      | EmptyCR -> ""
+      | ClassAtomCR (ca, r) -> (class_atom_to_string ca) ^ (range_to_string r)
+      | RangeCR (l, h, r) -> (class_atom_to_string l) ^ "-" ^ (class_atom_to_string h) ^ (range_to_string r)
+    in
+    (match cc with
+    | NoninvertedCC r -> "[" ^ (range_to_string r) ^ "]"
+    | InvertedCC r -> "[^" ^ (range_to_string r) ^ "]"
+    )
   | AtomEsc (AtomEscape.DecimalEsc gid) ->"\\"^ string_of_int gid
   | AtomEsc _ -> failwith "TODO"
   | Disjunction (r1, r2) -> noncap(regex_to_string r1) ^ "|" ^ noncap(regex_to_string r2)
@@ -187,6 +201,17 @@ let random_quant () : coq_Quantifier =
   let qp = random_qp () in
   if (Random.bool ()) then Greedy qp else Lazy qp
 
+let random_char_ranges () : coq_ClassRanges =
+  List.fold_left (fun current _ ->
+    if Random.bool() then
+      let c = random_char() in
+      ClassAtomCR (SourceCharacter c, current)
+    else
+      let c1 = random_char() in
+      let c2 = random_char() in
+      let cs = if c1 <= c2 then (c1, c2) else (c2, c1) in
+      RangeCR (SourceCharacter (fst cs), SourceCharacter (snd cs), current)
+  ) EmptyCR (List.init (Random.int 3) (fun x -> x))
 
 (* We generate regexes in two steps *)
 (* First we generate a random AST, where backreferences are all set to 0 (an invalid backref index) *)
@@ -194,32 +219,83 @@ let random_quant () : coq_Quantifier =
 (* Next we replace the backreference indices by indices between 1 and the maximum group index *)
 (* If no groups are available, we replace backreferences with empty *)
 
-let rec random_ast (depth:int) : coq_Regex =
-  (* maximum cases *)
-  let max = 13 in
-  (* if at max depth, generate only terminals *)
-  let rand = if (depth=0) then (Random.int 5) else (Random.int max) in
-  match rand with
-  | 0 -> Empty
-  | 1 | 2 | 3 -> let c = random_char() in Char(c)
-  | 4 -> AtomEsc (AtomEscape.DecimalEsc 0)        (* group id to be replaced later *)
-  | 5 -> let r1 = random_ast (depth-1) in
-         let r2 = random_ast (depth-1) in
-         Disjunction (r1, r2)
-  | 6 | 7 -> let r1 = random_ast (depth-1) in
-         let quant = random_quant () in
-         Quantified (r1, quant)
-  | 8 -> let r1 = random_ast (depth-1) in
-         Group (None, r1)       (* TODO: generate named groups *)
-  | 9 -> let r1 = random_ast (depth-1) in
-         Lookahead (r1)
-  | 10 -> let r1 = random_ast (depth-1) in
-         NegativeLookahead (r1)
-  | 11 -> let r1 = random_ast (depth-1) in
+let ticketTableNonRec: (int * (unit -> coq_Regex)) list = [
+  ( 1, fun _ -> Empty);
+  ( 1, fun _ ->
+      let r = random_char_ranges () in
+      let cc = if Random.bool() then NoninvertedCC (r) else InvertedCC(r) in
+      CharacterClass (cc)
+  ); 
+  ( 3, fun _ -> let c = random_char() in Char(c));
+  ( 1, fun _ -> AtomEsc (AtomEscape.DecimalEsc 0));
+  ( 1, fun _ -> Dot);
+]
+
+let ticketTableRec: (int * (int -> (int -> coq_Regex) -> coq_Regex)) list = [
+  ( 3, fun depth random_ast -> 
+        let r1 = random_ast (depth-1) in
+        let r2 = random_ast (depth-1) in
+        Disjunction (r1, r2)
+  );
+  ( 5, fun depth random_ast -> 
+        let r1 = random_ast (depth-1) in
+        let r2 = random_ast (depth-1) in
+        Seq (r1, r2)
+  );
+  ( 2, fun depth random_ast ->
+        let r1 = random_ast (depth-1) in
+        let quant = random_quant () in
+        Quantified (r1, quant)
+  );
+  ( 2, fun depth random_ast ->
+        let r1 = random_ast (depth-1) in
+        Group (None, r1)       (* TODO: generate named groups *)
+  );
+  ( 1, fun depth random_ast ->
+        let r1 = random_ast (depth-1) in
+        Lookahead (r1)
+  );
+  ( 1, fun depth random_ast ->
+        let r1 = random_ast (depth-1) in
+        NegativeLookahead (r1)
+  );
+  ( 1, fun depth random_ast ->
+          let r1 = random_ast (depth-1) in
           Lookbehind (r1)
-  | 12 -> let r1 = random_ast (depth-1) in
+  );
+  ( 1, fun depth random_ast ->
+          let r1 = random_ast (depth-1) in
           NegativeLookbehind (r1)
-  | _ -> failwith "random range error"
+  );
+]
+
+module Lookup = Map.Make (Int);;
+let build_lookup (ls: (int * 'a) list): 'a Lookup.t =
+    snd (List.fold_left ( fun acc p ->
+      let (current, lookup) = acc in
+      let (tickets, v) = p in
+      let lookup = ref lookup in
+      for i = 1 to tickets do
+        lookup := Lookup.add (current + i - 1) v !lookup
+      done;
+      (current + tickets, !lookup)
+    ) (0, Lookup.empty) ls)
+
+let base_lookup = build_lookup ticketTableNonRec
+let full_lookup = build_lookup (List.concat [ 
+  List.map (fun p -> let (t, f) = p in (t, fun _ _ -> f ())) ticketTableNonRec ; 
+  ticketTableRec
+  ])
+
+let rec random_ast (depth:int) : coq_Regex =
+  if (depth=0) then
+    let rand = Random.int (Lookup.cardinal base_lookup) in
+    let gen = Lookup.find rand base_lookup in
+    gen ()
+  else
+    let rand = Random.int (Lookup.cardinal full_lookup) in
+    let gen = Lookup.find rand full_lookup in
+    gen depth random_ast
 
 let max_group (r:coq_Regex) : int =
   countLeftCapturingParensWithin_impl r

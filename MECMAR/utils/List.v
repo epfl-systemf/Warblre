@@ -31,8 +31,14 @@ Module List.
       | _ => Result.assertion_failed
       end.
 
+    Lemma success {T F: Type} {_: Result.AssertionError F}: forall (ls: list T) v, unique ls = Success v -> ls = v :: nil.
+    Proof. intros. destruct ls; cbn. - Result.assertion_failed_helper. - destruct ls. + cbn in H. injection H as <-. reflexivity. + Result.assertion_failed_helper. Qed.
+
     Lemma failure_bounds {T F: Type} {_: Result.AssertionError F}: forall (ls: list T) f, unique ls = Failure f -> (length ls <> 1)%nat.
     Proof. intros. destruct ls; cbn. - lia. - destruct ls; cbn. + discriminate. + lia. Qed.
+
+    Lemma head {T F: Type} {_: Result.AssertionError F}: forall h (t: list T) v, unique (h :: t) = Success v -> h = v.
+    Proof. intros. destruct t; cbn in *. - injection H as <-. reflexivity. - Result.assertion_failed_helper. Qed.
   End Unique.
 
   Module FoldResult.
@@ -123,6 +129,26 @@ Module List.
         - destruct t.
           + reflexivity.
           + unfold indexing. cbn. reflexivity.
+      Qed.
+
+      Lemma concat' {T F: Type} {_: Result.AssertionError F}: forall (tl tr: list T) (i: nat),
+        (i < List.length tl /\ indexing (tl ++ tr) i = indexing tl i)%nat \/
+        (List.length tl <= i /\ indexing (tl ++ tr) i = indexing tr (i - List.length tl))%nat.
+      Proof.
+        unfold indexing.
+        intros tl tr i.
+        destruct (lt_dec i (List.length tl)).
+        - left. split; [ assumption | ]. rewrite -> nth_error_app1 by assumption. reflexivity.
+        - right. assert (List.length tl <= i)%nat by lia. split; [ assumption | ].
+          rewrite -> nth_error_app2 by assumption. reflexivity.
+      Qed.
+
+      Lemma concat {T F: Type} {_: Result.AssertionError F}: forall (tl tr: list T) (i: nat) v,
+        indexing (tl ++ tr) i = v ->
+        (i < List.length tl /\  v = indexing tl i)%nat \/
+        (List.length tl <= i /\ v = indexing tr (i - List.length tl))%nat.
+      Proof.
+        intros. destruct (concat' tl tr i) as [[ ? ?] | [ ? ? ]]; subst; [left; split | right; split]; assumption.
       Qed.
 
       Lemma repeat {T F: Type} {failure: Result.AssertionError F}: forall n v i v',

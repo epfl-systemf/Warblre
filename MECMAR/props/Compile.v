@@ -104,44 +104,54 @@ Module Compile.
     Qed.
 
     Lemma compileSubPattern: forall r ctx rer dir,
-      EarlyErrors.Pass.Regex r (RegExp.capturingGroupsCount rer) ->
+      countLeftCapturingParensWithin (zip r ctx) nil = RegExp.capturingGroupsCount rer ->
+      EarlyErrors.Pass.Regex r ctx ->
       compileSubPattern r ctx rer dir <> compile_assertion_failed.
     Proof.
-      induction r; intros ctx rer dir H; dependent destruction H; cbn; try discriminate.
-      - focus § _ (_ [] _) § auto destruct.
-        + dependent destruction H. boolean_simplifier. spec_reflector Nat.leb_spec0. contradiction.
+      induction r; intros ctx rer dir H EE_r; dependent destruction EE_r; cbn; try discriminate.
+      - focus § _ (_ [] _) § auto destruct; dependent destruction H0.
+        + boolean_simplifier. spec_reflector Nat.leb_spec0. destruct n. cbn in *. lia.
         + repeat match goal with | [ H: _ = Failure _ |- _ ] => focus § _ [] _ § auto destruct in H; try injection H as -> end.
           * exfalso. destruct f. apply (wordCharacters _ ltac:(eassumption)).
           * exfalso. destruct f. apply (wordCharacters _ ltac:(eassumption)).
         + repeat match goal with | [ H: _ = Failure _ |- _ ] => focus § _ [] _ § auto destruct in H; try injection H as -> end.
+        + boolean_simplifier. spec_reflector Nat.eqb_spec. contradiction.
+        + destruct (groupSpecifiersThatMatch (AtomEsc (AtomEscape.GroupEsc id)) ctx id) eqn:Eq_gstm; try discriminate.
+          destruct p. apply EarlyErrors.groupSpecifiersThatMatch_head_is_group in Eq_gstm as [ ? [ ? -> ] ].
+          unfold NonNegInt.to_positive in *. focus § _ [] _ § auto destruct in AutoDest_2.
+          apply List.Unique.head in AutoDest_1. subst. cbn in *. lia.
+        + boolean_simplifier. spec_reflector Nat.eqb_spec.
+          apply List.Unique.failure_bounds in AutoDest_1. contradiction.
       - focus § _ (_ [] _) § auto destruct; destruct f; try easy.
-        exfalso. apply (compileCharacterClass _ _ H ltac:(eassumption)).
+        exfalso. apply (compileCharacterClass _ _ H0 ltac:(eassumption)).
       - focus § _ (_ [] _) § auto destruct; destruct f; try easy.
-        + exfalso. apply IHr2 with (2 := ltac:(eassumption)). assumption.
-        + exfalso. apply IHr1 with (2 := ltac:(eassumption)). assumption.
+        + exfalso. apply IHr2 with (3 := ltac:(eassumption)); assumption.
+        + exfalso. apply IHr1 with (3 := ltac:(eassumption)); assumption.
       - focus § _ (_ [] _) § auto destruct. destruct f; try easy.
-        exfalso. apply IHr with (2 := ltac:(eassumption)). assumption.
+        exfalso. apply IHr with (3 := ltac:(eassumption)); assumption.
       - focus § _ (_ [] _) § auto destruct; destruct f; try easy.
-        + exfalso. apply IHr2 with (2 := ltac:(eassumption)). assumption.
-        + exfalso. apply IHr1 with (2 := ltac:(eassumption)). assumption.
+        + exfalso. apply IHr2 with (3 := ltac:(eassumption)); assumption.
+        + exfalso. apply IHr1 with (3 := ltac:(eassumption)); assumption.
       - focus § _ (_ [] _) § auto destruct; destruct f; try easy.
-        exfalso. apply IHr with (2 := ltac:(eassumption)). assumption.
+        exfalso. apply IHr with (3 := ltac:(eassumption)); assumption.
       - focus § _ (_ [] _) § auto destruct; destruct f; try easy.
-        exfalso. apply IHr with (2 := ltac:(eassumption)). assumption.
+        exfalso. apply IHr with (3 := ltac:(eassumption)); assumption.
       - focus § _ (_ [] _) § auto destruct; destruct f; try easy.
-        exfalso. apply IHr with (2 := ltac:(eassumption)). assumption.
+        exfalso. apply IHr with (3 := ltac:(eassumption)); assumption.
       - focus § _ (_ [] _) § auto destruct; destruct f; try easy.
-        exfalso. apply IHr with (2 := ltac:(eassumption)). assumption.
+        exfalso. apply IHr with (3 := ltac:(eassumption)); assumption.
       - focus § _ (_ [] _) § auto destruct; destruct f; try easy.
-        exfalso. apply IHr with (2 := ltac:(eassumption)). assumption.
+        exfalso. apply IHr with (3 := ltac:(eassumption)); assumption.
     Qed.
 
     Lemma compilePattern: forall r rer,
-      EarlyErrors.Pass.Regex r (RegExp.capturingGroupsCount rer) ->
+      countLeftCapturingParensWithin r nil = RegExp.capturingGroupsCount rer ->
+      EarlyErrors.Pass.Regex r nil ->
       compilePattern r rer <> compile_assertion_failed.
     Proof.
-      intros r rer H. unfold compilePattern. focus § _ (_ [] _) § auto destruct; destruct f; try easy.
-      exfalso. apply (compileSubPattern _ _ _ _ H AutoDest_).
+      intros r rer H0 H1. unfold compilePattern. focus § _ (_ [] _) § auto destruct; destruct f; try easy.
+      rewrite <- (Zip.id r) in H0.
+      exfalso. apply (compileSubPattern _ _ _ _ H0 H1 AutoDest_).
     Qed.
   End Safety.
 End Compile.

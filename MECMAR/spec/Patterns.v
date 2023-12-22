@@ -6,6 +6,14 @@ From Warblre Require Import Base Notation.
   grammar cannot interpret the String as an expansion of Pattern *)
 Module Patterns.
 
+  (** GroupName :: *)
+  Module GroupName.
+    Parameter type: Type.
+
+    Parameter eqs: forall (l r: type), {l = r} + {~ (l = r)}.
+  End GroupName.
+  Notation GroupName := GroupName.type.
+
   (** CharacterClassEscape :: *)
   Module CharacterClassEscape.
     Inductive type :=
@@ -83,8 +91,8 @@ Module Patterns.
     Inductive type :=
     | DecimalEsc (n: positive_integer)
     | CharacterClassEsc (esc: CharacterClassEscape)
-    | CharacterEsc (esc: CharacterEscape).
-    (* | GroupEsc (id: positive_integer). *)
+    | CharacterEsc (esc: CharacterEscape)
+    | GroupEsc (id: GroupName).
 
     (* Definition eqs (l r: type): {l = r} + {~ l = r}.
     Proof. decide equality; try apply CharacterClassEscape.eqs; try apply CharacterEscape.eqs. Defined. *)
@@ -193,9 +201,15 @@ Module Patterns.
   Module Root.
     Lemma id: forall r, Root r r nil.
     Proof. intros. reflexivity. Qed.
+
+    Lemma nil: forall r r', Root r r' nil -> r = r'.
+    Proof. intros. unfold Root in H. cbn in H. assumption. Qed.
   End Root.
 
   Module Zip.
+    Lemma id: forall r, zip r nil = r.
+    Proof. intros. reflexivity. Qed.
+
     Lemma concat: forall ctx0 ctx1 r, (zip (zip r ctx0) ctx1) = zip r (ctx0 ++ ctx1).
     Proof.
       induction ctx0; intros ctx1 r.
@@ -250,7 +264,7 @@ Module Patterns.
     #[export]
     Hint Resolve Down.lookahead_inner Down.negativeLookahead_inner Down.lookbehind_inner Down.negativeLookbehind_inner: down.
 
-    Ltac down := auto with down.
+    Ltac down := eauto with down.
   End Zip.
 
 End Patterns.

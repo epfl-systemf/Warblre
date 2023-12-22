@@ -1,25 +1,49 @@
 From Coq Require Import List.
-From Warblre Require Import Base Result Patterns.
+From Warblre Require Import List Base Result Patterns.
 
 Import Coercions.
 
 Module StaticSemantics.
 
-  Fixpoint pre_order_walk (r: Regex): list Regex := match r with
-  | Empty => r :: nil
-  | Char _ => r :: nil
-  | Dot => r :: nil
-  | AtomEsc _ => r :: nil
-  | CharacterClass _ => r :: nil
-  | Disjunction r1 r2 => r :: (pre_order_walk r1 ++ pre_order_walk r2)
-  | Quantified r0 _ => r :: (pre_order_walk r0)
-  | Seq r1 r2 => r :: (pre_order_walk r1 ++ pre_order_walk r2)
-  | Group _ r0 => r :: (pre_order_walk r0)
-  | Lookahead r0 => r :: (pre_order_walk r0)
-  | NegativeLookahead r0 => r :: (pre_order_walk r0)
-  | Lookbehind r0 => r :: (pre_order_walk r0)
-  | NegativeLookbehind r0 => r :: (pre_order_walk r0)
-  end.
+  Fixpoint pre_order_walk (r: Regex) (ctx: RegexContext): list (Regex * RegexContext) :=
+    (r, ctx) ::
+    match r with
+    | Empty => nil
+    | Char _ => nil
+    | Dot => nil
+    | CharacterClass _ => nil
+    | AtomEsc _ => nil
+    | Disjunction r1 r2 => pre_order_walk r1 (Disjunction_left r2 :: ctx) ++ pre_order_walk r2 (Disjunction_right r1 :: ctx)
+    | Quantified r0 q => pre_order_walk r0 (Quantified_inner q :: ctx)
+    | Seq r1 r2 => pre_order_walk r1 (Seq_left r2 :: ctx) ++ pre_order_walk r2 (Seq_right r1 :: ctx)
+    | Group name r0 => pre_order_walk r0 (Group_inner name :: ctx)
+    | Lookahead r0 => pre_order_walk r0 (Lookahead_inner :: ctx)
+    | NegativeLookahead r0 => pre_order_walk r0 (NegativeLookahead_inner :: ctx)
+    | Lookbehind r0 => pre_order_walk r0 (Lookbehind_inner :: ctx)
+    | NegativeLookbehind r0 => pre_order_walk r0 (NegativeLookbehind_inner :: ctx)
+    end.
+
+  Lemma pre_order_walk_roots: forall r ctx i r' ctx', List.Indexing.Nat.indexing (pre_order_walk r ctx) i = Success (r', ctx') -> zip r ctx = zip r' ctx'.
+  Proof.
+    induction r; intros; cbn in *; (destruct i; [ intros; cbn in *; injection H as <- <-; reflexivity | rewrite -> List.Indexing.Nat.cons in H ]).
+    + rewrite -> List.Indexing.Nat.nil in H. Result.assertion_failed_helper.
+    + rewrite -> List.Indexing.Nat.nil in H. Result.assertion_failed_helper.
+    + rewrite -> List.Indexing.Nat.nil in H. Result.assertion_failed_helper.
+    + rewrite -> List.Indexing.Nat.nil in H. Result.assertion_failed_helper.
+    + rewrite -> List.Indexing.Nat.nil in H. Result.assertion_failed_helper.
+    + apply List.Indexing.Nat.concat in H as  [[ _ ? ]|[ _ ? ]].
+      * symmetry in H. rewrite <- IHr1 with (1 := H). cbn. reflexivity.
+      * symmetry in H. rewrite <- IHr2 with (1 := H). cbn. reflexivity.
+    + rewrite <- IHr with (1 := H). cbn. reflexivity.
+    + apply List.Indexing.Nat.concat in H as  [[ _ ? ]|[ _ ? ]].
+      * symmetry in H. rewrite <- IHr1 with (1 := H). cbn. reflexivity.
+      * symmetry in H. rewrite <- IHr2 with (1 := H). cbn. reflexivity.
+    + rewrite <- IHr with (1 := H). cbn. reflexivity.
+    + rewrite <- IHr with (1 := H). cbn. reflexivity.
+    + rewrite <- IHr with (1 := H). cbn. reflexivity.
+    + rewrite <- IHr with (1 := H). cbn. reflexivity.
+    + rewrite <- IHr with (1 := H). cbn. reflexivity.
+  Qed.
 
   (** 22.2.1.1 Static Semantics: Early Errors *)
 
@@ -112,6 +136,26 @@ Module StaticSemantics.
   end.
 
   (** 22.2.1.7 Static Semantics: GroupSpecifiersThatMatch ( thisGroupName ) *)
+  Definition groupSpecifiersThatMatch (r: Regex) (ctx: RegexContext) (thisGroupName: GroupName): list (Regex * RegexContext) :=
+    (* 1. Let name be the CapturingGroupName of thisGroupName. *)
+    let name := thisGroupName in
+    (* 2. Let pattern be the Pattern containing thisGroupName. *)
+    let pattern := zip r ctx in
+    (* 3. Let result be a new empty List. *)
+    (* 4. For each GroupSpecifier gs that pattern contains, do *)
+    let result := List.flat_map ( fun r => match r with
+      | (Group (Some gs) inner, ctx) =>
+        (* a. If the CapturingGroupName of gs is name, then *)
+        if (GroupName.eqs gs name) then
+          (* i. Append gs to result. *)
+          (inner, Group_inner (Some gs) :: ctx) :: nil
+        else nil
+      | _ => nil
+      end
+      ) (pre_order_walk pattern nil)
+    in
+    (* 5. Return result. *)
+    result.
 
   (** 22.2.1.8 Static Semantics: CapturingGroupName *)
 

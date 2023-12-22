@@ -760,6 +760,20 @@ Module Semantics.
           (* 2. Return CharacterSetMatcher(rer, A, false, direction). *)
           characterSetMatcher rer a false direction
 
+      (** AtomEscape :: k GroupName *)
+      | AtomEsc (AtomEscape.GroupEsc gn) =>
+          (* 1. Let matchingGroupSpecifiers be GroupSpecifiersThatMatch(GroupName). *)
+          let matchingGroupSpecifiers := groupSpecifiersThatMatch self ctx gn in
+          (* 2. Assert: matchingGroupSpecifiers contains a single GroupSpecifier. *)
+          assert! (List.length matchingGroupSpecifiers =? 1)%nat ;
+          (* 3. Let groupSpecifier be the sole element of matchingGroupSpecifiers. *)
+          let! groupSpecifier =<< List.Unique.unique matchingGroupSpecifiers in
+          (* 4. Let parenIndex be CountLeftCapturingParensBefore(groupSpecifier). *)
+          let parenIndex := countLeftCapturingParensBefore (fst groupSpecifier) (snd groupSpecifier) in
+          let! parenIndex =<< NonNegInt.to_positive parenIndex in
+          (* 5. Return BackreferenceMatcher(rer, parenIndex, direction). *)
+          backreferenceMatcher rer parenIndex direction
+
       (** End --- 22.2.2.7 Runtime Semantics: CompileAtom *)
 
   (** Term :: Atom Quantifier *)

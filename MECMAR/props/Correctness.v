@@ -434,6 +434,8 @@ Module Correctness.
           apply backreferenceMatcher.
         + destruct esc; focus § _ [] _ § auto destruct in Eq_m; injection Eq_m as <-; apply characterSetMatcher.
         + destruct esc; focus § _ [] _ § auto destruct in Eq_m; injection Eq_m as <-; apply characterSetMatcher.
+        + focus § _ [] _ § auto destruct in Eq_m. injection Eq_m as <-.
+          apply backreferenceMatcher.
       - focus § _ [] _ § auto destruct in Eq_m. injection Eq_m as <-.
         apply characterSetMatcher.
       - focus § _ [] _ § auto destruct in Eq_m. injection Eq_m as <-.
@@ -674,14 +676,14 @@ Module Correctness.
     Qed.
 
     Lemma compileSubPattern: forall rer root r ctx dir str m,
+      countLeftCapturingParensWithin root nil = RegExp.capturingGroupsCount rer ->
       Root root r ctx ->
-      EarlyErrors.Pass.Regex root (RegExp.capturingGroupsCount rer) ->
-      EarlyErrors.Pass.Regex r (RegExp.capturingGroupsCount rer) -> (* Groups.Ranges root 1 (RegExp.capturingGroupsCount rer) (RegExp.capturingGroupsCount rer) -> *)
+      EarlyErrors.Pass.Regex root nil ->
       compileSubPattern r ctx rer dir = Success m ->
       SafeMatcher str rer m dir.
     Proof.
       intros rer root.
-      induction r; cbn; intros ctx dir str m R_r GR_root GR_r Eq_m; dependent destruction GR_r.
+      induction r; cbn; intros ctx dir str m Eq_rer R_r GR_root Eq_m.
       - focus § _ [] _ § auto destruct in Eq_m; injection Eq_m as <-.
         intros x c Vx Sc. search.
       - focus § _ [] _ § auto destruct in Eq_m; injection Eq_m as <-.
@@ -693,6 +695,20 @@ Module Correctness.
           apply backreferenceMatcher. boolean_simplifier. spec_reflector Nat.leb_spec0. assumption.
         + destruct esc; focus § _ [] _ § auto destruct in Eq_m; injection Eq_m as <-; apply characterSetMatcher.
         + destruct esc; focus § _ [] _ § auto destruct in Eq_m; injection Eq_m as <-; apply characterSetMatcher.
+        + focus § _ [] _ § auto destruct in Eq_m; injection Eq_m as <-.
+          apply backreferenceMatcher. boolean_simplifier. cbn in *.
+          apply List.Unique.success in AutoDest_0. destruct s. cbn in *.
+          assert (List.Indexing.Nat.indexing (groupSpecifiersThatMatch (AtomEsc (AtomEscape.GroupEsc id)) ctx id) 0 = Success (r, l)) as Eq_indexed. {
+            rewrite -> AutoDest_0. reflexivity.
+          }
+          apply EarlyErrors.groupSpecifiersThatMatch_is_filter_map in Eq_indexed as [ j [ ctx' [ Eq_ctx' Eq_indexing ] ]].
+          subst. unfold countLeftCapturingParensBefore,NonNegInt.to_positive in *. cbn in *.
+          destruct (countLeftCapturingParensBefore_impl ctx' + 1) eqn:Eq; try lia. cbn in *. injection AutoDest_1 as <-.
+          apply StaticSemantics.pre_order_walk_roots in Eq_indexing. cbn in *.
+          rewrite <- R_r in *. Search Root "<=". Print Root.
+          pose proof (EarlyErrors.countLeftCapturingParensBefore_contextualized _ _ _ Eq_indexing GR_root).
+          subst. unfold countLeftCapturingParensBefore,countLeftCapturingParensWithin,NonNegInt.to_positive in *. cbn in *.
+          lia.
       - focus § _ [] _ § auto destruct in Eq_m; injection Eq_m as <-.
         apply characterSetMatcher.
       - intros x c Vx Sc.
@@ -708,20 +724,20 @@ Module Correctness.
         + intros i v Eq_indexed.
           pose proof (List.Indexing.Nat.success_bounds _ _ _ Eq_indexed). rewrite -> List.Range.Nat.Bounds.length in *.
           apply List.Range.Nat.Bounds.indexing in Eq_indexed.
-          pose proof (EarlyErrors.countLeftCapturingParensBefore_contextualized _ _ _ _ R_r GR_root).
+          pose proof (EarlyErrors.countLeftCapturingParensBefore_contextualized _ _ _ R_r GR_root).
           unfold countLeftCapturingParensBefore,countLeftCapturingParensWithin in *. cbn in *. lia.
         + apply (IHr (Quantified_inner q :: ctx) _ _ _ ltac:(Zip.down) ltac:(eassumption) ltac:(eassumption) ltac:(eassumption)).
       - intros x c V_x S_c.
         focus § _ [] _ § auto destruct in Eq_m; injection Eq_m as <-.
-        + specialize (IHr1 _ _ _ _ (Zip.Down.seq_left _ _ _ _ R_r) ltac:(eassumption) ltac:(eassumption) ltac:(eassumption) _ _ V_x S_c) as [ y0 [ V_y0 [ P_x_y0 Eq_y0 ]]].
-          specialize (IHr2 _ _ _ _ (Zip.Down.seq_right _ _ _ _ R_r) ltac:(eassumption) ltac:(eassumption) ltac:(eassumption) _ _ V_y0 Eq_y0) as [ y1 [ V_y1 [ P_x_y1 Eq_y1 ]]].
+        + specialize (IHr1 _ _ _ _ ltac:(eassumption) (Zip.Down.seq_left _ _ _ _ R_r) ltac:(eassumption) ltac:(eassumption) _ _ V_x S_c) as [ y0 [ V_y0 [ P_x_y0 Eq_y0 ]]].
+          specialize (IHr2 _ _ _ _ ltac:(eassumption) (Zip.Down.seq_right _ _ _ _ R_r) ltac:(eassumption) ltac:(eassumption) _ _ V_y0 Eq_y0) as [ y1 [ V_y1 [ P_x_y1 Eq_y1 ]]].
           search.
-        + specialize (IHr2 _ _ _ _ (Zip.Down.seq_right _ _ _ _ R_r) ltac:(eassumption) ltac:(eassumption) ltac:(eassumption) _ _ V_x S_c) as [ y0 [ V_y0 [ P_x_y0 Eq_y0 ]]].
-          specialize (IHr1 _ _ _ _ (Zip.Down.seq_left _ _ _ _ R_r) ltac:(eassumption) ltac:(eassumption) ltac:(eassumption) _ _ V_y0 Eq_y0) as [ y1 [ V_y1 [ P_x_y1 Eq_y1 ]]].
+        + specialize (IHr2 _ _ _ _ ltac:(eassumption) (Zip.Down.seq_right _ _ _ _ R_r) ltac:(eassumption) ltac:(eassumption) _ _ V_x S_c) as [ y0 [ V_y0 [ P_x_y0 Eq_y0 ]]].
+          specialize (IHr1 _ _ _ _ ltac:(eassumption) (Zip.Down.seq_left _ _ _ _ R_r) ltac:(eassumption) ltac:(eassumption) _ _ V_y0 Eq_y0) as [ y1 [ V_y1 [ P_x_y1 Eq_y1 ]]].
           search.
       - intros x c V_x Eq_af.
         focus § _ [] _ § auto destruct in Eq_m; injection Eq_m as <-.
-        specialize (IHr _ _ _ _ (Zip.Down.group_inner _ _ _ _ R_r) ltac:(eassumption) ltac:(eassumption) ltac:(eassumption) _ _ V_x Eq_af) as [ y0 [ V_y0 [ P_x_y0 Eq_y0 ]]].
+        specialize (IHr _ _ _ _ ltac:(eassumption) (Zip.Down.group_inner _ _ _ _ R_r) ltac:(eassumption) ltac:(eassumption) _ _ V_x Eq_af) as [ y0 [ V_y0 [ P_x_y0 Eq_y0 ]]].
         focus § _ [] _ § auto destruct in Eq_y0.
         + focus § _ [] _ § auto destruct in AutoDest_0; focus § _ [] _ § auto destruct in AutoDest_1; rewrite -> Nat.add_sub in AutoDest_1.
           * search. MatchState.solve_with lia.
@@ -731,7 +747,7 @@ Module Correctness.
           * spec_reflector Nat.eqb_spec. lia.
           * rewrite -> Nat.add_sub in *.
             apply List.Update.Nat.One.failure_bounds in AutoDest_1.
-            pose proof (EarlyErrors.countLeftCapturingParensBefore_contextualized _ _ _ _ R_r GR_root).
+            pose proof (EarlyErrors.countLeftCapturingParensBefore_contextualized _ _ _ R_r GR_root).
             unfold countLeftCapturingParensBefore,countLeftCapturingParensWithin in *. cbn in *. MatchState.solve_with lia.
         + injection Eq_y0 as ->.
           focus § _ [] _ § auto destruct in AutoDest_0; destruct dir; try discriminate.
@@ -760,17 +776,18 @@ Module Correctness.
     Qed.
 
     Theorem compilePattern: forall r rer input i m,
-      EarlyErrors.Pass.Regex r (RegExp.capturingGroupsCount rer) ->
+      EarlyErrors.Pass.Regex r nil ->
+      countLeftCapturingParensWithin r nil = RegExp.capturingGroupsCount rer ->
       0 <= i <= (length input) ->
       compilePattern r rer = Success m ->
       m input i <> match_assertion_failed.
     Proof.
-      intros r rer input i m GR Bounds_i Eq_m. unfold compilePattern in Eq_m. 
+      intros r rer input i m GR Eq_rer Bounds_i Eq_m. unfold compilePattern in Eq_m. 
       focus § _ [] _ § auto destruct in Eq_m. injection Eq_m as <-.
       focus § _ (_ [] _) § auto destruct.
       - hypotheses_reflector. spec_reflector Nat.leb_spec0. contradiction.
       - remember (match_state input i (List.repeat None (RegExp.capturingGroupsCount rer))) as x eqn:Eq_x.
-        pose proof (Safety.compileSubPattern _ _ _ nil forward input _ (Root.id _) GR GR AutoDest_ x (fun y => y)) as Falsum.
+        pose proof (Safety.compileSubPattern _ _ _ nil forward input _ Eq_rer (Root.id _) GR AutoDest_ x (fun y => y)) as Falsum.
         assert (MatchState.Valid input rer x) as V_x. {
           subst x. apply MatchState.valid_init. lia.
         }
@@ -1025,6 +1042,8 @@ Module Correctness.
           apply backreferenceMatcher.
         + destruct esc; focus § _ [] _ § auto destruct in Eq_m; injection Eq_m as <-; apply characterSetMatcher.
         + destruct esc; focus § _ [] _ § auto destruct in Eq_m; injection Eq_m as <-; apply characterSetMatcher.
+        + focus § _ [] _ § auto destruct in Eq_m; injection Eq_m as <-.
+          apply backreferenceMatcher.
       - focus § _ [] _ § auto destruct in Eq_m; injection Eq_m as <-.
         apply characterSetMatcher.
       - intros x c Vx H. unfold TerminatingMatcher in IHr1,IHr2.

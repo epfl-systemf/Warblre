@@ -1,4 +1,5 @@
-From Warblre Require Import Base Patterns StaticSemantics.
+From Coq Require Import List Lia Program.Equality.
+From Warblre Require Import List Result Base Patterns StaticSemantics.
 
 Module EarlyErrors.
 
@@ -33,10 +34,11 @@ Module EarlyErrors.
     | NoninvertedCC: forall crs, ClassRanges crs -> CharClass (Patterns.NoninvertedCC crs)
     | InvertedCC: forall crs, ClassRanges crs -> CharClass (Patterns.InvertedCC crs).
 
-    Inductive AtomEscape: Patterns.AtomEscape -> non_neg_integer -> Prop :=
-    | DecimalEsc: forall n m, (proj1_sig n) <= m -> AtomEscape (Patterns.AtomEscape.DecimalEsc n) m
-    | CharacterClassEsc: forall esc m, AtomEscape (Patterns.AtomEscape.CharacterClassEsc esc) m
-    | CharacterEsc: forall esc m, AtomEscape (Patterns.AtomEscape.CharacterEsc esc) m.
+    Inductive AtomEscape: Patterns.AtomEscape -> RegexContext -> Prop :=
+    | DecimalEsc: forall ctx n, (proj1_sig n) <= (countLeftCapturingParensWithin (zip (AtomEsc (Patterns.AtomEscape.DecimalEsc n)) ctx) (nil)) -> AtomEscape (Patterns.AtomEscape.DecimalEsc n) ctx
+    | CharacterClassEsc: forall ctx esc, AtomEscape (Patterns.AtomEscape.CharacterClassEsc esc) ctx
+    | CharacterEsc: forall ctx esc, AtomEscape (Patterns.AtomEscape.CharacterEsc esc) ctx
+    | GroupEsc: forall ctx gn, List.length (groupSpecifiersThatMatch (AtomEsc (Patterns.AtomEscape.GroupEsc gn)) ctx gn) = 1 -> AtomEscape (Patterns.AtomEscape.GroupEsc gn) ctx.
 
     Inductive QuantifierPrefix: Patterns.QuantifierPrefix -> Prop :=
     | Star: QuantifierPrefix Patterns.Star
@@ -50,50 +52,86 @@ Module EarlyErrors.
     | Greedy: forall p, QuantifierPrefix p -> Quantifier (Patterns.Greedy p)
     | Lazy: forall p, QuantifierPrefix p -> Quantifier (Patterns.Lazy p).
 
-    Inductive Regex: Patterns.Regex -> non_neg_integer -> Prop :=
-    | Empty: forall m, Regex Patterns.Empty m
-    | Char: forall chr m, Regex (Patterns.Char chr) m
-    | Dot: forall m, Regex Patterns.Dot m
-    | AtomEsc: forall esc m, AtomEscape esc m -> Regex (Patterns.AtomEsc esc) m
-    | CharacterClass: forall cc m, CharClass cc -> Regex (Patterns.CharacterClass cc) m
-    | Disjunction: forall r1 r2 m, Regex r1 m -> Regex r2 m -> Regex (Patterns.Disjunction r1 r2) m
-    | Quantified: forall r q m, Regex r m -> Quantifier q -> Regex (Patterns.Quantified r q) m
-    | Seq: forall r1 r2 m, Regex r1 m -> Regex r2 m -> Regex (Patterns.Seq r1 r2) m
-    | Group: forall name r m, Regex r m -> Regex (Patterns.Group name r) m
-    | Lookahead: forall r m, Regex r m -> Regex (Patterns.Lookahead r) m
-    | NegativeLookahead: forall r m, Regex r m -> Regex (Patterns.NegativeLookahead r) m
-    | Lookbehind: forall r m, Regex r m -> Regex (Patterns.Lookbehind r) m
-    | NegativeLookbehind: forall r m, Regex r m -> Regex (Patterns.NegativeLookbehind r) m.
+    Inductive Regex: Patterns.Regex -> RegexContext -> Prop :=
+    | Empty: forall ctx, Regex Patterns.Empty ctx
+    | Char: forall chr ctx, Regex (Patterns.Char chr) ctx
+    | Dot: forall ctx, Regex Patterns.Dot ctx
+    | AtomEsc: forall esc ctx, AtomEscape esc ctx -> Regex (Patterns.AtomEsc esc) ctx
+    | CharacterClass: forall cc ctx, CharClass cc -> Regex (Patterns.CharacterClass cc) ctx
+    | Disjunction: forall r1 r2 ctx, Regex r1 (Disjunction_left r2 :: ctx) -> Regex r2 (Disjunction_right r1 :: ctx) -> Regex (Patterns.Disjunction r1 r2) ctx
+    | Quantified: forall r q ctx, Regex r (Quantified_inner q :: ctx) -> Quantifier q -> Regex (Patterns.Quantified r q) ctx
+    | Seq: forall r1 r2 ctx, Regex r1 (Seq_left r2 :: ctx) -> Regex r2 (Seq_right r1 :: ctx) -> Regex (Patterns.Seq r1 r2) ctx
+    | Group: forall name r ctx, Regex r (Group_inner name :: ctx) -> Regex (Patterns.Group name r) ctx
+    | Lookahead: forall r ctx, Regex r (Lookahead_inner :: ctx) -> Regex (Patterns.Lookahead r) ctx
+    | NegativeLookahead: forall r ctx, Regex r (NegativeLookahead_inner :: ctx) -> Regex (Patterns.NegativeLookahead r) ctx
+    | Lookbehind: forall r ctx, Regex r (Lookbehind_inner :: ctx) -> Regex (Patterns.Lookbehind r) ctx
+    | NegativeLookbehind: forall r ctx, Regex r (NegativeLookbehind_inner :: ctx) -> Regex (Patterns.NegativeLookbehind r) ctx.
   End Pass.
 
-  Lemma countLeftCapturingParensBefore_contextualized: forall ctx f r m,
-      Root r f ctx ->
-      Pass.Regex r m ->
-      (countLeftCapturingParensBefore f ctx) + (countLeftCapturingParensWithin f ctx) <= m.
-    Proof. Admitted.
-      (* unfold Root.
-      induction ctx.
-      - intros f r n m Eq H. cbn in *. subst. unfold countLeftCapturingParensWithin.
-        destruct (existence f) as [ m' H' ].
-        apply shift_defs with (s := 1) in H'. cbn in *.
-        split.
-        + apply swap_refs with (1 := H') (2 := H).
-        + pose proof (unique_length_defs _ _ _ _ H) as <-. 
-          pose proof (monotony _ _ _ _ H).
-          lia.
-      - unfold countLeftCapturingParensBefore,countLeftCapturingParensWithin in *.
-        intros f r n m Eq H.
-        destruct a; cbn in Eq |- *;
-          specialize IHctx with (1 := Eq) (2 := H) as [ R B ]; cbn in R,B; dependent destruction R;
-          repeat match goal with | [ H: Ranges _ _ ?e _ |- _ ] => is_var e; pose proof (normalize_end_defs _ _ _ _ H) as -> end;
-          repeat rewrite -> Nat.add_0_r;
-          (* Normalize additions by first pushing + 1 to the right and then normalizing + nesting *)
-          repeat rewrite <- (Nat.add_assoc _ 1 _) in *;
-          repeat rewrite -> (Nat.add_comm 1 (countLeftCapturingParensWithin_impl _)) in *;
-          repeat rewrite -> Nat.add_assoc in *;
-          split; try (assumption + lia).
-        + rewrite <- Nat.add_1_r in R. apply shift_neg_defs with (s := 1) in R; try lia.
-          repeat rewrite -> Nat.add_sub in *.
-          apply shift_defs. assumption.
-    Qed. *)
+  Lemma down: forall ctx root r,
+    Root root r ctx ->
+    Pass.Regex root nil ->
+    Pass.Regex r ctx.
+  Proof.
+    induction ctx; intros root r R_root P_root.
+    - apply Root.nil in R_root. subst. assumption.
+    - unfold Root in R_root. destruct a; cbn in R_root; specialize (IHctx _ _ R_root P_root); dependent destruction IHctx; assumption.
+  Qed.
+
+  Lemma countLeftCapturingParensBefore_contextualized: forall ctx f r,
+    Root r f ctx ->
+    Pass.Regex r nil ->
+    (countLeftCapturingParensBefore f ctx) + (countLeftCapturingParensWithin f ctx) <= countLeftCapturingParensWithin r nil.
+  Proof.
+    unfold Root.
+    induction ctx; intros f r R_r EEP_r.
+    - rewrite -> Zip.id in R_r. subst. cbn. lia.
+    - unfold countLeftCapturingParensBefore,countLeftCapturingParensWithin in *.
+      destruct a; try solve [
+        cbn in *;
+        lazymatch goal with
+        | [ _: r = zip ?r' ctx |- _ + ?n0 + ?n1 <= _ ] => assert (n0 + n1 <= countLeftCapturingParensWithin_impl r')%nat by (cbn; lia)
+        end;
+        specialize (IHctx _ _ ltac:(eassumption) ltac:(eassumption)); lia ].
+  Qed.
+
+  Lemma groupSpecifiersThatMatch_is_filter_map: forall r ctx gn i r' ctx',
+    List.Indexing.Nat.indexing (groupSpecifiersThatMatch r ctx gn) i = Success (r', ctx') ->
+    exists j ctx'',
+      Group_inner (Some gn) :: ctx'' = ctx' /\
+      List.Indexing.Nat.indexing (pre_order_walk (zip r ctx) nil) j = Success (Group (Some gn) r', ctx'').
+  Proof.
+    unfold groupSpecifiersThatMatch.
+    intros r ctx. generalize dependent (pre_order_walk (zip r ctx) nil). clear r. clear ctx.
+    induction l; intros gn i r' ctx' H; cbn in H.
+    - rewrite -> List.Indexing.Nat.nil in H. Result.assertion_failed_helper.
+    - destruct a as [[ ] ? ]; cbn in H;
+        try solve [ specialize IHl with (1 := H) as [ j Eq_indexed ]; exists (S j); rewrite -> List.Indexing.Nat.cons; assumption ].
+      destruct name;
+        try solve [ specialize IHl with (1 := H) as [ j Eq_indexed ]; exists (S j); rewrite -> List.Indexing.Nat.cons; assumption ].
+      destruct (GroupName.eqs t gn);
+        try solve [ specialize IHl with (1 := H) as [ j Eq_indexed ]; exists (S j); rewrite -> List.Indexing.Nat.cons; assumption ].
+      destruct i; cbn in H.
+      + subst. injection H as <- <-.
+        exists 0. exists l0. cbn. split; reflexivity.
+      + specialize IHl with (1 := H) as [ j Eq_indexed ]; exists (S j); rewrite -> List.Indexing.Nat.cons; assumption.
+  Qed.
+
+  Lemma groupSpecifiersThatMatch_head_is_group: forall r0 ctx0 gn r ctx t, groupSpecifiersThatMatch r0 ctx0 gn = (r, ctx) :: t ->
+    0 < countLeftCapturingParensBefore r ctx /\
+    exists ctx', ctx = Group_inner (Some gn) :: ctx'.
+  Proof.
+    intros r0 ctx0 gn r ctx t H.
+    unfold groupSpecifiersThatMatch in H.
+    generalize dependent (pre_order_walk (zip r0 ctx0) nil). clear r0. clear ctx0.
+    induction l as [ | h t' ]; intros H.
+    - discriminate.
+    - cbn in H. destruct h as [ h_r h_ctx ].
+      destruct h_r; try destruct name as [ name | ]; try solve [ cbn in H; apply (IHt' H) ].
+      destruct (GroupName.eqs name gn).
+      + cbn in H. subst. injection H as <-. split.
+        * subst. cbn. lia.
+        * exists h_ctx. symmetry. assumption.
+      + cbn in H. apply (IHt' H).
+  Qed.
 End EarlyErrors.

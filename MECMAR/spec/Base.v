@@ -18,6 +18,22 @@ Definition positive_integer := { n: non_neg_integer | (0 < n)%nat }.
 Definition nat_to_nni (n: nat): non_neg_integer := n.
 Definition positive_to_non_neg (n: positive_integer): non_neg_integer := proj1_sig n.
 Definition positive_to_nat (n: positive_integer): nat := proj1_sig n.
+
+Module NonNegInt.
+  Definition to_positive {F: Type} {_: Result.AssertionError F} (n: non_neg_integer): Result positive_integer F.
+    destruct n eqn:Eq_n.
+    - apply Result.assertion_failed.
+    - refine (Success (exist _ n _)). subst. apply Nat.lt_0_succ.
+  Defined.
+
+  Lemma to_positive_soundness {F: Type} {_: Result.AssertionError F}: forall n p, to_positive n = Success p -> proj1_sig p = n.
+  Proof. intros. destruct n; cbn in *. - Result.assertion_failed_helper. - injection H as <-. reflexivity. Qed.
+
+  Lemma to_positive_completeness {F: Type} {_: Result.AssertionError F}: forall n, 0 < n -> exists p, to_positive n = Success p.
+  Proof. intros. destruct n. - lia. - cbn. eexists. reflexivity. Qed.
+End NonNegInt.
+
+
 (* Nat or Infinity *)
 Module NoI.
   Inductive non_neg_integer_or_inf :=

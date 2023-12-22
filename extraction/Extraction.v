@@ -1,4 +1,4 @@
-From Warblre Require Import Base Semantics ClutterFree.
+From Warblre Require Import Base Patterns Semantics ClutterFree.
 
 From Coq Require Extraction.
 Extraction Language OCaml.
@@ -28,5 +28,8 @@ Extract Constant CharSet.line_terminators => "Interop.line_terminators".
 Extract Constant CharSet.white_spaces => "Interop.line_terminators".
 Extract Constant CharSet.digits => "Interop.line_terminators".
 Extract Constant CharSet.ascii_word_characters => "Interop.line_terminators".
+
+Extract Constant Patterns.GroupName.type => "string".
+Extract Constant Patterns.GroupName.eqs => "String.equal".
 
 Extraction "Extracted.ml" Semantics.compilePattern.

@@ -98,7 +98,7 @@ Module Patterns.
   | Question
   | RepExact (count: non_neg_integer)
   | RepPartialRange (min: non_neg_integer)
-  | RepRange (min: non_neg_integer) (max: non_neg_integer) (inv: (min <=? max)%nat = true).
+  | RepRange (min: non_neg_integer) (max: non_neg_integer).
 
   (** Quantifier :: *)
   Inductive Quantifier :=
@@ -154,7 +154,6 @@ Module Patterns.
   | NegativeLookahead (r: Regex)
   | Lookbehind (r: Regex)
   | NegativeLookbehind (r: Regex).
-  (* | BackReference (id: positive_integer). *)
 
   Inductive RegexContextLayer :=
   | Disjunction_left (r: Regex)

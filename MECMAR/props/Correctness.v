@@ -1,5 +1,5 @@
 From Coq Require Import PeanoNat ZArith Bool Lia Program.Equality List.
-From Warblre Require Import List Tactics Specialize Focus Result Base Patterns StaticSemantics Notation Semantics Definitions.
+From Warblre Require Import List Tactics Specialize Focus Result Base Patterns StaticSemantics Notation Semantics Definitions EarlyErrors.
 
 Import Result.Notations.
 Import Semantics.
@@ -56,164 +56,6 @@ Module Correctness.
     Definition Valid (rer: RegExp) (parenIndex parenCount: non_neg_integer) :=
       List.Forall.Forall (List.Range.Nat.Bounds.range (parenIndex) (parenIndex + parenCount)) (fun i => i < RegExp.capturingGroupsCount rer).
   End Captures.
-
-  Module Groups.
-    Inductive Ranges: Regex -> nat -> nat -> nat -> Prop :=
-    | gbEmpty: forall n m, Ranges Empty n n m
-    | gbChar: forall c n m, Ranges (Char c) n n m
-    | gbDot: forall n m, Ranges Dot n n m
-    | gbAtomEsc_decimal: forall (id: positive_integer) n m, (proj1_sig id <= m)%nat -> Ranges (AtomEsc (AtomEscape.DecimalEsc id)) n n m
-    | gbAtomEsc_char_class_esc: forall esc n m, Ranges (AtomEsc (AtomEscape.CharacterClassEsc esc)) n n m
-    | gbAtomEsc_char_esc: forall esc n m, Ranges (AtomEsc (AtomEscape.CharacterEsc esc)) n n m
-    | gbCharClass: forall cc n m, Ranges (CharacterClass cc) n n m
-    | gbDisjunction: forall r1 r2 n1 n2 n3 m, Ranges r1 n1 n2 m -> Ranges r2 n2 n3 m -> Ranges (Disjunction r1 r2) n1 n3 m
-    | gbQuantified: forall r q n1 n2 m, Ranges r n1 n2 m -> Ranges (Quantified r q) n1 n2 m
-    | gbSeq: forall r1 r2 n1 n2 n3 m, Ranges r1 n1 n2 m -> Ranges r2 n2 n3 m -> Ranges (Seq r1 r2) n1 n3 m
-    | gbGroup: forall r id n1 n2 m, Ranges r (S n1) n2 m -> Ranges (Group id r) n1 n2 m
-    (* Assertions: ^ $ \b \B *)
-    | gbLookahead: forall r n1 n2 m, Ranges r n1 n2 m -> Ranges (Lookahead r) n1 n2 m
-    | gbNegativeLookahead: forall r n1 n2 m, Ranges r n1 n2 m -> Ranges (NegativeLookahead r) n1 n2 m
-    | gbLookbehind: forall r n1 n2 m, Ranges r n1 n2 m -> Ranges (Lookbehind r) n1 n2 m
-    | gbNegativeLookbehind: forall r n1 n2 m, Ranges r n1 n2 m -> Ranges (NegativeLookbehind r) n1 n2 m.
-    #[export]
-    Hint Constructors Ranges : Warblre.
-
-    Lemma monotony: forall r n n' m, Ranges r n n' m -> n <= n'.
-    Proof. induction r; intros n n' m H; dependent destruction H; auto_specialize; try lia. Qed.
-
-    Lemma shift_defs: forall r n n' m s , Ranges r n n' m -> Ranges r (n + s) (n' + s) m.
-    Proof.
-      induction r; intros n n' m s H; dependent destruction H; eauto with Warblre.
-      - constructor.
-        apply IHr with (1 := H).
-    Qed.
-
-    Lemma shift_neg_defs: forall r n n' m s, (s <= n)%nat -> Ranges r n n' m -> Ranges r (n - s) (n' - s) m.
-    Proof.
-      induction r; intros n n' m s Ineq H; dependent destruction H; eauto with Warblre.
-      - pose proof (monotony _ _ _ _ H).
-        econstructor; [ eapply IHr1 | eapply IHr2 ]; solve [ lia | eassumption ].
-      - pose proof (monotony _ _ _ _ H).
-        econstructor; [ eapply IHr1 | eapply IHr2 ]; solve [ lia | eassumption ].
-      - constructor. assert (S (n1 - s) = S n1 - s) as -> by lia.
-        apply IHr with (2 := H). lia.
-    Qed.
-
-    Lemma weaken_refs: forall r n n' m m' , Ranges r n n' m -> m <= m' -> Ranges r n n' m'.
-    Proof.
-      induction r; intros n n' m s H; dependent destruction H; eauto with Warblre.
-      - intros H'. constructor; lia.
-    Qed.
-
-    Lemma swap_refs: forall r n0 n0' n1 n1' m0 m1 , Ranges r n0 n0' m0 -> Ranges r n1 n1' m1 -> Ranges r n0 n0' m1.
-    Proof.
-      induction r; intros n0 n0' n1 n1' m0 m1 H0 H1; dependent destruction H0; dependent destruction H1; eauto with Warblre.
-    Qed.
-
-    Lemma existence: forall r, exists m, Ranges r 0 (countLeftCapturingParensWithin_impl r) m.
-    Proof.
-      assert (forall r n n' m s , Ranges r n n' m -> Ranges r (n + s) (s + n') m) as shift_defs'. {
-        intros. assert (s + n' = n' + s) as -> by lia.
-        apply shift_defs. assumption.
-      }
-      induction r.
-      - exists 0. constructor.
-      - exists 0. constructor.
-      - exists 0. constructor.
-      - destruct ae.
-        + exists (proj1_sig n + 1). constructor; lia.
-        + exists 0. constructor.
-        + exists 0. constructor.
-      - exists 0. constructor.
-      - destruct IHr1 as [ m1 H1 ].
-        destruct IHr2 as [ m2 H2 ].
-        apply weaken_refs with (m' := max m1 m2) in H1; try lia.
-        apply weaken_refs with (m' := max m1 m2) in H2; try lia.
-        apply shift_defs' with (s := countLeftCapturingParensWithin_impl r1) in H2.
-        exists (max m1 m2). cbn in *.
-        econstructor; eassumption.
-      - destruct IHr as [ m H ]. exists m. constructor. assumption.
-      - destruct IHr1 as [ m1 H1 ].
-        destruct IHr2 as [ m2 H2 ].
-        apply weaken_refs with (m' := max m1 m2) in H1; try lia.
-        apply weaken_refs with (m' := max m1 m2) in H2; try lia.
-        apply shift_defs' with (s := countLeftCapturingParensWithin_impl r1) in H2.
-        exists (max m1 m2). cbn in *.
-        econstructor; eassumption.
-      - destruct IHr as [ m H ]. exists (m + 1). constructor.
-        cbn in *.
-        assert (1 = 0 + 1) as -> by lia. assert (S (countLeftCapturingParensWithin_impl r) = countLeftCapturingParensWithin_impl r + 1) as -> by lia.
-        apply shift_defs. apply weaken_refs with (m' := m + (0 + 1)) in H; try lia.
-        assumption.
-      - destruct IHr as [ m H ]. exists m. constructor. assumption.
-      - destruct IHr as [ m H ]. exists m. constructor. assumption.
-      - destruct IHr as [ m H ]. exists m. constructor. assumption.
-      - destruct IHr as [ m H ]. exists m. constructor. assumption.
-    Qed.
-
-    Lemma unique_length_defs: forall r n n' m, Ranges r n n' m -> (n' - n) = (countLeftCapturingParensWithin_impl r).
-    Proof.
-      pose proof monotony as Monotony.
-      induction r; intros n n' m H; dependent destruction H; try (auto_specialize; cbn; lia).
-    Qed.
-
-    Lemma normalize_end_defs: forall r n n' m, Ranges r n n' m -> n' = (n + countLeftCapturingParensWithin_impl r).
-    Proof.
-      intros r n n' m H.
-      destruct (existence r) as [ m' H' ]. apply swap_refs with (2 := H) in H'. clear m'.
-      pose proof unique_length_defs as Eq_len. specialize Eq_len with (1 := H).
-      apply monotony in H. lia.
-    Qed.
-
-    Lemma countLeftCapturingParensBefore_step: forall r f ctx f' l,
-      Root r f ctx ->
-      Root r f' (l :: ctx) ->
-      let parenIndex := countLeftCapturingParensBefore f ctx in
-      let parenCount := countLeftCapturingParensWithin f ctx in
-      let parenIndex' := countLeftCapturingParensBefore f' (l :: ctx) in
-      let parenCount' := countLeftCapturingParensWithin f' (l :: ctx) in
-      (parenIndex <= parenIndex')%nat /\
-      (parenIndex' + parenCount' <= parenIndex + parenCount)%nat.
-    Proof.
-      intros r f ctx f' l R R'. unfold Root in *. subst r.
-      unfold countLeftCapturingParensBefore,countLeftCapturingParensWithin in *.
-      destruct l; cbn in R'; rewrite -> Zip.focus_bijection in R'; subst f;
-        split; cbn; lia.
-    Qed.
-
-    Lemma counted_ranges: forall ctx f r n m,
-      Root r f ctx ->
-      Ranges r 1 n m ->
-      let parenIndex := countLeftCapturingParensBefore f ctx in
-      let parenCount := countLeftCapturingParensWithin f ctx in
-      Ranges f (parenIndex + 1) (parenIndex + parenCount + 1) m /\ (parenIndex + parenCount + 1 <= n).
-    Proof.
-      unfold Root.
-      induction ctx.
-      - intros f r n m Eq H. cbn in *. subst. unfold countLeftCapturingParensWithin.
-        destruct (existence f) as [ m' H' ].
-        apply shift_defs with (s := 1) in H'. cbn in *.
-        split.
-        + apply swap_refs with (1 := H') (2 := H).
-        + pose proof (unique_length_defs _ _ _ _ H) as <-. 
-          pose proof (monotony _ _ _ _ H).
-          lia.
-      - unfold countLeftCapturingParensBefore,countLeftCapturingParensWithin in *.
-        intros f r n m Eq H.
-        destruct a; cbn in Eq |- *;
-          specialize IHctx with (1 := Eq) (2 := H) as [ R B ]; cbn in R,B; dependent destruction R;
-          repeat match goal with | [ H: Ranges _ _ ?e _ |- _ ] => is_var e; pose proof (normalize_end_defs _ _ _ _ H) as -> end;
-          repeat rewrite -> Nat.add_0_r;
-          (* Normalize additions by first pushing + 1 to the right and then normalizing + nesting *)
-          repeat rewrite <- (Nat.add_assoc _ 1 _) in *;
-          repeat rewrite -> (Nat.add_comm 1 (countLeftCapturingParensWithin_impl _)) in *;
-          repeat rewrite -> Nat.add_assoc in *;
-          split; try (assumption + lia).
-        + rewrite <- Nat.add_1_r in R. apply shift_neg_defs with (s := 1) in R; try lia.
-          repeat rewrite -> Nat.add_sub in *.
-          apply shift_defs. assumption.
-    Qed.
-  End Groups.
 
   (* Allows to abstract most theorem over the direction of progress *)
   Inductive directionalProgress: direction -> MatchState -> MatchState -> Prop :=
@@ -823,23 +665,6 @@ Module Correctness.
         + destruct dir.
           * apply List.Indexing.Int.failure_bounds in AutoDest_0 as [ ? | ? ]; lia.
           * apply List.Indexing.Int.failure_bounds in AutoDest_0 as [ ? | ? ]; lia.
-      (* - injection Eq_af as ->. Zhelper.
-        apply List.Exists.failure_kind in AutoDest_3.
-        destruct AutoDest_3 as [ i [ j [ Eq_indexed Eq_af ]]].
-        pose proof Eq_indexed as Tmp. apply List.Range.Int.Bounds.indexing in Tmp as ->.
-        apply List.Indexing.Int.success_bounds in Eq_indexed as Bounds_i. clear Eq_indexed.
-        destruct Vx as [ Eq_str [ [ ? ? ] [ _ V_t ]]].
-        cbn in AutoDest_. focus § _ [] _ § auto destruct in AutoDest_.
-        specialize (V_t _ _ AutoDest_). dependent destruction V_t.
-        rename s into t_s, e into t_e, H into Ineq_t, H0 into IO_t_s, H1 into IO_t_e.
-        MatchState.normalize. cbn in *. rewrite -> List.Range.Int.Bounds.length in *.
-        focus § _ [] _ § auto destruct in Eq_af; injection Eq_af as ->.
-        + destruct dir.
-          * apply List.Indexing.Int.failure_bounds in AutoDest_1 as [ ? | ? ]; lia.
-          * apply List.Indexing.Int.failure_bounds in AutoDest_1 as [ ? | ? ]; lia.
-        + destruct dir.
-          * apply List.Indexing.Int.failure_bounds in AutoDest_0 as [ ? | ? ]; lia.
-          * apply List.Indexing.Int.failure_bounds in AutoDest_0 as [ ? | ? ]; lia. *)
       - injection Eq_af as ->.
         cbn in AutoDest_. focus § _ [] _ § auto destruct in AutoDest_.
         apply List.Indexing.Nat.failure_bounds in AutoDest_.
@@ -850,12 +675,13 @@ Module Correctness.
 
     Lemma compileSubPattern: forall rer root r ctx dir str m,
       Root root r ctx ->
-      Groups.Ranges root 1 (RegExp.capturingGroupsCount rer) (RegExp.capturingGroupsCount rer) ->
+      EarlyErrors.Pass.Regex root (RegExp.capturingGroupsCount rer) ->
+      EarlyErrors.Pass.Regex r (RegExp.capturingGroupsCount rer) -> (* Groups.Ranges root 1 (RegExp.capturingGroupsCount rer) (RegExp.capturingGroupsCount rer) -> *)
       compileSubPattern r ctx rer dir = Success m ->
       SafeMatcher str rer m dir.
     Proof.
       intros rer root.
-      induction r; cbn; intros ctx dir str m R_r GR_r Eq_m.
+      induction r; cbn; intros ctx dir str m R_r GR_root GR_r Eq_m; dependent destruction GR_r.
       - focus § _ [] _ § auto destruct in Eq_m; injection Eq_m as <-.
         intros x c Vx Sc. search.
       - focus § _ [] _ § auto destruct in Eq_m; injection Eq_m as <-.
@@ -864,9 +690,7 @@ Module Correctness.
         apply characterSetMatcher.
       - destruct ae.
         + focus § _ [] _ § auto destruct in Eq_m; injection Eq_m as <-.
-          apply backreferenceMatcher.
-          apply Groups.counted_ranges with (2 := GR_r) in R_r as [ R _ ].
-          inversion R. assumption.
+          apply backreferenceMatcher. boolean_simplifier. spec_reflector Nat.leb_spec0. assumption.
         + destruct esc; focus § _ [] _ § auto destruct in Eq_m; injection Eq_m as <-; apply characterSetMatcher.
         + destruct esc; focus § _ [] _ § auto destruct in Eq_m; injection Eq_m as <-; apply characterSetMatcher.
       - focus § _ [] _ § auto destruct in Eq_m; injection Eq_m as <-.
@@ -874,33 +698,30 @@ Module Correctness.
       - intros x c Vx Sc.
         focus § _ [] _ § auto destruct in Eq_m; injection Eq_m as <-.
         focus § _ [] _ § auto destruct in Sc.
-        + unfold SafeMatcher in IHr2.
-          specialize IHr2 with (ctx := (Disjunction_right r1 :: ctx)) (3 := AutoDest_0) (str := str) (x := x) (c := c). fforward.
-          destruct IHr2 as [ ? [ ? [ ? ? ]]]. search.
+        + specialize (IHr2 (Disjunction_right r1 :: ctx) _ str _ ltac:(Zip.down) ltac:(eassumption) ltac:(eassumption) ltac:(eassumption) x c ltac:(eassumption) ltac:(eassumption)) as [ ? [ ? [ ? ? ]]].
+          search.
         + injection Sc as ->.
-          unfold SafeMatcher in IHr1.
-          specialize IHr1 with (ctx := (Disjunction_left r2 :: ctx)) (3 := AutoDest_) (str := str) (x := x) (c := c). fforward.
-          destruct IHr1 as [ ? [ ? [ ? ? ]]]. search.
+          specialize (IHr1 (Disjunction_left r2 :: ctx) _ str _ ltac:(Zip.down) ltac:(eassumption) ltac:(eassumption) ltac:(eassumption) x c ltac:(eassumption) ltac:(eassumption)) as [ ? [ ? [ ? ? ]]].
+          search.
       - focus § _ [] _ § auto destruct in Eq_m; injection Eq_m as <-.
         apply repeatMatcher.
-        + pose proof (Groups.counted_ranges _ _ _ _ _ (Zip.Down.quantified_inner _ _ _ _ R_r) GR_r) as [ R_inner B_inner ].
-          intros i v Eq_indexed.
+        + intros i v Eq_indexed.
           pose proof (List.Indexing.Nat.success_bounds _ _ _ Eq_indexed). rewrite -> List.Range.Nat.Bounds.length in *.
           apply List.Range.Nat.Bounds.indexing in Eq_indexed.
-          unfold countLeftCapturingParensBefore,countLeftCapturingParensWithin in *.
-          cbn in *. lia.
-        + apply IHr with (3 := AutoDest_); assumption.
+          pose proof (EarlyErrors.countLeftCapturingParensBefore_contextualized _ _ _ _ R_r GR_root).
+          unfold countLeftCapturingParensBefore,countLeftCapturingParensWithin in *. cbn in *. lia.
+        + apply (IHr (Quantified_inner q :: ctx) _ _ _ ltac:(Zip.down) ltac:(eassumption) ltac:(eassumption) ltac:(eassumption)).
       - intros x c V_x S_c.
         focus § _ [] _ § auto destruct in Eq_m; injection Eq_m as <-.
-        + specialize (IHr1 _ _ _ _ (Zip.Down.seq_left _ _ _ _ R_r) GR_r AutoDest_ _ _ V_x S_c) as [ y0 [ V_y0 [ P_x_y0 Eq_y0 ]]].
-          specialize (IHr2 _ _ _ _ (Zip.Down.seq_right _ _ _ _ R_r) GR_r AutoDest_0 _ _ V_y0 Eq_y0) as [ y1 [ V_y1 [ P_x_y1 Eq_y1 ]]].
+        + specialize (IHr1 _ _ _ _ (Zip.Down.seq_left _ _ _ _ R_r) ltac:(eassumption) ltac:(eassumption) ltac:(eassumption) _ _ V_x S_c) as [ y0 [ V_y0 [ P_x_y0 Eq_y0 ]]].
+          specialize (IHr2 _ _ _ _ (Zip.Down.seq_right _ _ _ _ R_r) ltac:(eassumption) ltac:(eassumption) ltac:(eassumption) _ _ V_y0 Eq_y0) as [ y1 [ V_y1 [ P_x_y1 Eq_y1 ]]].
           search.
-        + specialize (IHr2 _ _ _ _ (Zip.Down.seq_right _ _ _ _ R_r) GR_r AutoDest_0 _ _ V_x S_c) as [ y0 [ V_y0 [ P_x_y0 Eq_y0 ]]].
-          specialize (IHr1 _ _ _ _ (Zip.Down.seq_left _ _ _ _ R_r) GR_r AutoDest_ _ _ V_y0 Eq_y0) as [ y1 [ V_y1 [ P_x_y1 Eq_y1 ]]].
+        + specialize (IHr2 _ _ _ _ (Zip.Down.seq_right _ _ _ _ R_r) ltac:(eassumption) ltac:(eassumption) ltac:(eassumption) _ _ V_x S_c) as [ y0 [ V_y0 [ P_x_y0 Eq_y0 ]]].
+          specialize (IHr1 _ _ _ _ (Zip.Down.seq_left _ _ _ _ R_r) ltac:(eassumption) ltac:(eassumption) ltac:(eassumption) _ _ V_y0 Eq_y0) as [ y1 [ V_y1 [ P_x_y1 Eq_y1 ]]].
           search.
       - intros x c V_x Eq_af.
         focus § _ [] _ § auto destruct in Eq_m; injection Eq_m as <-.
-        specialize (IHr _ _ _ _ (Zip.Down.group_inner _ _ _ _ R_r) GR_r AutoDest_ _ _ V_x Eq_af) as [ y0 [ V_y0 [ P_x_y0 Eq_y0 ]]].
+        specialize (IHr _ _ _ _ (Zip.Down.group_inner _ _ _ _ R_r) ltac:(eassumption) ltac:(eassumption) ltac:(eassumption) _ _ V_x Eq_af) as [ y0 [ V_y0 [ P_x_y0 Eq_y0 ]]].
         focus § _ [] _ § auto destruct in Eq_y0.
         + focus § _ [] _ § auto destruct in AutoDest_0; focus § _ [] _ § auto destruct in AutoDest_1; rewrite -> Nat.add_sub in AutoDest_1.
           * search. MatchState.solve_with lia.
@@ -908,10 +729,10 @@ Module Correctness.
         + injection Eq_y0 as ->.
           focus § _ [] _ § auto destruct in AutoDest_1.
           * spec_reflector Nat.eqb_spec. lia.
-          * apply List.Update.Nat.One.failure_bounds in AutoDest_1.
-            apply Groups.counted_ranges with (2 := GR_r) in R_r as [ _ B ].
-            unfold countLeftCapturingParensBefore in *. cbn in *.
-            MatchState.solve_with lia.
+          * rewrite -> Nat.add_sub in *.
+            apply List.Update.Nat.One.failure_bounds in AutoDest_1.
+            pose proof (EarlyErrors.countLeftCapturingParensBefore_contextualized _ _ _ _ R_r GR_root).
+            unfold countLeftCapturingParensBefore,countLeftCapturingParensWithin in *. cbn in *. MatchState.solve_with lia.
         + injection Eq_y0 as ->.
           focus § _ [] _ § auto destruct in AutoDest_0; destruct dir; try discriminate.
           * Zhelper. MatchState.normalize.
@@ -925,19 +746,21 @@ Module Correctness.
       - focus § _ [] _ § auto destruct in Eq_m; injection Eq_m as <-.
         apply positiveLookaroundMatcher with (dir' := forward).
         + apply IntermediateValue.compileSubPattern with (1 := AutoDest_).
-        + apply IHr with (3 := AutoDest_); [ Zip.down | assumption ].
+        + apply (IHr (Lookahead_inner :: ctx) _ _ _ ltac:(Zip.down) ltac:(eassumption) ltac:(eassumption) ltac:(eassumption)).
       - focus § _ [] _ § auto destruct in Eq_m; injection Eq_m as <-.
-        apply negativeLookaroundMatcher with (dir' := forward). apply IHr with (3 := AutoDest_); [ Zip.down | assumption ].
+        apply negativeLookaroundMatcher with (dir' := forward).
+        apply (IHr (NegativeLookahead_inner :: ctx) _ _ _ ltac:(Zip.down) ltac:(eassumption) ltac:(eassumption) ltac:(eassumption)).
       - focus § _ [] _ § auto destruct in Eq_m; injection Eq_m as <-.
         apply positiveLookaroundMatcher with (dir' := backward).
         + apply IntermediateValue.compileSubPattern with (1 := AutoDest_).
-        + apply IHr with (3 := AutoDest_); [ Zip.down | assumption ].
+        + apply (IHr (Lookbehind_inner :: ctx) _ _ _ ltac:(Zip.down) ltac:(eassumption) ltac:(eassumption) ltac:(eassumption)).
       - focus § _ [] _ § auto destruct in Eq_m; injection Eq_m as <-.
-        apply negativeLookaroundMatcher with (dir' := backward). apply IHr with (3 := AutoDest_); [ Zip.down | assumption ].
+        apply negativeLookaroundMatcher with (dir' := backward).
+        eapply (IHr (NegativeLookbehind_inner :: ctx) _ _ _ ltac:(Zip.down) ltac:(eassumption) ltac:(eassumption) ltac:(eassumption)).
     Qed.
 
     Theorem compilePattern: forall r rer input i m,
-      Groups.Ranges r 1 (RegExp.capturingGroupsCount rer) (RegExp.capturingGroupsCount rer) ->
+      EarlyErrors.Pass.Regex r (RegExp.capturingGroupsCount rer) ->
       0 <= i <= (length input) ->
       compilePattern r rer = Success m ->
       m input i <> match_assertion_failed.
@@ -947,7 +770,7 @@ Module Correctness.
       focus § _ (_ [] _) § auto destruct.
       - hypotheses_reflector. spec_reflector Nat.leb_spec0. contradiction.
       - remember (match_state input i (List.repeat None (RegExp.capturingGroupsCount rer))) as x eqn:Eq_x.
-        pose proof (Safety.compileSubPattern _ _ _ nil forward input _ (Root.id _) GR AutoDest_ x (fun y => y)) as Falsum.
+        pose proof (Safety.compileSubPattern _ _ _ nil forward input _ (Root.id _) GR GR AutoDest_ x (fun y => y)) as Falsum.
         assert (MatchState.Valid input rer x) as V_x. {
           subst x. apply MatchState.valid_init. lia.
         }

@@ -1,58 +1,10 @@
 From Coq Require Import PeanoNat ZArith Bool Lia Program.Equality List.
-From Warblre Require Import List Tactics Specialize Focus Result Base Patterns StaticSemantics Notation Semantics Definitions.
+From Warblre Require Import List Tactics Specialize Focus Result Base Patterns StaticSemantics Notation Semantics Definitions EarlyErrors.
 
 Import Result.Notations.
 Import Semantics.
 
 Module Compile.
-
-  Inductive SingletonCharacterEscape: CharacterEscape -> Character -> Prop :=
-  | Singleton_ctrl_t: SingletonCharacterEscape (CharacterEscape.ControlEsc ControlEscape.t) Characters.CHARACTER_TABULATION
-  | Singleton_ctrl_n: SingletonCharacterEscape (CharacterEscape.ControlEsc ControlEscape.n) Characters.LINE_FEED
-  | Singleton_ctrl_v: SingletonCharacterEscape (CharacterEscape.ControlEsc ControlEscape.v) Characters.LINE_TABULATION
-  | Singleton_ctrl_f: SingletonCharacterEscape (CharacterEscape.ControlEsc ControlEscape.f) Characters.FORM_FEED
-  | Singleton_ctrl_r: SingletonCharacterEscape (CharacterEscape.ControlEsc ControlEscape.r) Characters.CARRIAGE_RETURN
-  | Singleton_zero: SingletonCharacterEscape CharacterEscape.Zero Characters.NULL
-  | Singleton_id: forall c, SingletonCharacterEscape (CharacterEscape.IdentityEsc c) c.
-
-  Inductive SingletonClassAtom: ClassAtom -> Character -> Prop :=
-  | Singleton_SourceCharacter: forall c, SingletonClassAtom (SourceCharacter c) c
-  | Singleton_b: SingletonClassAtom (ClassEsc ClassEscape.b) Characters.BACKSPACE
-  | Singleton_dash: SingletonClassAtom (ClassEsc ClassEscape.Dash) Characters.HYPHEN_MINUS
-  | Singleton_char_esc: forall ce c,
-      SingletonCharacterEscape ce c -> SingletonClassAtom (ClassEsc (ClassEscape.CharacterEsc ce)) c.
-
-  Module EarlyErrorsFree.
-
-    Inductive ClassRanges: Patterns.ClassRanges -> Prop :=
-    | EmptyCR: ClassRanges Patterns.EmptyCR
-    | ClassAtomCR: forall ca t, ClassRanges t -> ClassRanges (Patterns.ClassAtomCR ca t)
-    | RangeCR: forall l h cl ch t,
-        SingletonClassAtom l cl ->
-        SingletonClassAtom h ch ->
-        (Character.numeric_value cl <= Character.numeric_value ch)%nat ->
-        ClassRanges t ->
-        ClassRanges (Patterns.RangeCR l h t).
-
-    Inductive CharClass: Patterns.CharClass -> Prop :=
-    | NoninvertedCC: forall crs, ClassRanges crs -> CharClass (Patterns.NoninvertedCC crs)
-    | InvertedCC: forall crs, ClassRanges crs -> CharClass (Patterns.InvertedCC crs).
-
-    Inductive Regex: Patterns.Regex -> Prop :=
-    | Empty: Regex Patterns.Empty
-    | Char: forall chr, Regex (Patterns.Char chr)
-    | Dot: Regex Patterns.Dot
-    | CharacterClass: forall cc, CharClass cc -> Regex (Patterns.CharacterClass cc)
-    | Disjunction: forall r1 r2, Regex r1 -> Regex r2 -> Regex (Patterns.Disjunction r1 r2)
-    | Quantified: forall r q, Regex r -> Regex (Patterns.Quantified r q)
-    | Seq: forall r1 r2, Regex r1 -> Regex r2 -> Regex (Patterns.Seq r1 r2)
-    | Group: forall name r, Regex r -> Regex (Patterns.Group name r)
-    | Lookahead: forall r, Regex r -> Regex (Patterns.Lookahead r)
-    | NegativeLookahead: forall r, Regex r -> Regex (Patterns.NegativeLookahead r)
-    | Lookbehind: forall r, Regex r -> Regex (Patterns.Lookbehind r)
-    | NegativeLookbehind: forall r, Regex r -> Regex (Patterns.NegativeLookbehind r).
-  End EarlyErrorsFree.
-
   Module Safety.
 
     Lemma canonicalize: forall c rer, canonicalize rer c <> compile_assertion_failed.
@@ -65,12 +17,13 @@ Module Compile.
     Lemma wordCharacters: forall rer, wordCharacters rer <> compile_assertion_failed.
     Proof.
       intros rer. unfold wordCharacters. focus § _ (_ [] _) § auto destruct.
-      unfold CharSet.filter in AutoDest_. apply List.Filter.failure_kind in AutoDest_ as [ i [ v [ Eq_indexed Eq_f ]]].
+      unfold CharSet.filter in *. apply List.Filter.failure_kind in AutoDest_ as [ i [ v [ Eq_indexed Eq_f ]]].
       destruct (Semantics.canonicalize rer v) eqn:Eq_canon.
       - discriminate.
       - injection Eq_f as ->. exfalso. destruct f. apply (canonicalize _ _ Eq_canon).
     Qed.
 
+    (* TODO: remove it going with unfolded implementation *)
     Lemma compileToCharSet_ClassAtom_rel_ind: forall (P: ClassAtom -> Prop),
       (forall chr, P (SourceCharacter chr)) ->
       P (ClassEsc (ClassEscape.b)) ->
@@ -108,7 +61,7 @@ Module Compile.
     Qed.
 
     Lemma compileToCharSet_ClassAtom_singleton: forall a rer r c,
-      SingletonClassAtom a c ->
+      EarlyErrors.SingletonClassAtom a c ->
       Semantics.compileToCharSet_ClassAtom a rer = Success r ->
       r = c :: nil.
     Proof.
@@ -120,7 +73,7 @@ Module Compile.
     Qed.
 
     Lemma compileToCharSet: forall crs rer,
-      EarlyErrorsFree.ClassRanges crs ->
+      EarlyErrors.ClassRanges crs ->
       compileToCharSet crs rer <> compile_assertion_failed.
     Proof.
       induction crs; intros rer H; dependent destruction H; cbn.
@@ -128,57 +81,63 @@ Module Compile.
       - specialize IHcrs with (1 := H).
         focus § _ (_ [] _) § auto destruct; destruct f; try easy.
         + congruence.
-        + exfalso. apply (compileToCharSet_ClassAtom _ _ AutoDest_).
+        + exfalso. apply (compileToCharSet_ClassAtom _ _ ltac:(eassumption)).
       - specialize IHcrs with (1 := H2).
         focus § _ (_ [] _) § auto destruct; destruct f; try easy.
-        + pose proof (compileToCharSet_ClassAtom_singleton _ _ _ _ H AutoDest_) as ->.
-          pose proof (compileToCharSet_ClassAtom_singleton _ _ _ _ H0 AutoDest_0) as ->.
+        + pose proof (compileToCharSet_ClassAtom_singleton _ _ _ _ H ltac:(eassumption)) as ->.
+          pose proof (compileToCharSet_ClassAtom_singleton _ _ _ _ H0 ltac:(eassumption)) as ->.
           cbn in AutoDest_2. focus § _ [] _ § auto destruct in AutoDest_2.
           boolean_simplifier. spec_reflector Nat.leb_spec0.
           easy.
-        + exfalso. apply (IHcrs _ AutoDest_1).
-        + exfalso. apply (compileToCharSet_ClassAtom _ _ AutoDest_0).
-        + exfalso. apply (compileToCharSet_ClassAtom _ _ AutoDest_).
+        + exfalso. apply (IHcrs _ ltac:(eassumption)).
+        + exfalso. apply (compileToCharSet_ClassAtom _ _ ltac:(eassumption)).
+        + exfalso. apply (compileToCharSet_ClassAtom _ _ ltac:(eassumption)).
     Qed.
 
     Lemma compileCharacterClass: forall cc rer,
-      EarlyErrorsFree.CharClass cc ->
+      EarlyErrors.Pass.CharClass cc ->
       compileCharacterClass cc rer <> compile_assertion_failed.
     Proof.
       intros [ crs | crs ] rer H; dependent destruction H.
-      - cbn. focus § _ (_ [] _) § auto destruct; destruct f; try easy. exfalso. apply (compileToCharSet _ _ H AutoDest_).
-      - cbn. focus § _ (_ [] _) § auto destruct; destruct f; try easy. exfalso. apply (compileToCharSet _ _ H AutoDest_).
+      - cbn. focus § _ (_ [] _) § auto destruct; destruct f; try easy. exfalso. apply (compileToCharSet _ _ H ltac:(eassumption)).
+      - cbn. focus § _ (_ [] _) § auto destruct; destruct f; try easy. exfalso. apply (compileToCharSet _ _ H ltac:(eassumption)).
     Qed.
 
     Lemma compileSubPattern: forall r ctx rer dir,
-      EarlyErrorsFree.Regex r ->
+      EarlyErrors.Pass.Regex r (RegExp.capturingGroupsCount rer) ->
       compileSubPattern r ctx rer dir <> compile_assertion_failed.
     Proof.
       induction r; intros ctx rer dir H; dependent destruction H; cbn; try discriminate.
+      - focus § _ (_ [] _) § auto destruct.
+        + dependent destruction H. boolean_simplifier. spec_reflector Nat.leb_spec0. contradiction.
+        + repeat match goal with | [ H: _ = Failure _ |- _ ] => focus § _ [] _ § auto destruct in H; try injection H as -> end.
+          * exfalso. destruct f. apply (wordCharacters _ ltac:(eassumption)).
+          * exfalso. destruct f. apply (wordCharacters _ ltac:(eassumption)).
+        + repeat match goal with | [ H: _ = Failure _ |- _ ] => focus § _ [] _ § auto destruct in H; try injection H as -> end.
       - focus § _ (_ [] _) § auto destruct; destruct f; try easy.
-        exfalso. apply (compileCharacterClass _ _ H AutoDest_).
+        exfalso. apply (compileCharacterClass _ _ H ltac:(eassumption)).
       - focus § _ (_ [] _) § auto destruct; destruct f; try easy.
-        + exfalso. apply IHr2 with (2 := AutoDest_0). assumption.
-        + exfalso. apply IHr1 with (2 := AutoDest_). assumption.
+        + exfalso. apply IHr2 with (2 := ltac:(eassumption)). assumption.
+        + exfalso. apply IHr1 with (2 := ltac:(eassumption)). assumption.
       - focus § _ (_ [] _) § auto destruct. destruct f; try easy.
-        exfalso. apply IHr with (2 := AutoDest_). assumption.
+        exfalso. apply IHr with (2 := ltac:(eassumption)). assumption.
       - focus § _ (_ [] _) § auto destruct; destruct f; try easy.
-        + exfalso. apply IHr2 with (2 := AutoDest_0). assumption.
-        + exfalso. apply IHr1 with (2 := AutoDest_). assumption.
+        + exfalso. apply IHr2 with (2 := ltac:(eassumption)). assumption.
+        + exfalso. apply IHr1 with (2 := ltac:(eassumption)). assumption.
       - focus § _ (_ [] _) § auto destruct; destruct f; try easy.
-        exfalso. apply IHr with (2 := AutoDest_). assumption.
+        exfalso. apply IHr with (2 := ltac:(eassumption)). assumption.
       - focus § _ (_ [] _) § auto destruct; destruct f; try easy.
-        exfalso. apply IHr with (2 := AutoDest_). assumption.
+        exfalso. apply IHr with (2 := ltac:(eassumption)). assumption.
       - focus § _ (_ [] _) § auto destruct; destruct f; try easy.
-        exfalso. apply IHr with (2 := AutoDest_). assumption.
+        exfalso. apply IHr with (2 := ltac:(eassumption)). assumption.
       - focus § _ (_ [] _) § auto destruct; destruct f; try easy.
-        exfalso. apply IHr with (2 := AutoDest_). assumption.
+        exfalso. apply IHr with (2 := ltac:(eassumption)). assumption.
       - focus § _ (_ [] _) § auto destruct; destruct f; try easy.
-        exfalso. apply IHr with (2 := AutoDest_). assumption.
+        exfalso. apply IHr with (2 := ltac:(eassumption)). assumption.
     Qed.
 
     Lemma compilePattern: forall r rer,
-      EarlyErrorsFree.Regex r ->
+      EarlyErrors.Pass.Regex r (RegExp.capturingGroupsCount rer) ->
       compilePattern r rer <> compile_assertion_failed.
     Proof.
       intros r rer H. unfold compilePattern. focus § _ (_ [] _) § auto destruct; destruct f; try easy.

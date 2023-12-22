@@ -76,7 +76,7 @@ Module Semantics.
       compiled_quantifier_prefix i +∞
 
   (** QuantifierPrefix :: { DecimalDigits , DecimalDigits } *)
-  | RepRange i j _ =>
+  | RepRange i j =>
       (* 1. Let i be the MV of the first DecimalDigits. *)
       (* 2. Let j be the MV of the second DecimalDigits. *)
       (* 3. Return the Record { [[Min]]: i, [[Max]]: j }. *)
@@ -293,9 +293,8 @@ Module Semantics.
     all: constructor; intros ? H; cbn in H; dependent destruction H.
   Defined.
 
-  #[program=yes]
-  Fixpoint compileToCharSet_ClassAtom (self: ClassAtom) (rer: RegExp)
-    {wf compileToCharSet_ClassAtom_rel self} : Result CharSet CompileError := match self with
+  (*+ TODO: decide whether to keep this unfolded implementation *)
+  Definition compileToCharSet_ClassAtom_0 (self: ClassAtom) (rer: RegExp) : Result CharSet CompileError := match self with
   (** ClassAtom :: SourceCharacter *)
   (*+ Doesn't really follow the spec, as it poorly mimics ClassAtomNoDash :: SourceCharacter but not one of ... *)
   | SourceCharacter chr =>
@@ -321,10 +320,7 @@ Module Semantics.
       CharSet.digits
 
   (** CharacterClassEscape :: D *)
-  | ClassEsc (ClassEscape.CharacterClassEsc CharacterClassEscape.D) =>
-      (* 1. Return the CharSet containing all characters not in the CharSet returned by CharacterClassEscape :: d . *)
-      let! d_set =<< compileToCharSet_ClassAtom (ClassEsc (ClassEscape.CharacterClassEsc CharacterClassEscape.d)) rer in
-      CharSet.remove_all CharSet.all d_set
+  | ClassEsc (ClassEscape.CharacterClassEsc CharacterClassEscape.D) => Result.assertion_failed
 
   (** CharacterClassEscape :: s *)
   | ClassEsc (ClassEscape.CharacterClassEsc CharacterClassEscape.s) =>
@@ -332,10 +328,7 @@ Module Semantics.
       CharSet.union CharSet.white_spaces CharSet.line_terminators
 
   (** CharacterClassEscape :: S *)
-  | ClassEsc (ClassEscape.CharacterClassEsc CharacterClassEscape.S) =>
-      (* 1. Return the CharSet containing all characters not in the CharSet returned by CharacterClassEscape :: s . *)
-      let! s_set =<< compileToCharSet_ClassAtom (ClassEsc (ClassEscape.CharacterClassEsc CharacterClassEscape.s)) rer in
-      CharSet.remove_all CharSet.all s_set
+  | ClassEsc (ClassEscape.CharacterClassEsc CharacterClassEscape.S) => Result.assertion_failed
 
   (** CharacterClassEscape :: w *)
   | ClassEsc (ClassEscape.CharacterClassEsc CharacterClassEscape.w) =>
@@ -343,13 +336,30 @@ Module Semantics.
       wordCharacters rer
 
   (** CharacterClassEscape :: W *)
+  | ClassEsc (ClassEscape.CharacterClassEsc CharacterClassEscape.W) => Result.assertion_failed
+  end.
+
+  Definition compileToCharSet_ClassAtom (self: ClassAtom) (rer: RegExp) : Result CharSet CompileError := match self with
+  (** CharacterClassEscape :: D *)
+  | ClassEsc (ClassEscape.CharacterClassEsc CharacterClassEscape.D) =>
+      (* 1. Return the CharSet containing all characters not in the CharSet returned by CharacterClassEscape :: d . *)
+      let! d_set =<< compileToCharSet_ClassAtom_0 (ClassEsc (ClassEscape.CharacterClassEsc CharacterClassEscape.d)) rer in
+      CharSet.remove_all CharSet.all d_set
+
+  (** CharacterClassEscape :: S *)
+  | ClassEsc (ClassEscape.CharacterClassEsc CharacterClassEscape.S) =>
+      (* 1. Return the CharSet containing all characters not in the CharSet returned by CharacterClassEscape :: s . *)
+      let! s_set =<< compileToCharSet_ClassAtom_0 (ClassEsc (ClassEscape.CharacterClassEsc CharacterClassEscape.s)) rer in
+      CharSet.remove_all CharSet.all s_set
+
+  (** CharacterClassEscape :: W *)
   | ClassEsc (ClassEscape.CharacterClassEsc CharacterClassEscape.W) =>
       (* 1. Return the CharSet containing all characters not in the CharSet returned by CharacterClassEscape :: w . *)
-      let! w_set =<< compileToCharSet_ClassAtom (ClassEsc (ClassEscape.CharacterClassEsc CharacterClassEscape.w)) rer in
+      let! w_set =<< compileToCharSet_ClassAtom_0 (ClassEsc (ClassEscape.CharacterClassEsc CharacterClassEscape.w)) rer in
       CharSet.remove_all CharSet.all w_set
+
+  | _ => compileToCharSet_ClassAtom_0 self rer
   end.
-  Solve Obligations of compileToCharSet_ClassAtom_func with Tactics.program_simpl; constructor.
-  Final Obligation. apply measure_wf. apply compileToCharSet_ClassAtom_rel_wf. Defined.
 
   Fixpoint compileToCharSet (self: ClassRanges) (rer: RegExp): Result CharSet CompileError := match self with
   (** ClassRanges :: [empty] *)

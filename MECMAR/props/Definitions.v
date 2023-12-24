@@ -1,6 +1,8 @@
 From Coq Require Import Bool ZArith.
-From Warblre Require Import Tactics Specialize Focus Result Base Patterns StaticSemantics Notation Semantics.
+From Warblre Require Import Tactics Specialize Focus Result Base Patterns StaticSemantics Notation Semantics Coercions.
 Import Result.Notations.
+
+Import Coercions.
 
 (* Notation for MatchStates which goes nicely with the normalization tactic *)
 Notation "s '[@' n '$' c ']'" := (match_state s n c) (at level 50, left associativity).
@@ -20,7 +22,7 @@ Module Definitions.
       (greedy: bool) (parenIndex parenCount: non_neg_integer) (fuel: nat): MatcherContinuation :=
         fun y : MatchState =>
           if (min =? 0) && (MatchState.endIndex y =? MatchState.endIndex x)%Z
-          then Semantics.wrap_option MatchState None
+          then None
           else
            Semantics.repeatMatcher' m (if min =? 0 then 0 else min - 1)
              (if (max =? +∞)%NoI then +∞ else (max - 1)%NoI) greedy y c parenIndex parenCount fuel.

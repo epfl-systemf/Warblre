@@ -3,6 +3,7 @@ From Warblre Require Import List Tactics Specialize Focus Result Base Patterns S
 
 Import Result.Notations.
 Import Semantics.
+Import Coercions.
 
 Module Correctness.
   Import Patterns.
@@ -28,9 +29,6 @@ Module Correctness.
             end
         end.
 
-  Create HintDb Warblre.
-  #[export] Hint Unfold repeatMatcherFuel wrap_option : Warblre.
-
   Lemma is_not_failure_true_rewrite: forall (r: option MatchState), r is not failure = true <-> r <> failure.
   Proof. intros [ | ]; split; easy. Qed.
   Lemma is_not_failure_false_rewrite: forall (r: option MatchState), r is not failure = false <-> r = failure.
@@ -39,7 +37,7 @@ Module Correctness.
   Hint Rewrite -> is_not_failure_true_rewrite is_not_failure_false_rewrite : Warblre.
 
   Ltac clean := repeat
-  (   autounfold with Warblre_coercions in *
+  (   unfold wrap_option,CaptureRange_or_undefined in *
   ||  lazymatch goal with
       | [ Eq: Success _ = Success _ |-_] => injection Eq as Eq
       end).
@@ -81,7 +79,7 @@ Module Correctness.
 
     Ltac normalize := repeat
     (   cbn
-    ||  autounfold with Warblre_coercions in *
+    ||  unfold wrap_option,CaptureRange_or_undefined in *
     ||  unfold IteratorOn in *
     ||  match goal with
         | [ Eq: Success (capture_range _ _ _) = Success ?s |-_] => injection Eq as <-
@@ -134,12 +132,6 @@ Module Correctness.
   End CaptureRange.
 
   Module MatchState.
-    (* Lemma characterClass_successful_state_Valid: forall input endIndex captures dir,
-      ~ (step{dir} endIndex < 0)%Z  ->
-      ~ (Z.of_nat (length input) < step{dir} endIndex)%Z ->
-      Valid input (Definitions.characterClass_successful_state input endIndex captures dir).
-    Proof. destruct dir; constructor; cbn in *; lia. Qed. *)
-
     Definition OnInput (str: list Character) (x: MatchState) := MatchState.input x = str.
     Definition Valid (str: list Character) (rer: RegExp) (x: MatchState) :=
       OnInput str x /\
@@ -156,7 +148,7 @@ Module Correctness.
       intros str rer input endIndex cap cap' H0 H1 [ OI_x [ IO_x V_cap ]]. 
       unfold Valid. split_conjs; try assumption.
     Qed.
-    
+
     (*  Normalizes all MatchStates by doing the following:
         - Destructing them into their components
         - Then, if the MatchState is known to be on a particular string, eliminate the string introduced at the previous step. *)
@@ -331,7 +323,7 @@ Module Correctness.
     (*  Automated tactic to find the intermediate value 
         It will also try to prove the conditions on the intermediate value.
       *)
-    Ltac search := autounfold with Warblre_coercions in *; subst; lazymatch goal with
+    Ltac search := unfold wrap_option,HonoresContinuation in *; subst; lazymatch goal with
     | [ H: Success _ = Success _ |- _ ] => injection H; clear H; intros H; search
     | [ H: ?c ?y = Success ?z |- exists x, MatchState.Valid _ _ _ /\ progress ?dir _ _ /\ ?c x = Success ?z ] =>
       exists y; split_conjs;
@@ -339,22 +331,6 @@ Module Correctness.
       | try solve [Progress.saturate]
       | apply H ]
     end.
-
-    (** TODO: move to Tactics.v *)
-    Ltac fforward_impl H0 By := lazymatch type of H0 with
-    | (?x = ?x) -> ?Q => specialize (H0 (eq_refl x))
-    | ?P -> ?Q => lazymatch goal with
-      | [ H1: P |- _ ] => specialize (H0 H1); fforward_impl H0 By
-      | [ |- _ ] => let Tmp := fresh "Tmp" in assert (P) as Tmp; [ try solve[By] | specialize (H0 Tmp); clear Tmp; fforward_impl H0 By ]
-      end
-    | _ => idtac
-    end.
-
-    Tactic Notation "fforward" hyp(H) := fforward_impl H idtac.
-    Tactic Notation "fforward" hyp(H) "as" simple_intropattern(I) := fforward_impl H idtac; destruct H as I.
-    Tactic Notation "fforward" hyp(H) "by" tactic(t) := fforward_impl H t.
-    Tactic Notation "fforward" hyp(H) "as" simple_intropattern(I) "by" tactic(t) := fforward_impl H t; destruct H as I.
-    (** End TODO *)
 
     Lemma repeatMatcher: forall str rer fuel dir m min max greedy parenIndex parenCount,
           HonoresContinuation str rer m dir ->
@@ -378,10 +354,11 @@ Module Correctness.
         specialize IH with (1 := HCm).
         focus § _ (_ _ []) _ § remember as d in Eq_rec.
         specialize HCm with (2 := Eq_rec).
-        fforward HCm as [ y0 [ Vy0 [ Pxy0 Eq_dy0 ]] ] by MatchState.solve.
+        specialize (HCm ltac:(MatchState.solve)) as [ y0 [ Vy0 [ Pxy0 Eq_dy0 ]]].
         rewrite -> Heqd in Eq_dy0. unfold Definitions.RepeatMatcher.continuation in Eq_dy0.
         focus § _ [] _ § auto destruct in Eq_dy0.
-        specialize IH with (2 := Eq_dy0). fforward IH as [ y1 [ Vy1 [ Py0y1 Eq_cy1 ]]].
+        specialize IH with (2 := Eq_dy0).
+        specialize IH with (1 := Vy0) as [ y1 [ Vy1 [ Py0y1 Eq_cy1 ]]].
         search.
       }
 
@@ -520,14 +497,6 @@ Module Correctness.
   End Monotony.
 
   Module Safety.
-(*     Definition SafeContinuation (x0: MatchState) (str: list Character) (c: MatcherContinuation) (dir: direction) :=
-      forall x,
-        (* For any valid state *)
-        MatchState.Valid str x ->
-        (* which is a progress from the threshold state *)
-        progress dir x0 (Success (Some x)) ->
-        (* Then the overall computation does not trigger an assertion *)
-        c x <> match_assertion_failed. *)
     Definition SafeMatcher (str: list Character) (rer: RegExp) (m: Matcher) (dir: direction) := forall x c,
       (* For any valid state *)
       MatchState.Valid str rer x ->
@@ -535,12 +504,6 @@ Module Correctness.
       m x c = match_assertion_failed ->
       (* There is an intermediate value y that was produced by m and then passed to c which then ran out of fuel. *)
       exists y, MatchState.Valid str rer y /\ progress dir x (Success (Some y)) /\ c y = match_assertion_failed.
-    #[export]
-    Hint Unfold (*SafeContinuation*) SafeMatcher: Warblre.
-
-(*     Lemma continuation_weakening: forall x x' str dir (c: MatcherContinuation), progress dir x (Success (Some x'))
-      -> SafeContinuation x str c dir -> SafeContinuation x' str c dir.
-    Proof. intros. intros y V_y P_x'_y. apply H0; try assumption. Progress.saturate. Qed. *)
 
     Ltac search := lazymatch goal with
     | [ H: Failure _ = match_assertion_failed |- _ ] => try rewrite -> H in *; clear H; search
@@ -705,7 +668,7 @@ Module Correctness.
           subst. unfold countLeftCapturingParensBefore,NonNegInt.to_positive in *. cbn in *.
           destruct (countLeftCapturingParensBefore_impl ctx' + 1) eqn:Eq; try lia. cbn in *. injection AutoDest_1 as <-.
           apply StaticSemantics.pre_order_walk_roots in Eq_indexing. cbn in *.
-          rewrite <- R_r in *. Search Root "<=". Print Root.
+          rewrite <- R_r in *.
           pose proof (EarlyErrors.countLeftCapturingParensBefore_contextualized _ _ _ Eq_indexing GR_root).
           subst. unfold countLeftCapturingParensBefore,countLeftCapturingParensWithin,NonNegInt.to_positive in *. cbn in *.
           lia.
@@ -792,7 +755,7 @@ Module Correctness.
           subst x. apply MatchState.valid_init. lia.
         }
         focus § _ (_ [] _) § do (fun t => destruct t as [ | f ]; try easy; destruct f; try easy).
-        fforward. destruct Falsum as [ ? [ _ [ _ ? ]]].
+        fforward Falsum. destruct Falsum as [ ? [ _ [ _ ? ]]].
         subst. discriminate.
     Qed.
   End Safety.
@@ -805,24 +768,20 @@ Module Correctness.
       m x c = out_of_fuel ->
       (* There is an intermediate value y that was produced by m and then passed to c which then ran out of fuel. *)
       exists y, MatchState.Valid str rer y /\ progress dir x (Success (Some y)) /\ c y = out_of_fuel.
-    #[export]
-    Hint Unfold TerminatingMatcher: Warblre.
 
     Definition remainingChars (x: MatchState) (dir: direction): nat := match dir with
     | forward => length (MatchState.input x) - Z.to_nat (MatchState.endIndex x)
     | backward => Z.to_nat (MatchState.endIndex x)
     end.
     Definition fuelBound (min: non_neg_integer) (x: MatchState) (dir: direction) := min + (remainingChars x dir)  + 1.
-    #[export]
-    Hint Unfold fuelBound remainingChars : Warblre.
 
     Lemma repeatMatcherFuel_satisfies_bound: forall min x str rer dir, MatchState.Valid str rer x -> fuelBound min x dir <= repeatMatcherFuel min x.
-    Proof. intros. autounfold with Warblre in *. destruct H as [ <- [ [ Bounds_Ei_x_low Bounds_Ei_x_high ] VC_x ] ]. destruct dir; cbn; lia. Qed.
+    Proof. intros. unfold fuelBound,repeatMatcherFuel in *. destruct H as [ <- [ [ Bounds_Ei_x_low Bounds_Ei_x_high ] VC_x ] ]. destruct dir; cbn; lia. Qed.
 
     Lemma fuelDecreases_min: forall dir min min' x x' b,
       min' < min -> progress dir x (Success (Some x')) -> fuelBound min x dir <= S b -> fuelBound min' x' dir <= b.
     Proof.
-      intros. autounfold with Warblre in *. inversion H0; destruct dir; inversion H6; subst.
+      intros. unfold fuelBound,remainingChars in *. inversion H0; destruct dir; inversion H6; subst.
       - rewrite -> H3 in *. lia.
       - lia.
     Qed.
@@ -1104,7 +1063,7 @@ Module Correctness.
         subst x. apply MatchState.valid_init. lia.
       }
       focus § _ (_ [] _) § do (fun t => destruct t as [ | f ]; try easy; destruct f; try easy).
-      fforward. destruct Falsum as [ ? [ _ [ _ ? ]]].
+      fforward Falsum. destruct Falsum as [ ? [ _ [ _ ? ]]].
       subst. discriminate.
     Qed.
 

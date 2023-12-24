@@ -257,7 +257,7 @@ Module List.
     Qed.
 
     Lemma cons_inv_head {T F: Type} {_: Result.AssertionError F}: forall (h: T) (t: list T) (P: T -> Prop), Forall (h :: t) P -> P h.
-    Proof. intros h t P F_h_t. specialize (F_h_t 0%nat h). cbn in *. fforward. assumption. Qed.
+    Proof. intros h t P F_h_t. specialize (F_h_t 0%nat h). cbn in *. auto. Qed.
 
     Lemma cons_inv_tail {T F: Type} {_: Result.AssertionError F}: forall (h: T) (t: list T) (P: T -> Prop), Forall (h :: t) P -> Forall t P.
     Proof. intros h t P F_h_t i v Eq_indexed. specialize (F_h_t (S i) v). apply F_h_t. rewrite -> Indexing.Nat.cons. assumption. Qed.
@@ -407,8 +407,8 @@ Module List.
           - discriminate.
           - cbn in H. destruct (One.update v ls a) eqn:Eq_update.
             + specialize IHis with (1 := H). apply Forall.cons_inv_tail in Falsum. apply IHis. intros j w G. apply One.success_length in Eq_update as <-.
-              specialize (Falsum j w). fforward. apply Falsum.
-            + apply One.failure_bounds in Eq_update. specialize (Falsum 0%nat a). cbn in Falsum. fforward. lia.
+              specialize (Falsum j w). auto.
+            + apply One.failure_bounds in Eq_update. specialize (Falsum 0%nat a). cbn in Falsum. fforward Falsum. lia.
         Qed.
 
         Lemma success_length {T F: Type} {_: Result.AssertionError F}: forall (is: list nat) (ls ls': list T) (v: T),

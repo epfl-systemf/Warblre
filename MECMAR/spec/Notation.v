@@ -1,5 +1,5 @@
 From Coq Require Import ZArith List.
-From Warblre Require Import Result Base List.
+From Warblre Require Import Result Numeric Characters Errors List.
 
 (** 22.2.2.1 Notation *)
 (* The descriptions below use the following internal data structures: *)

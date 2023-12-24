@@ -13,12 +13,12 @@ Extract Constant Character.eqb => "Char.equal".
 Extract Constant Character.eqs => "Char.equal".
 Extract Constant Character.numeric_value => "Char.code".
 Extract Constant Character.from_numeric_value => "Char.chr".
-Extract Constant Character.code_point => "Interop.code_point".
 Extract Constant Character.Unicode.case_fold => "Interop.case_fold".
 
 Extract Constant CodePoint => "char".
 Extract Constant CodePoint.code_points_to_string => "Interop.code_points_to_string".
 Extract Constant CodePoint.to_upper_case => "Interop.to_upper_case".
+Extract Constant CodePoint.from_character => "Interop.code_point".
 
 Extract Constant GroupName => "int".
 Extract Constant GroupName.eqb => "Int.equal".

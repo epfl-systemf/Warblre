@@ -3,35 +3,12 @@ From Warblre Require Import Tactics Focus Result Base Patterns StaticSemantics N
 
 Import Result.Notations.
 Import Coercions.
-Import NoI.Coercions.
 Local Open Scope result_flow.
 
 (** 22.2.2 Pattern Semantics *)
 Module Semantics.
   Import Patterns.
   Import Notation.
-
-  (* Some coercions *)
-  (* These ones is used implicitly by the specification *)
-  Coercion CaptureRange_or_undefined(cr: CaptureRange) := (Some cr).
-  Coercion MatchState_or_failure(x: MatchState) := (Some x).
-  Coercion Z.of_nat: nat >-> Z.
-  Coercion CharacterClassEscape_to_ClassEscape := fun (cce: CharacterClassEscape) => ClassEscape.CharacterClassEsc cce.
-  Coercion CharacterEscape_to_ClassEscape := fun (ce: CharacterEscape) => ClassEscape.CharacterEsc ce.
-  Coercion ClassEscape_to_ClassAtom := fun (ce: ClassEscape) => ClassEsc ce.
-  Coercion ClassAtom_to_range := fun (c: ClassAtom) => ClassAtomCR c EmptyCR.
-
-
-  (* These are used to wrap things into the error monad we will be using *)
-  Coercion wrap_option := fun (T: Type) (t: option T) => @Success _ MatchError t.
-  Coercion wrap_char := fun (F: Type) (c: Character) => @Success _ F c.
-
-  Coercion wrap_bool := fun (F: Type) (t: bool) => @Success _ F t.
-  Coercion wrap_Matcher := fun (m: Matcher) => @Success _ CompileError m.
-  Coercion wrap_CharSet := fun (F: Type) (s: CharSet) => @Success _ F s.
-  Create HintDb Warblre_coercions.
-  #[export]
-  Hint Unfold CaptureRange_or_undefined MatchState_or_failure wrap_option wrap_bool : Warblre_coercions.
 
   (** 22.2.2.6 Runtime Semantics: CompileQuantifierPrefix *)
   Module CompiledQuantifierPrefix.
@@ -129,7 +106,7 @@ Module Semantics.
     (* 3. Assert: ch is a UTF-16 code unit. *)
     (*+ TODO: what to do? *)
     (* 4. Let cp be the code point whose numeric value is the numeric value of ch. *)
-    let cp := Character.code_point ch in
+    let cp := CodePoint.from_character ch in
     (* 5. Let u be the result of toUppercase(« cp »), according to the Unicode Default Case Conversion algorithm. *)
     let u := CodePoint.to_upper_case cp in
     (* 6. Let uStr be CodePointsToString(u). *)

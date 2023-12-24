@@ -1,5 +1,5 @@
 From Coq Require Import List Program.Equality.
-From Warblre Require Import Base Notation.
+From Warblre Require Import Notation Numeric Characters.
 
 (** 22.2.1 Patterns *)
 (* The RegExp constructor applies the following grammar to the input pattern String. An error occurs if the
@@ -9,10 +9,16 @@ Module Patterns.
   (** GroupName :: *)
   Module GroupName.
     Parameter type: Type.
-
-    Parameter eqs: forall (l r: type), {l = r} + {~ (l = r)}.
+    Parameter eqs: forall (l r: type), {l = r} + {l <> r}.
+    Parameter eqb: forall (l r: type), bool.
+    Definition neqb (l r: type) := negb (eqb l r).
   End GroupName.
   Notation GroupName := GroupName.type.
+
+  Declare Scope GroupName_scope.
+  Delimit Scope GroupName_scope with GrName.
+  Infix "=?" := GroupName.eqb (at level 70): GroupName_scope.
+  Infix "!=?" := GroupName.neqb (at level 70): GroupName_scope.
 
   (** CharacterClassEscape :: *)
   Module CharacterClassEscape.

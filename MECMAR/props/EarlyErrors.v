@@ -4,18 +4,18 @@ From Warblre Require Import List Result Base Patterns StaticSemantics.
 Module EarlyErrors.
 
   Inductive SingletonCharacterEscape: CharacterEscape -> Character -> Prop :=
-  | Singleton_ctrl_t: SingletonCharacterEscape (CharacterEscape.ControlEsc ControlEscape.t) Characters.CHARACTER_TABULATION
-  | Singleton_ctrl_n: SingletonCharacterEscape (CharacterEscape.ControlEsc ControlEscape.n) Characters.LINE_FEED
-  | Singleton_ctrl_v: SingletonCharacterEscape (CharacterEscape.ControlEsc ControlEscape.v) Characters.LINE_TABULATION
-  | Singleton_ctrl_f: SingletonCharacterEscape (CharacterEscape.ControlEsc ControlEscape.f) Characters.FORM_FEED
-  | Singleton_ctrl_r: SingletonCharacterEscape (CharacterEscape.ControlEsc ControlEscape.r) Characters.CARRIAGE_RETURN
-  | Singleton_zero: SingletonCharacterEscape CharacterEscape.Zero Characters.NULL
+  | Singleton_ctrl_t: SingletonCharacterEscape (CharacterEscape.ControlEsc ControlEscape.t) Character.CHARACTER_TABULATION
+  | Singleton_ctrl_n: SingletonCharacterEscape (CharacterEscape.ControlEsc ControlEscape.n) Character.LINE_FEED
+  | Singleton_ctrl_v: SingletonCharacterEscape (CharacterEscape.ControlEsc ControlEscape.v) Character.LINE_TABULATION
+  | Singleton_ctrl_f: SingletonCharacterEscape (CharacterEscape.ControlEsc ControlEscape.f) Character.FORM_FEED
+  | Singleton_ctrl_r: SingletonCharacterEscape (CharacterEscape.ControlEsc ControlEscape.r) Character.CARRIAGE_RETURN
+  | Singleton_zero: SingletonCharacterEscape CharacterEscape.Zero Character.NULL
   | Singleton_id: forall c, SingletonCharacterEscape (CharacterEscape.IdentityEsc c) c.
 
   Inductive SingletonClassAtom: ClassAtom -> Character -> Prop :=
   | Singleton_SourceCharacter: forall c, SingletonClassAtom (SourceCharacter c) c
-  | Singleton_b: SingletonClassAtom (ClassEsc ClassEscape.b) Characters.BACKSPACE
-  | Singleton_dash: SingletonClassAtom (ClassEsc ClassEscape.Dash) Characters.HYPHEN_MINUS
+  | Singleton_b: SingletonClassAtom (ClassEsc ClassEscape.b) Character.BACKSPACE
+  | Singleton_dash: SingletonClassAtom (ClassEsc ClassEscape.Dash) Character.HYPHEN_MINUS
   | Singleton_char_esc: forall ce c,
       SingletonCharacterEscape ce c -> SingletonClassAtom (ClassEsc (ClassEscape.CharacterEsc ce)) c.
 

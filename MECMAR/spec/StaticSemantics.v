@@ -1,5 +1,5 @@
 From Coq Require Import List.
-From Warblre Require Import List Base Result Patterns.
+From Warblre Require Import List Base Result Patterns Coercions.
 
 Import Coercions.
 
@@ -102,28 +102,28 @@ Module StaticSemantics.
   (** ClassEscape :: b *)
   | ClassEsc (ClassEscape.b) =>
       (* 1. Return the numeric value of U+0008 (BACKSPACE). *)
-      Character.numeric_value Characters.BACKSPACE
+      Character.numeric_value Character.BACKSPACE
 
   (** ClassEscape :: - *)
   | ClassEsc (ClassEscape.Dash) =>
       (* 1. Return the numeric value of U+002D (HYPHEN-MINUS). *)
-      Character.numeric_value Characters.HYPHEN_MINUS
+      Character.numeric_value Character.HYPHEN_MINUS
 
   (** CharacterEscape :: ControlEscape *)
   | ClassEsc (ClassEscape.CharacterEsc (CharacterEscape.ControlEsc esc)) =>
       (* 1. Return the numeric value according to Table 63. *)
       match esc with
-      | ControlEscape.t => Character.numeric_value Characters.CHARACTER_TABULATION
-      | ControlEscape.n => Character.numeric_value Characters.LINE_FEED
-      | ControlEscape.v => Character.numeric_value Characters.LINE_TABULATION
-      | ControlEscape.f => Character.numeric_value Characters.FORM_FEED
-      | ControlEscape.r => Character.numeric_value Characters.CARRIAGE_RETURN
+      | ControlEscape.t => Character.numeric_value Character.CHARACTER_TABULATION
+      | ControlEscape.n => Character.numeric_value Character.LINE_FEED
+      | ControlEscape.v => Character.numeric_value Character.LINE_TABULATION
+      | ControlEscape.f => Character.numeric_value Character.FORM_FEED
+      | ControlEscape.r => Character.numeric_value Character.CARRIAGE_RETURN
       end
 
   (** CharacterEscape :: 0 *)
   | ClassEsc (ClassEscape.CharacterEsc (CharacterEscape.Zero)) =>
       (* 1. Return the MV of HexEscapeSequence. *)
-      Character.numeric_value Characters.NULL
+      Character.numeric_value Character.NULL
 
   (** CharacterEscape :: IdentityEscape *)
   | ClassEsc (ClassEscape.CharacterEsc (CharacterEscape.IdentityEsc chr)) =>

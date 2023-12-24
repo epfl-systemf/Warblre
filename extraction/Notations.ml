@@ -3,6 +3,7 @@ open Extracted.Patterns
 let char c = Char (c)
 
 let group r = Group (None, r)
+let ngroup p = Group (Some (fst p), (snd p))
 
 let (||) l r = Disjunction (l, r)
 
@@ -23,3 +24,4 @@ let (?!) r = NegativeLookahead r
 let (?<!) r = NegativeLookbehind r
 
 let (!$) n = assert(0 < n); AtomEsc (AtomEscape.DecimalEsc n)
+let (!&) n = AtomEsc (AtomEscape.GroupEsc n)

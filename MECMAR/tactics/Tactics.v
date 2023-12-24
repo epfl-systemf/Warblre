@@ -94,11 +94,6 @@ Module Reflection.
   Qed.
 End Reflection.
 
-Ltac fforward := repeat match goal with
-| [ H0: ?P -> ?Q, H1: ?P |- _ ] => specialize (H0 H1)
-| [ H0: (?x = ?x) -> ?Q |- _ ] => specialize (H0 (eq_refl x))
-end.
-
 Ltac destruct_match := simpl in *; match goal with
   | [ H: context[ match ?c with | _ => _ end ] |- _ ] => let E := fresh "E" in destruct c eqn:E
   | [ |- context[ match ?c with | _ => _ end ] ] => let E := fresh "E" in destruct c eqn:E
@@ -199,3 +194,17 @@ Ltac check_not_duplicated H :=
 Ltac split_conjs := repeat match goal with
   | [|- _ /\ _ ] => split
   end.
+
+Ltac fforward_impl H0 By := lazymatch type of H0 with
+| (?x = ?x) -> ?Q => specialize (H0 (eq_refl x))
+| ?P -> ?Q => lazymatch goal with
+  | [ H1: P |- _ ] => specialize (H0 H1); fforward_impl H0 By
+  | [ |- _ ] => let Tmp := fresh "Tmp" in assert (P) as Tmp; [ try solve[By] | specialize (H0 Tmp); clear Tmp; fforward_impl H0 By ]
+  end
+| _ => idtac
+end.
+
+Tactic Notation "fforward" hyp(H) := fforward_impl H idtac.
+Tactic Notation "fforward" hyp(H) "as" simple_intropattern(I) := fforward_impl H idtac; destruct H as I.
+Tactic Notation "fforward" hyp(H) "by" tactic(t) := fforward_impl H t.
+Tactic Notation "fforward" hyp(H) "as" simple_intropattern(I) "by" tactic(t) := fforward_impl H t; destruct H as I.

@@ -23,8 +23,8 @@ Instance nat_indexer: Indexer nat := {
 }.
 #[export]
 Instance pos_indexer: Indexer positive_integer := {
-  index_using := fun T F f ls i => @List.Indexing.Nat.indexing T F f ls (proj1_sig i - 1);
-  update_using := fun T F f ls i v => @List.Update.Nat.One.update T F f v ls (proj1_sig i - 1);
+  index_using := fun T F f ls i => @List.Indexing.Nat.indexing T F f ls (positive_to_non_neg i - 1);
+  update_using := fun T F f ls i v => @List.Update.Nat.One.update T F f v ls (positive_to_non_neg i - 1);
 }.
 #[export]
 Instance int_indexer: Indexer Z := {

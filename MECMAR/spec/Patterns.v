@@ -1,4 +1,4 @@
-From Coq Require Import List Program.Equality.
+From Coq Require Import List Program.Equality PeanoNat.
 From Warblre Require Import Notation Numeric Characters.
 
 (** 22.2.1 Patterns *)
@@ -100,8 +100,8 @@ Module Patterns.
     | CharacterEsc (esc: CharacterEscape)
     | GroupEsc (id: GroupName).
 
-    (* Definition eqs (l r: type): {l = r} + {~ l = r}.
-    Proof. decide equality; try apply CharacterClassEscape.eqs; try apply CharacterEscape.eqs. Defined. *)
+    Definition eqs (l r: type): {l = r} + {~ l = r}.
+    Proof. decide equality; try apply CharacterClassEscape.eqs; try apply CharacterEscape.eqs; try apply GroupName.eqs; try decide equality. Defined.
   End AtomEscape.
   Notation AtomEscape := AtomEscape.type.
 
@@ -113,11 +113,19 @@ Module Patterns.
   | RepExact (count: non_neg_integer)
   | RepPartialRange (min: non_neg_integer)
   | RepRange (min: non_neg_integer) (max: non_neg_integer).
+  Module QuantifierPrefix.
+    Definition eqs (l r: QuantifierPrefix): {l = r} + {~ l = r}.
+    Proof. decide equality; apply Nat.eq_dec. Defined.
+  End QuantifierPrefix.
 
   (** Quantifier :: *)
   Inductive Quantifier :=
   | Greedy (p: QuantifierPrefix)
   | Lazy (p: QuantifierPrefix).
+  Module Quantifier.
+    Definition eqs (l r: Quantifier): {l = r} + {~ l = r}.
+    Proof. decide equality; apply QuantifierPrefix.eqs. Defined.
+  End Quantifier.
 
   (** ClassAtom :: *)
   (** ClassAtomNoDash :: *)
@@ -136,9 +144,8 @@ Module Patterns.
   | EmptyCR
   | ClassAtomCR (ca: ClassAtom) (t: ClassRanges)
   | RangeCR (l h: ClassAtom) (t: ClassRanges).
-
   Module ClassRanges.
-    Definition eqb (l r: ClassRanges): {l = r} + {~ l = r}.
+    Definition eqs (l r: ClassRanges): {l = r} + {~ l = r}.
     Proof. decide equality; apply ClassAtom.eqs. Defined.
   End ClassRanges.
 
@@ -146,6 +153,10 @@ Module Patterns.
   Inductive CharClass :=
   | NoninvertedCC (crs: ClassRanges)
   | InvertedCC (crs: ClassRanges).
+  Module CharClass.
+    Definition eqs (l r: CharClass): {l = r} + {~ l = r}.
+    Proof. decide equality; apply ClassRanges.eqs. Defined.
+  End CharClass.
 
   (** Pattern *)
   (** Disjunction *)
@@ -168,6 +179,16 @@ Module Patterns.
   | NegativeLookahead (r: Regex)
   | Lookbehind (r: Regex)
   | NegativeLookbehind (r: Regex).
+  Module Regex.
+    Definition eqs (l r: Regex): {l = r} + {~ l = r}.
+    Proof. decide equality; try solve [
+      apply Character.eqs |
+      apply AtomEscape.eqs |
+      apply Quantifier.eqs |
+      apply CharClass.eqs |
+      decide equality; apply GroupName.eqs].
+    Defined.
+  End Regex.
 
   Inductive RegexContextLayer :=
   | Disjunction_left (r: Regex)
@@ -180,9 +201,25 @@ Module Patterns.
   | NegativeLookahead_inner
   | Lookbehind_inner
   | NegativeLookbehind_inner.
+  Module RegexContextLayer.
+    Definition eqs (l r: RegexContextLayer): {l = r} + {~ l = r}.
+    Proof. decide equality; try solve [
+      apply Regex.eqs |
+      apply Quantifier.eqs |
+      decide equality; apply GroupName.eqs].
+    Defined.
+  End RegexContextLayer.
 
   Notation RegexContext := (list RegexContextLayer).
-  (* Definition Node: Type := RegexTree * RegexContext. *)
+  Module RegexContext.
+    Definition eqs (l r: RegexContext): {l = r} + {~ l = r}.
+    Proof. decide equality. apply RegexContextLayer.eqs. Defined.
+  End RegexContext.
+  Definition RegexNode: Type := Regex * RegexContext.
+  Module RegexNode.
+    Definition eqs (l r: RegexNode): {l = r} + {~ l = r}.
+    Proof. decide equality; solve [ apply Regex.eqs | apply RegexContext.eqs ]. Defined.
+  End RegexNode.
 
   Fixpoint zip (focus: Regex) (ctx: RegexContext): Regex :=
     match ctx with

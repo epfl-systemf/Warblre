@@ -35,7 +35,7 @@ Module EarlyErrors.
     | InvertedCC: forall crs, ClassRanges crs -> CharClass (Patterns.InvertedCC crs).
 
     Inductive AtomEscape: Patterns.AtomEscape -> RegexContext -> Prop :=
-    | DecimalEsc: forall ctx n, (proj1_sig n) <= (countLeftCapturingParensWithin (zip (AtomEsc (Patterns.AtomEscape.DecimalEsc n)) ctx) (nil)) -> AtomEscape (Patterns.AtomEscape.DecimalEsc n) ctx
+    | DecimalEsc: forall ctx n, (positive_to_non_neg n) <= (countLeftCapturingParensWithin (zip (AtomEsc (Patterns.AtomEscape.DecimalEsc n)) ctx) (nil)) -> AtomEscape (Patterns.AtomEscape.DecimalEsc n) ctx
     | CharacterClassEsc: forall ctx esc, AtomEscape (Patterns.AtomEscape.CharacterClassEsc esc) ctx
     | CharacterEsc: forall ctx esc, AtomEscape (Patterns.AtomEscape.CharacterEsc esc) ctx
     | GroupEsc: forall ctx gn, List.length (groupSpecifiersThatMatch (AtomEsc (Patterns.AtomEscape.GroupEsc gn)) ctx gn) = 1 -> AtomEscape (Patterns.AtomEscape.GroupEsc gn) ctx.
@@ -109,7 +109,7 @@ Module EarlyErrors.
         try solve [ specialize IHl with (1 := H) as [ j Eq_indexed ]; exists (S j); rewrite -> List.Indexing.Nat.cons; assumption ].
       destruct name;
         try solve [ specialize IHl with (1 := H) as [ j Eq_indexed ]; exists (S j); rewrite -> List.Indexing.Nat.cons; assumption ].
-      destruct (GroupName.eqs t gn);
+      destruct (GroupName.eqs t (capturingGroupName gn));
         try solve [ specialize IHl with (1 := H) as [ j Eq_indexed ]; exists (S j); rewrite -> List.Indexing.Nat.cons; assumption ].
       destruct i; cbn in H.
       + subst. injection H as <- <-.
@@ -128,7 +128,7 @@ Module EarlyErrors.
     - discriminate.
     - cbn in H. destruct h as [ h_r h_ctx ].
       destruct h_r; try destruct name as [ name | ]; try solve [ cbn in H; apply (IHt' H) ].
-      destruct (GroupName.eqs name gn).
+      destruct (GroupName.eqs name (capturingGroupName gn)).
       + cbn in H. subst. injection H as <-. split.
         * subst. cbn. lia.
         * exists h_ctx. symmetry. assumption.

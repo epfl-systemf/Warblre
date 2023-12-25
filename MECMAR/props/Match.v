@@ -602,7 +602,7 @@ Module Correctness.
     Qed.
 
     Lemma backreferenceMatcher: forall str rer n dir,
-      proj1_sig n <= RegExp.capturingGroupsCount rer ->
+      (positive_to_non_neg n) <= RegExp.capturingGroupsCount rer ->
       SafeMatcher str rer (backreferenceMatcher rer n dir) dir.
     Proof.
       intros str rer n dir Bound_n x c Vx Eq_af.
@@ -634,8 +634,7 @@ Module Correctness.
         cbn in AutoDest_. focus § _ [] _ § auto destruct in AutoDest_.
         apply List.Indexing.Nat.failure_bounds in AutoDest_.
         destruct Vx as [ _ [ _ [ Tmp _ ]]]; rewrite -> Tmp in *; clear Tmp.
-        destruct n as [ n Ineq_n ]. cbn in *.
-        lia.
+        pose proof (NonNegInt.pos n). lia.
     Qed.
 
     Lemma compileSubPattern: forall rer root r ctx dir str m,
@@ -665,12 +664,12 @@ Module Correctness.
             rewrite -> AutoDest_0. reflexivity.
           }
           apply EarlyErrors.groupSpecifiersThatMatch_is_filter_map in Eq_indexed as [ j [ ctx' [ Eq_ctx' Eq_indexing ] ]].
-          subst. unfold countLeftCapturingParensBefore,NonNegInt.to_positive in *. cbn in *.
-          destruct (countLeftCapturingParensBefore_impl ctx' + 1) eqn:Eq; try lia. cbn in *. injection AutoDest_1 as <-.
+          subst. destruct (countLeftCapturingParensBefore_impl ctx' + 1) eqn:Eq; try lia. cbn in *.
           apply StaticSemantics.pre_order_walk_roots in Eq_indexing. cbn in *.
           rewrite <- R_r in *.
           pose proof (EarlyErrors.countLeftCapturingParensBefore_contextualized _ _ _ Eq_indexing GR_root).
-          subst. unfold countLeftCapturingParensBefore,countLeftCapturingParensWithin,NonNegInt.to_positive in *. cbn in *.
+          subst. unfold countLeftCapturingParensBefore,countLeftCapturingParensWithin in *. cbn in *.
+          apply NonNegInt.to_positive_soundness in AutoDest_1.
           lia.
       - focus § _ [] _ § auto destruct in Eq_m; injection Eq_m as <-.
         apply characterSetMatcher.

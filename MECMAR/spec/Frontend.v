@@ -28,6 +28,27 @@ Module Frontend.
         | e::l' => substring l' (mstart') (mend-1)
         end
     end.
+
+  (* checks that a pattern contains a group name somewhere *)
+  Fixpoint containsgroupname (r:Patterns.Regex) : bool :=
+    match r with
+    | Empty => false
+    | Char _ => false
+    | Disjunction r1 r2 => orb (containsgroupname r1) (containsgroupname r2)
+    | Quantified r1 _ => containsgroupname r1
+    | Seq r1 r2 => orb (containsgroupname r1) (containsgroupname r2)
+    | Group nameop r1 =>
+        match nameop with
+        | Some _ => true
+        | None => containsgroupname r1
+        end
+    | Lookahead r1 => containsgroupname r1
+    | NegativeLookahead r1 => containsgroupname r1
+    | Lookbehind r1 => containsgroupname r1
+    | NegativeLookbehind r1 => containsgroupname r1
+    | BackReference _ => false
+    end.
+             
   
   Definition integer_zero : integer := BinNums.Z0.
 
@@ -54,10 +75,11 @@ Module Frontend.
         RegExpRecord: RegExp;
         RegExpMatcher: list Character -> non_neg_integer -> MatchResult;
         lastIndex: integer;
+        pattern: Patterns.Regex;
       }.
 
   Definition setlastindex (r:RegExpInstance) (index:integer) : RegExpInstance :=
-    mkre (OriginalFlags r) (RegExpRecord r) (RegExpMatcher r) index.
+    mkre (OriginalFlags r) (RegExpRecord r) (RegExpMatcher r) index (pattern r).
                                
   (* 22.2.7.5 Match Records
 A Match Record is a Record value used to encapsulate the start and end indices of a regular expression match or capture. *)
@@ -92,14 +114,21 @@ A Match Record is a Record value used to encapsulate the start and end indices o
     (* Set obj.[[RegExpMatcher]] to CompilePattern of parseResult with argument rer. *)
     let matcher := Semantics.compilePattern pattern rer in
     (* Perform ? Set(obj, "lastIndex", +0𝔽, true) *)
-    mkre flags rer matcher integer_zero.
+    mkre flags rer matcher integer_zero pattern.
 
 
+  (** * Defining Some Types *)
+
+  (* the groups that are returned inside the obejct returned by RegExpBuiltinExec *)
+  Definition groups_map : Type := list (GroupName * option (list Character)).
+  
+  (* the return result of RegExpBuiltinExec *)
   Record ArrayExotic :=
     mkarray {
         index: nat;
         input: list Character;
-        array: list (option (list Character));
+        array: list (option (list Character)); 
+        groups: option groups_map;
       }.
 
   (* 22.2.7.3 AdvanceStringIndex ( S, index, unicode ) *)
@@ -226,20 +255,71 @@ A Match Record is a Record value used to encapsulate the start and end indices o
   (* 24. Let match be the Match Record { [[StartIndex]]: lastIndex, [[EndIndex]]: e }. *)
   let! match_rec =<< MakeMatchRecord lastIndex e in
   (* 25. Let indices be a new empty List. *)
-  let indices: (list MatchRecord) := nil in
+  let indices: (list (option MatchRecord)) := nil in
   (* 26. Let groupNames be a new empty List. *)
-  let groupNames: (list (list Character)) := nil in
+  let groupNames: (list GroupName) := nil in
   (* 27. Append match to indices. *)
-  let indices := match_rec :: indices in
+  let indices := (Some match_rec) :: indices in
   (* 28. Let matchedSubstr be GetMatchString(S, match). *)
   let! matchedSubstr =<< GetMatchString S match_rec in
   (* 29. Perform ! CreateDataPropertyOrThrow(A, "0", matchedSubstr). *)
   set A_array[0] := Some matchedSubstr in
+  (* 30. If R contains any GroupName, then *)
+  let hasGroups := containsgroupname (pattern R) in  
+  let groups := if hasGroups then
+                  (* a. Let groups be OrdinaryObjectCreate(null). *)
+                  Some nil
+                    (* b. Let hasGroups be true. *)
+                else
+                  (* 31. Else, *)
+                  (* a. Let groups be undefined. *)
+                  None
+                    (* b. Let hasGroups be false. *)
+  in
+  (* 32. Perform ! CreateDataPropertyOrThrow(A, "groups", groups). *)
+  (* 33. For each integer i such that 1 ≤ i ≤ n, in ascending order, do *)
+  let fix forloop (i:nat) (indices:list (option MatchRecord)) (groupNames:list GroupName) (fuel:nat): Result.Result (list (option MatchRecord) * list GroupName) MatchError:=
+    match fuel with
+    | O => out_of_fuel
+    | S fuel' => 
+        (* a. Let captureI be ith element of r.[[Captures]]. *)
+        let! captureI =<< (MatchState.captures r)[i] in
+        let! (capturedValue, indices) : (option (list Character) * list (option MatchRecord)) =<<
+          match captureI with
+          (* b. If captureI is undefined, then *)
+          | None =>
+              (* i. Let capturedValue be undefined. *)
+              let capturedValue := None in
+              (* ii. Append undefined to indices. *)
+              Success (capturedValue, None::indices)
+          (* c. Else, *)
+          | Some captureI =>
+              (* i. Let captureStart be captureI.[[StartIndex]]. *)
+              let captureStart := CaptureRange.startIndex captureI in
+              let! captureStart_non_neg =<< to_non_neg captureStart in
+              (* ii. Let captureEnd be captureI.[[EndIndex]]. *)
+              let captureEnd := CaptureRange.endIndex captureI in
+              (* iii. If fullUnicode is true, then
+    1. Set captureStart to GetStringIndex(S, captureStart).
+    2. Set captureEnd to GetStringIndex(S, captureEnd). *)
+              (* TODO *)
+              (* iv. Let capture be the Match Record { [[StartIndex]]: captureStart, [[EndIndex]]: captureEnd }. *)
+              let! capture =<< MakeMatchRecord captureStart_non_neg captureEnd in
+              (* v. Let capturedValue be GetMatchString(S, capture). *)
+              let! capturedValue =<< GetMatchString S capture in
+              (* vi. Append capture to indices. *)
+              Success (Some capturedValue, (Some capture)::indices)
+          end in
+        (* d. Perform ! CreateDataPropertyOrThrow(A, ! ToString(𝔽(i)), capturedValue). *)
+        set A_array[i] := Some capturedValue in
 
-
-    (* TODO: finish the rest when we have named groups *)
+  (* e. f. TODO *)
+  if (i >=? n)%nat then Success (indices, groupNames)
+  else forloop (i+1) indices groupNames fuel'
+    end in
+  let! (indices, groupNames) =<< forloop 1%nat indices groupNames fuel in
   
-      Success (Exotic (mkarray A_index A_input A_array) (newInstance))
+      Success (Exotic (mkarray A_index A_input A_array groups) (newInstance))
   end.
   
   

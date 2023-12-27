@@ -129,7 +129,8 @@ A Match Record is a Record value used to encapsulate the start and end indices o
         input: list Character;
         array: list (option (list Character)); 
         groups: option groups_map;
-        (* TODO: add indices *)
+        indices_array: option (list (option (nat*nat)));
+        indices_groups: option (list (GroupName * option (nat*nat)));
       }.
 
   (* 22.2.7.3 AdvanceStringIndex ( S, index, unicode ) *)
@@ -259,9 +260,153 @@ A Match Record is a Record value used to encapsulate the start and end indices o
   (* computes the groups map, associating each group name to its captured value *)
   Definition captures_to_groups_map (R:Regex) (S:list Character) (captures: list (option CaptureRange)) : Result.Result groups_map MatchError :=
     captures_to_groupsmap R S captures 1%nat.
+
+
+  Fixpoint captures_to_groupnames (R:Regex) (captures:list (option CaptureRange)) (i:nat): Result.Result (list (option GroupName)) MatchError :=
+    match captures with
+    | nil => Success nil
+    | captureI::captures' =>
+        let! groupname =<< find_nth_group_name R i in
+        let! next =<< captures_to_groupnames R captures' (i+1) in
+        match groupname with
+        (* iii. Append s to groupNames. *)
+        | Some s => Success ((Some s)::next)
+        (* f. Else, *)
+        (*i. Append undefined to groupNames. *)
+        | None => Success (None::next)
+        end
+    end.
+
+  Definition captures_to_group_names (R:Regex)  (captures:list (option CaptureRange)): Result.Result (list (option GroupName)) MatchError :=
+    captures_to_groupnames R captures 1%nat.
+
+  (* transforms a capture into a matchRecord *)
+  Definition capture_to_record (cI:option CaptureRange) : Result.Result (option MatchRecord) MatchError :=
+    match cI with
+    (* b. If captureI is undefined, then
+    i. Let capturedValue be undefined. *)
+    | None => Success None
+    (* c. Else, *)
+    | Some captureI =>
+        (* i. Let captureStart be captureI.[[StartIndex]]. *)
+        let captureStart := CaptureRange.startIndex captureI in
+        let! captureStart_non_neg =<< to_non_neg captureStart in
+        (* ii. Let captureEnd be captureI.[[EndIndex]]. *)
+        let captureEnd := CaptureRange.endIndex captureI in
+        (* iii. If fullUnicode is true, then
+           1. Set captureStart to GetStringIndex(S, captureStart).
+           2. Set captureEnd to GetStringIndex(S, captureEnd). *)
+        (* TODO *)
+        (* iv. Let capture be the Match Record { [[StartIndex]]: captureStart, [[EndIndex]]: captureEnd }. *)
+        let! capture =<< MakeMatchRecord captureStart_non_neg captureEnd in
+        (* vi. Append capture to indices. *)
+        Success (Some capture)
+    end.
+
+  (* computes the indices list *)
+  Fixpoint captures_to_indices (captures:list (option CaptureRange)) : Result.Result (list (option MatchRecord)) MatchError :=
+    (* 33. For each integer i such that 1 ≤ i ≤ n, in ascending order, do *)
+    match captures with
+    | nil => Success nil
+    (* a. Let captureI be ith element of r's captures List. *)
+    | captureI::captures' =>
+        let! record =<< capture_to_record captureI in
+        let! next =<< captures_to_indices captures' in
+        Success (record::next)
+    end.
+
+
+  (*  22.2.7.7 GetMatchIndexPair ( S, match )
+
+The abstract operation GetMatchIndexPair takes arguments S (a String) and match (a Match Record) and returns an Array. It performs the following steps when called:
+   *)
+
+  Definition GetMatchIndexPair (S:list Character) (match_rec:MatchRecord) : Result.Result (nat * nat) MatchError :=
+    (* 1. Assert: match.[[StartIndex]] ≤ match.[[EndIndex]] ≤ the length of S. *)
+    assert! ((StartIndex match_rec) <=? (EndIndex match_rec));
+  assert! ((EndIndex match_rec) <=? List.length S);
+  (* 2. Return CreateArrayFromList(« 𝔽(match.[[StartIndex]]), 𝔽(match.[[EndIndex]]) »). *)
+  Success (StartIndex match_rec, EndIndex match_rec).
     
+  
+  (* 22.2.7.8 MakeMatchIndicesIndexPairArray ( S, indices, groupNames, hasGroups )
 
+The abstract operation MakeMatchIndicesIndexPairArray takes arguments S (a String), indices (a List of either Match Records or undefined), groupNames (a List of either Strings or undefined), and hasGroups (a Boolean) and returns an Array. It performs the following steps when called: *)
+  (* NOTE: we separate this in two functions: one computing the indices array, the other one computing the groups *)
+  (* NOTE: here [hasGroup] means "has names groups" *)
 
+  Fixpoint MakeMatchIndicesArray (S:list Character) (indices:list (option MatchRecord)): Result.Result (list (option (nat*nat))) MatchError :=
+    match indices with
+    | nil => Success nil
+    (* a. Let matchIndices be indices[i]. *)
+    | matchIndices::indices' =>
+        let! matchIndexPair =<<
+             match matchIndices with
+             (* b. If matchIndices is not undefined, then *)
+             | Some match_rec =>
+                 (* i. Let matchIndexPair be GetMatchIndexPair(S, matchIndices). *)
+                 let! mpair =<< GetMatchIndexPair S match_rec in
+                 Success (Some mpair)
+             (* c. Else, *)
+             (* i. Let matchIndexPair be undefined *)
+             | None => Success None
+                               
+             end in
+        let! next =<< MakeMatchIndicesArray S indices' in
+        (* d. Perform ! CreateDataPropertyOrThrow(A, ! ToString(𝔽(i)), matchIndexPair). *)
+        Success (matchIndexPair::next)
+    end.
+
+  (* assuming that indices does not contain the first element *)
+  Fixpoint MakeMatchIndicesGroupList (S:list Character) (indices:list (option MatchRecord)) (groupNames:list (option GroupName)): Result.Result (list (GroupName * option (nat*nat))) MatchError :=
+     match indices with
+    | nil => Success nil
+    (* a. Let matchIndices be indices[i]. *)
+    | matchIndices::indices' =>
+        let! matchIndexPair =<<
+             match matchIndices with
+             (* b. If matchIndices is not undefined, then *)
+             | Some match_rec =>
+                 (* i. Let matchIndexPair be GetMatchIndexPair(S, matchIndices). *)
+                 let! mpair =<< GetMatchIndexPair S match_rec in
+                 Success (Some mpair)
+             (* c. Else, *)
+             (* i. Let matchIndexPair be undefined *)
+             | None => Success None                       
+             end in
+        match groupNames with
+        | nil => assertion_failed
+        | gn::groupNames' =>
+            let! next =<< MakeMatchIndicesGroupList S indices' groupNames' in
+            match gn with
+            | None => Success next
+            (* e. If i > 0 and groupNames[i - 1] is not undefined, then *)
+            (* ii. Perform ! CreateDataPropertyOrThrow(groups, groupNames[i - 1], matchIndexPair). *)
+            | Some name => Success ((name,matchIndexPair)::next)
+            end
+        end
+     end.
+
+  Definition MakeMatchIndicesGroups (S:list Character) (indices:list (option MatchRecord)) (groupNames:list (option GroupName)) (hasGroups:bool): Result.Result (option (list (GroupName * option (nat*nat)))) MatchError :=
+    (* 1. Let n be the number of elements in indices. *)
+    let n := List.length indices in
+    (* 2. Assert: n < 232 - 1. *)
+    assert! (n <? 4294967295)%nat;
+  (* 3. Assert: groupNames has n - 1 elements. *)
+  assert! (List.length groupNames =? n-1)%nat;
+    match hasGroups with
+    | false => Success None
+    | true => 
+        match indices with
+        | indices_zero::indices' =>
+            let! groups =<< MakeMatchIndicesGroupList S indices' groupNames in
+            Success (Some groups)
+        | nil => assertion_failed
+        end
+    end.
+    
+    
+  
   
   (* 22.2.7.2 RegExpBuiltinExec ( R, S ) *)
   (* TODO: here S does not describe the input in its string form, but already as a list of characters *)
@@ -374,7 +519,20 @@ A Match Record is a Record value used to encapsulate the start and end indices o
                   (* a. Let groups be undefined. *)
                   else None
   in
-  Success (Exotic (mkarray A_index A_input A_array A_groups) (newInstance))
+  (* 27. Append match to indices. *)
+  let! indices_next =<< captures_to_indices (MatchState.captures r) in
+  let indices := (Some match_rec) :: indices_next in
+  let! groupNames =<< captures_to_group_names (pattern R) (MatchState.captures r) in
+  (* 34. a. Let indicesArray be MakeMatchIndicesIndexPairArray(S, indices, groupNames, hasGroups). *)
+  let! A_indices_array =<<
+       if hasIndices then
+         let! array =<< MakeMatchIndicesArray S indices in
+         Success (Some array)
+       else Success None in
+  let! A_indices_groups =<<
+       if hasIndices then MakeMatchIndicesGroups S indices groupNames hasGroups
+       else Success None in
+  Success (Exotic (mkarray A_index A_input A_array A_groups A_indices_array A_indices_groups) (newInstance))
   end.
 
 

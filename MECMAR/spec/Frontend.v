@@ -129,6 +129,7 @@ A Match Record is a Record value used to encapsulate the start and end indices o
         input: list Character;
         array: list (option (list Character)); 
         groups: option groups_map;
+        (* TODO: add indices *)
       }.
 
   (* 22.2.7.3 AdvanceStringIndex ( S, index, unicode ) *)
@@ -154,6 +155,113 @@ A Match Record is a Record value used to encapsulate the start and end indices o
   Inductive LoopResult :=
   | Terminates: ExecResult -> LoopResult
   | Continues: MatchState -> nat -> LoopResult.
+
+
+  (** * Modified RegExpBuiltinExec  *)
+
+  Inductive SearchGroup :=
+  | SearchFrom: nat -> SearchGroup
+  | Found: option GroupName -> SearchGroup.
+
+  (* Finds the ith group name, where i=0 designates the first group inside the pattern *)
+  Fixpoint find_group_name (r:Regex) (i:nat) : SearchGroup :=
+    match r with
+    | Empty => SearchFrom i
+    | Char _ => SearchFrom i
+    | Disjunction r1 r2 =>
+        match (find_group_name r1 i) with
+        | Found o => Found o
+        | SearchFrom i' => find_group_name r2 i'
+        end
+    | Quantified r1 q => find_group_name r1 i
+    | Seq r1 r2 =>
+        match (find_group_name r1 i) with
+        | Found o => Found o
+        | SearchFrom i' => find_group_name r2 i'
+        end
+    | Group name r1 =>
+        match i with
+        | O => Found name
+        | S i' => find_group_name r1 i'
+        end
+    | Lookahead r1 => find_group_name r1 i
+    | NegativeLookahead r1 => find_group_name r1 i
+    | Lookbehind r1 => find_group_name r1 i
+    | NegativeLookbehind r1 => find_group_name r1 i
+    | BackReference _ => SearchFrom i
+    end.
+
+  Definition find_nth_group_name (r:Regex) (n:nat) : Result.Result (option GroupName) MatchError :=
+    match n with
+    | O => Success None         (* group 0 is never named *)
+    | S i =>
+        match (find_group_name r i) with
+        | Found go => Success go
+        | SearchFrom _ => assertion_failed (* the n-th group was not defined in r *)
+        end
+    end.
+        
+
+  (* transforms a capture into a capturedValue, a substring of the original string *)
+  Definition capture_to_value (S:list Character) (cI:option CaptureRange) : Result.Result (option (list Character)) MatchError :=
+    match cI with
+    (* b. If captureI is undefined, then
+    i. Let capturedValue be undefined. *)
+    | None => Success None
+    (* c. Else, *)
+    | Some captureI =>
+        (* i. Let captureStart be captureI.[[StartIndex]]. *)
+        let captureStart := CaptureRange.startIndex captureI in
+        let! captureStart_non_neg =<< to_non_neg captureStart in
+        (* ii. Let captureEnd be captureI.[[EndIndex]]. *)
+        let captureEnd := CaptureRange.endIndex captureI in
+        (* iii. If fullUnicode is true, then
+           1. Set captureStart to GetStringIndex(S, captureStart).
+           2. Set captureEnd to GetStringIndex(S, captureEnd). *)
+        (* TODO *)
+        (* iv. Let capture be the Match Record { [[StartIndex]]: captureStart, [[EndIndex]]: captureEnd }. *)
+        let! capture =<< MakeMatchRecord captureStart_non_neg captureEnd in
+        (* v. Let capturedValue be GetMatchString(S, capture). *)
+        let! capturedValue =<< GetMatchString S capture in
+        Success (Some capturedValue)
+    end.
+
+  (* computes the array part of the Exotic Array, but only for captures with an index >= 1 *)
+  Fixpoint captures_to_array (S:list Character) (captures:list (option CaptureRange)) : Result.Result (list (option (list Character))) MatchError :=
+    (* 33. For each integer i such that 1 ≤ i ≤ n, in ascending order, do *)
+    match captures with
+    | nil => Success nil
+    (* a. Let captureI be ith element of r's captures List. *)
+    | captureI::captures' =>
+        let! capturedValue =<< capture_to_value S captureI in
+        let! next =<< captures_to_array S captures' in
+        (* d. Perform ! CreateDataPropertyOrThrow(A, ! ToString(𝔽(i)), capturedValue). *)
+        Success (capturedValue::next)
+    end.
+
+  (* i is the index of the first group in the captures list (initially, 1) *)
+  Fixpoint captures_to_groupsmap (R:Regex) (S:list Character) (captures:list (option CaptureRange)) (i:nat): Result.Result groups_map MatchError :=
+    match captures with
+    | nil => Success nil
+    | captureI::captures' =>
+        let! capturedValue =<< capture_to_value S captureI in
+        let! groupname =<< find_nth_group_name R i in
+        let! next =<< captures_to_groupsmap R S captures' (i+1) in
+        (* e. If the ith capture of R was defined with a GroupName, then *)
+        match groupname with
+        | None => Success next
+        (* i. Let s be the CapturingGroupName of that GroupName. *)
+        (* ii. Perform ! CreateDataPropertyOrThrow(groups, s, capturedValue). *)
+        | Some s => Success ((s,capturedValue)::next)
+        end
+    end.
+
+  (* computes the groups map, associating each group name to its captured value *)
+  Definition captures_to_groups_map (R:Regex) (S:list Character) (captures: list (option CaptureRange)) : Result.Result groups_map MatchError :=
+    captures_to_groupsmap R S captures 1%nat.
+    
+
+
   
   (* 22.2.7.2 RegExpBuiltinExec ( R, S ) *)
   (* TODO: here S does not describe the input in its string form, but already as a list of characters *)
@@ -161,6 +269,120 @@ A Match Record is a Record value used to encapsulate the start and end indices o
   (* The abstract operation RegExpBuiltinExec takes arguments R (an initialized RegExp instance) and S (a String) and returns either a normal completion containing either an Array exotic object or null, or a throw completion. It performs the following steps when called: *)
 
   Definition RegExpBuiltinExec (R:RegExpInstance) (S:list Character) (fuel:nat): Result.Result ExecResult MatchError :=
+    (* 1. Let length be the length of S. *)
+    let length := List.length S in
+    (* 2. Let lastIndex be ℝ(? ToLength(? Get(R, "lastIndex"))). *)
+    let lastIndex := lastIndex R in
+    (* 3. Let flags be R.[[OriginalFlags]]. *)
+    let flags := OriginalFlags R in
+    (* 4. If flags contains "g", let global be true; else let global be false. *)
+    let global := g flags in
+    (* 5. If flags contains "y", let sticky be true; else let sticky be false. *)
+    let sticky := y flags in
+    (* 6. If flags contains "d", let hasIndices be true; else let hasIndices be false. *)
+    let hasIndices := d flags in
+    (* 7. If global is false and sticky is false, set lastIndex to 0. *)
+    let lIndex:integer := if (andb (negb global) (negb sticky)) then integer_zero else lastIndex in
+    let! lastIndex: nat =<< to_non_neg lIndex in
+    (* 8. Let matcher be R.[[RegExpMatcher]]. *)
+    let matcher := RegExpMatcher R in
+    (* 9. If flags contains "u" or flags contains "v", let fullUnicode be true; else let fullUnicode be false. *)
+    let fullUnicode := if (orb (u flags) (v flags)) then true else false in
+    (* 10. Let matchSucceeded be false. *)
+    let matchSucceeded := false in
+    (* 11. If fullUnicode is true, let input be StringToCodePoints(S). Otherwise, let input be a List whose elements are the code units that are the elements of S. *)
+    (* TODO: go from string to list at this point *)
+    let input := S in
+    (* 12. NOTE: Each element of input is considered to be a character. *)
+    (* We change the repeat loop to a recursive function with fuel *)
+    let fix repeatloop (lastIndex:nat) (fuel:nat): Result LoopResult MatchError :=
+      match fuel with
+      | 0 => out_of_fuel
+      | S fuel' =>
+          (* a. If lastIndex > length, then *)
+          if (lastIndex >? length)%nat then
+            (* i. If global is true or sticky is true, then *)
+            let nextInstance := if (orb global sticky) then
+                                  (* 1. Perform ? Set(R, "lastIndex", +0𝔽, true). *)
+                                  setlastindex R integer_zero
+                                else R in
+            (* ii. Return null. *)
+            Success (Terminates (Null nextInstance))
+          else
+            (* b. Let inputIndex be the index into input of the character that was obtained from element lastIndex of S. *)
+            let inputIndex := lastIndex in
+            (* c. Let r be matcher(input, inputIndex). *)
+            let! r:(option MatchState) =<< matcher input inputIndex in
+            (* d. If r is failure, then *)
+            if r is (failure) then
+              (* i. If sticky is true, then *)
+              if sticky then
+                (* 1. Perform ? Set(R, "lastIndex", +0𝔽, true). *)
+                let nextInstance := setlastindex R integer_zero in
+                (* 2. Return null. *)
+                Success (Terminates (Null nextInstance))
+              else
+                (* ii. Set lastIndex to AdvanceStringIndex(S, lastIndex, fullUnicode). *)
+                let! lastIndex =<< AdvanceStringIndex S lastIndex fullUnicode in
+                repeatloop lastIndex fuel' 
+                           (* e. Else *)
+            else
+              (* i. Assert: r is a MatchState. *)
+              assert! (r is (Some _));
+              destruct! Some r <- (r:option MatchState) in
+              (*   ii. Set matchSucceeded to true. *)
+              Success (Continues r lastIndex)
+  end in
+  let! repeatresult =<< repeatloop lastIndex fuel in
+  match repeatresult with
+  | Terminates execresult => Success (execresult)
+  | Continues r lastIndex =>
+      (* 14. Let e be r.[[EndIndex]]. *)
+      let e := MatchState.endIndex r in
+      (* 15. If fullUnicode is true, set e to GetStringIndex(S, e). *)
+      let e := if fullUnicode then GetStringIndex S e else e in
+      (* 16. If global is true or sticky is true, then *)
+      let newInstance := if (orb global sticky) then
+                           (* a. Perform ? Set(R, "lastIndex", 𝔽(e), true). *)
+                           setlastindex R e
+                         else R in
+      (* 17. Let n be the number of elements in r.[[Captures]]. *)
+      let n := List.length (MatchState.captures r) in
+      (* 18. Assert: n = R.[[RegExpRecord]].[[CapturingGroupsCount]]. *)
+      assert! (n =? RegExp.capturingGroupsCount (RegExpRecord newInstance))%nat;
+  (* 19. Assert: n < 2^32 - 1. *)
+  assert! (n <? 4294967295)%nat;
+  (* 22. Perform ! CreateDataPropertyOrThrow(A, "index", 𝔽(lastIndex)). *)
+  let A_index := lastIndex in
+  (* 23. Perform ! CreateDataPropertyOrThrow(A, "input", S). *)
+  let A_input := S in
+  (* 24. Let match be the Match Record { [[StartIndex]]: lastIndex, [[EndIndex]]: e }. *)
+  let! match_rec =<< MakeMatchRecord lastIndex e in
+  (* 28. Let matchedSubstr be GetMatchString(S, match). *)
+  let! matchedSubstr =<< GetMatchString S match_rec in
+  (* 29. Perform ! CreateDataPropertyOrThrow(A, "0", matchedSubstr). *)
+  let A_array_zero := Some matchedSubstr in
+  let! A_array_next =<< captures_to_array S (MatchState.captures r) in
+  let A_array := A_array_zero::A_array_next in
+  (* 21. Assert: The mathematical value of A's "length" property is n + 1. *)
+  assert! (List.length A_array =? n+1);
+  let! groupsmap =<< captures_to_groups_map (pattern R) S (MatchState.captures r) in
+  (* 30. If R contains any GroupName, then *)
+  let hasGroups := containsgroupname (pattern R) in  
+  let A_groups := if hasGroups then Some groupsmap
+                  (* 31. Else, *)
+                  (* a. Let groups be undefined. *)
+                  else None
+  in
+  Success (Exotic (mkarray A_index A_input A_array A_groups) (newInstance))
+  end.
+
+
+
+
+
+  (* Deprecated Version *)
+  (*  Definition RegExpBuiltinExec (R:RegExpInstance) (S:list Character) (fuel:nat): Result.Result ExecResult MatchError :=
     (* 1. Let length be the length of S. *)
     let length := List.length S in
     (* 2. Let lastIndex be ℝ(? ToLength(? Get(R, "lastIndex"))). *)
@@ -320,8 +542,7 @@ A Match Record is a Record value used to encapsulate the start and end indices o
   let! (indices, groupNames) =<< forloop 1%nat indices groupNames fuel in
   
       Success (Exotic (mkarray A_index A_input A_array groups) (newInstance))
-  end.
-  
+  end. *)
   
 End Frontend.
 Export Frontend.

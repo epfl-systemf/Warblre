@@ -769,7 +769,83 @@ This method searches string for an occurrence of the regular expression pattern 
     | Exotic A rx => Success (true, rx)
     | Null rx => Success (false, rx)
     end.
-    
+
+  (* 22.2.6.8 RegExp.prototype [ @@match ] ( string ) *)
+
+  Inductive ProtoMatchResult :=
+  | GlobalResult : option (list (list Character)) -> RegExpInstance -> ProtoMatchResult 
+  | NonGlobalResult : ExecResult -> ProtoMatchResult.
+
+  Definition isemptystring (S:list Character) : bool :=
+    match S with
+    | nil => true
+    | _ => false
+    end.
+
+Search (list _ -> list _ -> list _).
+  Definition PrototypeMatch (R:RegExpInstance) (S:list Character) (fuel:nat) : Result.Result ProtoMatchResult MatchError :=
+    (* 1. Let rx be the this value. *)
+    let rx := R in
+    (* 2. If rx is not an Object, throw a TypeError exception. *)
+    (* 3. Let S be ? ToString(string). *)
+    let S := S in
+    (* 4. Let flags be ? ToString(? Get(rx, "flags")). *)
+    let flags := OriginalFlags rx in
+    match (g flags) with
+    (* 5. If flags does not contain "g", then *)
+    | false =>
+        (* a. Return ? RegExpExec(rx, S). *)
+        let! exec_res =<< RegExpExec rx S fuel in
+        Success (NonGlobalResult exec_res)
+    (* 6. Else, *)
+    | true =>
+        (* a. If flags contains "u", let fullUnicode be true. Otherwise, let fullUnicode be false. *)
+        let fullUnicode := u flags in
+        (* b. Perform ? Set(rx, "lastIndex", +0𝔽, true). *)
+        let rxzero := setlastindex rx integer_zero in
+        (* c. Let A be ! ArrayCreate(0). *)
+        let A := nil in
+        (* d. Let n be 0. *)
+        let n := 0 in
+        (* e. Repeat, *)
+        let fix repeatloop (A:list (list Character)) (fuel:nat) (n:nat): Result.Result (option (list (list Character)) * RegExpInstance) MatchError :=
+          match fuel with
+          | O => out_of_fuel
+          | S fuel' =>
+              (* i. Let result be ? RegExpExec(rx, S). *)
+              let! result =<< RegExpExec rx S fuel in (* TODO: maybe have another fuel? *)
+              match result with
+              (* ii. If result is null, then *)
+              | Null newrx =>
+                  (* 1. If n = 0, return null. *)
+                  if (n =? O)%nat then Success (None, newrx)
+                  else          (* Return A. *)
+                    Success (Some A, newrx)
+              (* iii. Else, *)
+              | Exotic result newrx =>
+                  (* 1. Let matchStr be ? ToString(? Get(result, "0")). *)
+                  let! matchStrop =<< (array result)[O] in
+                  let! matchStr =<< match matchStrop with | None => assertion_failed | Some s => Success s end in
+                  (* 2. Perform ! CreateDataPropertyOrThrow(A, ! ToString(𝔽(n)), matchStr). *)
+                  let newA := app A (matchStr::nil) in
+                  (* 3. If matchStr is the empty String, then *)
+                  let! nextrx =<< if (isemptystring matchStr) then
+                         (* a. Let thisIndex be ℝ(? ToLength(? Get(rx, "lastIndex"))). *)
+                         let thisIndex := lastIndex newrx in
+                         let! thisIndexnat =<< to_non_neg thisIndex in
+                         (* b. Let nextIndex be AdvanceStringIndex(S, thisIndex, fullUnicode). *)
+                         let! nextIndex =<< AdvanceStringIndex S thisIndexnat fullUnicode in
+                         (* c. Perform ? Set(rx, "lastIndex", 𝔽(nextIndex), true). *)
+                         Success (setlastindex newrx (BinInt.Z.of_nat nextIndex))
+                       else Success newrx in
+                  (* 4. Set n to n + 1. *)
+                  let n:= n + 1 in
+                  repeatloop newA fuel' n 
+              end
+          end in
+        let! (repeat_result, repeat_rx) =<< repeatloop A fuel n in
+        Success (GlobalResult repeat_result repeat_rx)
+    end.
   
 
 End Frontend.

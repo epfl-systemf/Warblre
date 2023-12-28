@@ -51,6 +51,7 @@ Module Frontend.
              
   
   Definition integer_zero : integer := BinNums.Z0.
+  Definition integer_minus_one : integer := BinIntDef.Z.opp BinInt.Z.one.
 
   Definition to_non_neg (i:integer) : Result non_neg_integer MatchError :=
     assert! (BinInt.Z.geb i integer_zero);
@@ -536,10 +537,8 @@ The abstract operation MakeMatchIndicesIndexPairArray takes arguments S (a Strin
   end.
 
 
-
-
-
   (* Deprecated Version *)
+  (* triggers a Coq anomaly *)
   (*  Definition RegExpBuiltinExec (R:RegExpInstance) (S:list Character) (fuel:nat): Result.Result ExecResult MatchError :=
     (* 1. Let length be the length of S. *)
     let length := List.length S in
@@ -702,5 +701,76 @@ The abstract operation MakeMatchIndicesIndexPairArray takes arguments S (a Strin
       Success (Exotic (mkarray A_index A_input A_array groups) (newInstance))
   end. *)
   
+
+  (* 22.2.7.1 RegExpExec ( R, S )
+
+The abstract operation RegExpExec takes arguments R (an Object) and S (a String) and returns either a normal completion containing either an Object or null, or a throw completion. It performs the following steps when called: *)
+
+
+  Definition RegExpExec (R:RegExpInstance) (S:list Character) (fuel:nat) : Result.Result ExecResult MatchError :=
+  (* Return ? RegExpBuiltinExec(R, S). *)
+    RegExpBuiltinExec R S fuel.
+
+
+  (* 22.2.6.2 RegExp.prototype.exec ( string )
+
+This method searches string for an occurrence of the regular expression pattern and returns an Array containing the results of the match, or null if string did not match. *)
+
+  Definition PrototypeExec (R:RegExpInstance) (S:list Character) (fuel:nat) : Result.Result ExecResult MatchError :=
+    (* 3. Let S be ? ToString(string). *)
+    (* TODO: missing the conversion from string to list character *)
+    (* 4. Return ? RegExpBuiltinExec(R, S). *)
+    RegExpBuiltinExec R S fuel.
+
+
+  (* 22.2.6.12 RegExp.prototype [ @@search ] ( string ) *)
+  Definition PrototypeSearch (R:RegExpInstance) (S:list Character) (fuel:nat) : Result.Result (integer * RegExpInstance) MatchError :=
+    (* NOTE: The "lastIndex" and "global" properties of this RegExp object are ignored when performing the search. The "lastIndex" property is left unchanged. *)
+    (* 1. Let rx be the this value. *)
+    let rx := R in
+    (* 2. If rx is not an Object, throw a TypeError exception. *)
+    (* 3. Let S be ? ToString(string). *)
+    (* 4. Let previousLastIndex be ? Get(rx, "lastIndex"). *)
+    let previousLastIndex := lastIndex rx in
+    (* 5. If SameValue(previousLastIndex, +0𝔽) is false, then *)
+    let rxzero := if (BinInt.Z.eqb previousLastIndex integer_zero) then rx else
+                    (* a. Perform ? Set(rx, "lastIndex", +0𝔽, true). *)
+                    setlastindex rx integer_zero in
+    (* 6. Let result be ? RegExpExec(rx, S). *)
+    let! result =<< RegExpExec rxzero S fuel in
+    let newrx := match result with | Null x => x | Exotic _ x => x end in
+    (* 7. Let currentLastIndex be ? Get(rx, "lastIndex"). *)
+    let currentLastIndex := lastIndex newrx in
+     (* 8. If SameValue(currentLastIndex, previousLastIndex) is false, then *)
+    let finalrx := if (BinInt.Z.eqb currentLastIndex previousLastIndex) then newrx
+(* a. Perform ? Set(rx, "lastIndex", previousLastIndex, true). *)
+                   else setlastindex newrx previousLastIndex in
+    match result with
+    | Null _ =>
+        (* 9. If result is null, return -1𝔽. *)
+        Success (integer_minus_one, finalrx)
+    | Exotic ArrayEx _ =>
+        (* 10. Return ? Get(result, "index"). *)
+        Success (BinInt.Z.of_nat (index ArrayEx), finalrx)
+    end.
+    
+
+  (* 22.2.6.16 RegExp.prototype.test ( S ) *)
+  Definition PrototypeTest (R:RegExpInstance) (S:list Character) (fuel:nat) : Result.Result (bool * RegExpInstance) MatchError :=
+    (* 1. Let R be the this value. *)
+    let R := R in
+    (* 2. If R is not an Object, throw a TypeError exception. *)
+    (* 3. Let string be ? ToString(S). *)
+    let string := S in
+    (* 4. Let match be ? RegExpExec(R, string). *)
+    let! match_res =<< RegExpExec R string fuel in
+    (* 5. If match is not null, return true; else return false. *)
+    match match_res with
+    | Exotic A rx => Success (true, rx)
+    | Null rx => Success (false, rx)
+    end.
+    
+  
+
 End Frontend.
 Export Frontend.

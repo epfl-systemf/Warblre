@@ -782,7 +782,6 @@ This method searches string for an occurrence of the regular expression pattern 
     | _ => false
     end.
 
-Search (list _ -> list _ -> list _).
   Definition PrototypeMatch (R:RegExpInstance) (S:list Character) (fuel:nat) : Result.Result ProtoMatchResult MatchError :=
     (* 1. Let rx be the this value. *)
     let rx := R in
@@ -846,7 +845,87 @@ Search (list _ -> list _ -> list _).
         let! (repeat_result, repeat_rx) =<< repeatloop A fuel n in
         Success (GlobalResult repeat_result repeat_rx)
     end.
+
+
+  (* 22.2.9.1 CreateRegExpStringIterator ( R, S, global, fullUnicode ) *)
+
+  (* The abstract operation CreateRegExpStringIterator takes arguments R (an Object), S (a String), global (a
+Boolean), and fullUnicode (a Boolean) and returns a Generator. It performs the following steps when called: *)
   
+  Definition CreateRegExpStringIterator (R:RegExpInstance) (S:list Character) (global:bool) (fullUnicode:bool) (fuel:nat): Result.Result (list ArrayExotic * RegExpInstance) MatchError :=
+    (* 1. Let closure be a new Abstract Closure with no parameters that captures R, S, global, and fullUnicode
+and performs the following steps when called: *)
+    let closure (R:RegExpInstance): Result.Result (option ArrayExotic * RegExpInstance) MatchError :=
+      (* i. Let match be ? RegExpExec(R, S). *)
+      let! match_result =<< RegExpExec R S fuel in
+      match match_result with
+        (* ii. If match is null, return undefined. *)
+      | Null rx => Success (None, rx)
+      | Exotic match_result rx =>
+          (* iii. If global is false, then *)
+          match global with
+          | false =>
+              (* 1. Perform ? GeneratorYield(CreateIterResultObject(match, false)). *)
+              (* 2. Return undefined. *)
+              Success (None, rx)
+          | true =>
+              (* iv. Let matchStr be ? ToString(? Get(match, "0")). *)
+              let! matchStrop =<< (array match_result)[O] in
+              let! matchStr =<< match matchStrop with | None => assertion_failed | Some s => Success s end in
+              (* v. If matchStr is the empty String, then *)
+              let! newrx =<<
+                   if (isemptystring matchStr) then
+                     (* 1. Let thisIndex be ℝ(? ToLength(? Get(R, "lastIndex"))). *)
+                     let thisIndex := lastIndex rx in
+                     let! thisIndexnat =<< to_non_neg thisIndex in
+                     (* 2. Let nextIndex be AdvanceStringIndex(S, thisIndex, fullUnicode). *)
+                     let! nextIndex =<< AdvanceStringIndex S thisIndexnat fullUnicode in
+                     (* 3. Perform ? Set(R, "lastIndex", 𝔽(nextIndex), true) *)
+                     Success (setlastindex rx (BinInt.Z.of_nat nextIndex))
+                   else Success rx in
+              (* vi. Perform ? GeneratorYield(CreateIterResultObject(match, false)). *)
+              Success (Some match_result, newrx)
+          end
+      end in
+    (* 2. Return CreateIteratorFromClosure(closure, "%RegExpStringIteratorPrototype%", %RegExpStringIteratorPrototype%). *)
+    (* NOTE: instead of mechanizing the whole iterator part of the spec, we just iterate it right away *)
+    let fix repeat_closure (previous_matches:list ArrayExotic) (R:RegExpInstance) (fuel:nat) : Result.Result (list ArrayExotic * RegExpInstance) MatchError :=
+      match fuel with
+      | O => out_of_fuel
+      | S fuel' =>
+          let! (it_match, it_R) =<< closure R in
+          match it_match with
+          | None => Success (previous_matches, it_R)
+          | Some it_match => repeat_closure (List.app previous_matches (it_match::nil)) it_R fuel'
+          end
+      end in
+    repeat_closure nil R fuel.
+        
+  (* 22.2.6.9 RegExp.prototype [ @@matchAll ] ( string ) *)
+
+  Definition PrototypeMatchAll (R:RegExpInstance) (S:list Character) (fuel:nat) : Result.Result (list ArrayExotic * RegExpInstance) MatchError :=
+    (* 5. Let flags be ? ToString(? Get(R, "flags")). *)
+    let flags := OriginalFlags R in
+    (* 9. If flags contains "g", let global be true.*)
+    let global := g flags in
+    (* 11. If flags contains "u", let fullUnicode be true. *)
+    let fullUnicode := u flags in
+    (* 13. Return CreateRegExpStringIterator(matcher, S, global, fullUnicode). *)
+    CreateRegExpStringIterator R S global fullUnicode fuel.
+
+  (* 22.1.3.13 String.prototype.matchAll ( regexp ) *)
+  (* This method performs a regular expression match of the String representing the this value against regexp
+and returns an iterator. Each iteration result's value is an Array containing the results of the match, or null if
+the String did not match. *)
+
+  Definition StringPrototypeMatchAll (R:RegExpInstance) (S:list Character) (fuel:nat): Result.Result (list ArrayExotic * RegExpInstance) MatchError :=
+    (* b. iii. If ? ToString(flags) does not contain "g", throw a TypeError exception. *)
+    match (g (OriginalFlags R)) with
+    | false => assertion_failed
+    | true =>
+        (* 5. Return ? Invoke(rx, @@matchAll, « S »). *)
+        PrototypeMatchAll R S fuel
+    end.
 
 End Frontend.
 Export Frontend.

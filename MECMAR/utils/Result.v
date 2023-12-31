@@ -60,6 +60,20 @@ Module Result.
       | _ =>assertion_failed (* Otherwise, consider the failure as an assertion failure *)
       end)
       (at level 20, r pattern, y at level 100, z at level 200): result_flow.
+
+    Module Boolean.
+      Notation "'if!' b 'then' tf 'else' ff" := (match b with
+      | Success true => tf
+      | Success false => ff
+      | Failure f => Failure f
+      end) (at level 20, b at level 100, tf at level 100, ff at level 100): result_flow.
+
+      Notation "l '&&!' r" := (match l with
+      | Success true => r
+      | Success false => Success false
+      | Failure f => Failure f
+      end) (at level 40, left associativity): result_flow.
+    End Boolean.
   End Notations.
 End Result.
 Export Result(Result, Success, Failure).

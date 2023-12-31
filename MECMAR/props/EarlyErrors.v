@@ -1,5 +1,5 @@
 From Coq Require Import List Lia Program.Equality.
-From Warblre Require Import List Result Base Patterns StaticSemantics.
+From Warblre Require Import List Result Focus Base Patterns StaticSemantics.
 
 Module EarlyErrors.
 

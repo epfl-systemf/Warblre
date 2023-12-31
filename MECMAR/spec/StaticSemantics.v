@@ -1,7 +1,10 @@
-From Coq Require Import List.
-From Warblre Require Import List Base Result Patterns Coercions.
+From Coq Require Import PeanoNat List Bool.
+From Warblre Require Import Result List Base Result Patterns Coercions.
 
 Import Coercions.
+Import Result.Notations.
+Import Result.Notations.Boolean.
+Local Open Scope result_flow.
 
 Module StaticSemantics.
 
@@ -121,8 +124,29 @@ Module StaticSemantics.
   end.
 
   (** 22.2.1.5 Static Semantics: IsCharacterClass *)
+  Definition isCharacterClass (ca: ClassAtom): bool := match ca with
+  (** ClassAtom ::
+      -
+      ClassAtomNoDash ::
+      SourceCharacter but not one of \ or ] or -
+      ClassEscape ::
+      b
+      -
+      CharacterEscape *)
+  | SourceCharacter _
+  | ClassEsc (ClassEscape.b)
+  | ClassEsc (ClassEscape.Dash)
+  | ClassEsc (ClassEscape.CharacterEsc _) =>
+      (* 1. Return false. *)
+      false
+  (** ClassEscape :: CharacterClassEscape *)
+  | ClassEsc (ClassEscape.CharacterClassEsc _) =>
+      (* 1. Return true. *)
+      true
+  end.
 
   (** 22.2.1.4 Static Semantics: CapturingGroupNumber *)
+  Definition capturingGroupNumber (n: positive_integer): positive_integer := n.
 
   (** 22.2.1.2 Static Semantics: CountLeftCapturingParensWithin *)
   Fixpoint countLeftCapturingParensWithin_impl (r: Regex): non_neg_integer :=
@@ -163,25 +187,76 @@ Module StaticSemantics.
   Definition countLeftCapturingParensBefore (r: Regex) (ctx: RegexContext): non_neg_integer := countLeftCapturingParensBefore_impl ctx.
 
   (** 22.2.1.1 Static Semantics: Early Errors *)
-  (*Definition earlyErrors (r: Regex): bool :=
-    let nodes := pre_order_walk r nil in
+  Fixpoint earlyErrors_class_ranges (cr: ClassRanges): Result bool SyntaxError := match cr with
+  | EmptyCR => false
+  | ClassAtomCR _ t => earlyErrors_class_ranges t
+  (**  NonemptyClassRanges :: ClassAtom - ClassAtom ClassRanges *)
+  | RangeCR l h t =>
+      let! cvl =<< characterValue l in
+      let! cvr =<< characterValue h in
+      (* * It is a Syntax Error if IsCharacterClass of the first ClassAtom is true or IsCharacterClass of the second ClassAtom is true. *)
+      if (isCharacterClass l is true) || (isCharacterClass h is true) then true
+      (* * It is a Syntax Error if IsCharacterClass of the first ClassAtom is false, IsCharacterClass of the second ClassAtom is false, and the CharacterValue of the first ClassAtom is strictly greater than the CharacterValue of the second ClassAtom.  *)
+      else if (isCharacterClass l is false) && (isCharacterClass h is false) && (cvl >? cvr)%nat then true
+      else false
+  end.
+  Definition earlyErrors_char_class (cc: CharClass): Result bool SyntaxError := match cc with
+  | NoninvertedCC cr => earlyErrors_class_ranges cr
+  | InvertedCC cr => earlyErrors_class_ranges cr
+  end.
+
+  Definition earlyErrors_quantifier_prefix (q: QuantifierPrefix): bool := match q with
+  (**  QuantifierPrefix :: { DecimalDigits , DecimalDigits } *)
+  | RepRange l h =>
+      (* * It is a Syntax Error if the MV of the first DecimalDigits is strictly greater than the MV of the second DecimalDigits. *)
+      if (l >? h)%nat then true else false
+  | _ => false
+  end.
+
+  Definition earlyErrors_quantifier (q: Quantifier): bool := match q with
+  | Lazy q => earlyErrors_quantifier_prefix q
+  | Greedy q => earlyErrors_quantifier_prefix q
+  end.
+
+  Fixpoint earlyErrors_rec (r: Regex) (ctx: RegexContext): Result bool SyntaxError := match r with
+    | Empty => false
+    | Char _ => false
+    | Dot => false
+    (**  AtomEscape :: DecimalEscape *)
+    | AtomEsc (AtomEscape.DecimalEsc n) =>
+        (* * It is a Syntax Error if the CapturingGroupNumber of DecimalEscape is strictly greater than CountLeftCapturingParensWithin(the Pattern containing AtomEscape). *)
+        if (capturingGroupNumber n >? countLeftCapturingParensWithin (zip r ctx) nil)%nat then true else false
+    (**  AtomEscape :: k GroupName *)
+    | AtomEsc (AtomEscape.GroupEsc name) =>
+        (* * It is a Syntax Error if GroupSpecifiersThatMatch(GroupName) is empty. *)
+        if (List.length (groupSpecifiersThatMatch (AtomEsc (Patterns.AtomEscape.GroupEsc name)) ctx name) =? 0)%nat then true else false
+    | AtomEsc _ => false
+    | CharacterClass cc => earlyErrors_char_class cc
+    | Disjunction r1 r2 => earlyErrors_rec r1 (Disjunction_left r2 :: ctx) &&! earlyErrors_rec r2 (Disjunction_right r1 :: ctx)
+    | Quantified r q => earlyErrors_rec r (Quantified_inner q :: ctx) &&! earlyErrors_quantifier q
+    | Seq r1 r2 => earlyErrors_rec r1 (Seq_left r2 :: ctx) &&! earlyErrors_rec r2 (Seq_right r1 :: ctx)
+    | Group name r => earlyErrors_rec r (Group_inner name :: ctx)
+    | Lookahead r => earlyErrors_rec r (Lookahead_inner :: ctx)
+    | NegativeLookahead r => earlyErrors_rec r (NegativeLookahead_inner :: ctx)
+    | Lookbehind r => earlyErrors_rec r (Lookbehind_inner :: ctx)
+    | NegativeLookbehind r => earlyErrors_rec r (NegativeLookbehind_inner :: ctx)
+    end.
+
+  Definition earlyErrors (r: Regex) (ctx: RegexContext): Result bool SyntaxError :=
+    let nodes := pre_order_walk r ctx in
     (**  Pattern :: Disjunction *)
     (* * It is a Syntax Error if CountLeftCapturingParensWithin(Pattern) ≥ 2^32 - 1. *)
     (* if (countLeftCapturingParensWithin r nil >=? 4294967295)%nat then true *)
     (* * It is a Syntax Error if Pattern contains two or more GroupSpecifiers for which CapturingGroupName of GroupSpecifier is the same. *)
-    if List.Exists.exists nodes (fun node0 =>
-      List.Exists.exists nodes (fun node1 =>
-        
+    if! List.Exists.exist nodes (fun node0 =>
+      List.Exists.exist nodes (fun node1 =>
+        let (r0, ctx0) := node0 in
+        let (r1, ctx1) := node1 in
+        match r0, r1 with
+        | Group (Some name0) _, Group (Some name1) _ => if GroupName.eqb name0 name1 then true else false
+        | _, _ => false
+        end
     )) then true
-    (**  QuantifierPrefix :: { DecimalDigits , DecimalDigits } *)
-    (* * It is a Syntax Error if the MV of the first DecimalDigits is strictly greater than the MV of the second DecimalDigits. *)
-    (**  AtomEscape :: k GroupName *)
-    (* * It is a Syntax Error if GroupSpecifiersThatMatch(GroupName) is empty. *)
-    (**  AtomEscape :: DecimalEscape *)
-    (* * It is a Syntax Error if the CapturingGroupNumber of DecimalEscape is strictly greater than CountLeftCapturingParensWithin(the Pattern containing AtomEscape). *)
-    (**  NonemptyClassRanges :: ClassAtom - ClassAtom ClassRanges *)
-    (* * It is a Syntax Error if IsCharacterClass of the first ClassAtom is true or IsCharacterClass of the second ClassAtom is true. *)
-    (* It is a Syntax Error if IsCharacterClass of the first ClassAtom is false, IsCharacterClass of the second ClassAtom is false, and the CharacterValue of the first ClassAtom is strictly greater than the CharacterValue of the second ClassAtom.  *)
-    else false.*)
+    else earlyErrors_rec r ctx.
 End StaticSemantics.
 Export StaticSemantics.

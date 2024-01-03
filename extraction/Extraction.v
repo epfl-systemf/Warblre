@@ -1,4 +1,4 @@
-From Warblre Require Import Base Semantics ClutterFree.
+From Warblre Require Import Base Semantics ClutterFree Frontend.
 
 From Coq Require Extraction.
 Extraction Language OCaml.
@@ -14,4 +14,5 @@ Extract Constant Character.eqb => "Char.equal".
 Extract Constant GroupName => "int".
 Extract Constant GroupName.eqb => "Int.equal".
 
-Extraction "Extracted.ml" Semantics.compilePattern ClutterFree.regex_match.
+Extraction "Extracted.ml" Semantics.compilePattern ClutterFree.regex_match
+  Frontend.PrototypeExec Frontend.PrototypeSearch Frontend.PrototypeTest Frontend.PrototypeMatch Frontend.StringPrototypeMatchAll.

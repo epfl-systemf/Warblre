@@ -79,6 +79,8 @@ Module Frontend.
         pattern: Patterns.Regex;
       }.
 
+  
+
   Definition setlastindex (r:RegExpInstance) (index:integer) : RegExpInstance :=
     mkre (OriginalFlags r) (RegExpRecord r) (RegExpMatcher r) index (pattern r).
                                
@@ -927,5 +929,21 @@ the String did not match. *)
         PrototypeMatchAll R S fuel
     end.
 
+
+  (* The phrase "the result of clamping x between lower and upper" (where x is an extended mathematical value and lower and upper are mathematical values such that lower ≤ upper) produces lower if x < lower, produces upper if x > upper, and otherwise produces x. *)
+
+  Definition clamping (x:integer) (lower:integer) (upper:integer) : integer :=
+    if (BinInt.Z.ltb x lower) then lower
+    else
+      if (BinInt.Z.gtb x upper) then upper
+      else x.
+
+  Definition clamping_nat (x:nat) (lower:nat) (upper:nat) : nat :=
+    if (x <? lower) then lower
+    else
+      if (x >? upper) then upper
+      else x.
+
+  
 End Frontend.
 Export Frontend.

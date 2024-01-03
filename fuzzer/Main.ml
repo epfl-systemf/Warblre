@@ -255,6 +255,7 @@ let fuzzer () : unit =
 
 let () =
   Random.self_init();
+  (* fuzzer(); *)
 
   (* let original_bug_regex : coq_Regex = *)
   (*   Quantified ( *)
@@ -280,5 +281,52 @@ let () =
   (* compare_engines bug_regex bug_string *)
   (* This bug was fixed by fixing the computation of parens before *)
 
+
+  let test_rgx = Seq(Quantified(Char('a'),Greedy Star),Char('b')) in
+  let test_str = "dddbaababaaaabc" in
+  let list_input = List.init (String.length test_str) (String.get test_str) in
+
+  let max_fuel = 10000000000 in
+
+  let test_flags:Extracted.Frontend.coq_RegExpFlags =
+    { d=false;
+      g=true;
+      i=false;
+      m=false;
+      s=false;
+      u=false;
+      v=false;
+      y=false;
+    } in
+
+  let maxgroup = Extracted.StaticSemantics.countLeftCapturingParensWithin test_rgx [] in
+  let matcher = Extracted.Semantics.compilePattern test_rgx maxgroup in
+
   
-  fuzzer ()
+  let test_instance :Extracted.Frontend.coq_RegExpInstance =
+    { coq_OriginalFlags = test_flags;
+      coq_RegExpRecord = maxgroup; (* todo: missing some flags *)
+      coq_RegExpMatcher = matcher;
+      lastIndex = 0;
+      pattern = test_rgx;
+    } in
+
+  let test_result = Extracted.Frontend.coq_PrototypeTest test_instance list_input max_fuel in
+  let _ = match test_result with
+    | Success (true, newinstance) -> Printf.printf "true\n"
+    | Success (false, newinstance) -> Printf.printf "false\n"
+    | _ -> failwith "Failure\n"
+  in
+
+  let search_result = Extracted.Frontend.coq_PrototypeSearch test_instance list_input max_fuel in
+  let _ = match search_result with
+    | Success (i, newinstance) -> Printf.printf "Search index: %d\n" i
+    | _ -> failwith "Failure\n"
+  in
+  ()
+
+
+  
+  
+  
+  (* fuzzer () *)

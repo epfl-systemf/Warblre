@@ -7,47 +7,6 @@ Import Result.Notations.Boolean.
 Local Open Scope result_flow.
 
 Module StaticSemantics.
-
-  Fixpoint pre_order_walk (r: Regex) (ctx: RegexContext): list (Regex * RegexContext) :=
-    (r, ctx) ::
-    match r with
-    | Empty => nil
-    | Char _ => nil
-    | Dot => nil
-    | CharacterClass _ => nil
-    | AtomEsc _ => nil
-    | Disjunction r1 r2 => pre_order_walk r1 (Disjunction_left r2 :: ctx) ++ pre_order_walk r2 (Disjunction_right r1 :: ctx)
-    | Quantified r0 q => pre_order_walk r0 (Quantified_inner q :: ctx)
-    | Seq r1 r2 => pre_order_walk r1 (Seq_left r2 :: ctx) ++ pre_order_walk r2 (Seq_right r1 :: ctx)
-    | Group name r0 => pre_order_walk r0 (Group_inner name :: ctx)
-    | Lookahead r0 => pre_order_walk r0 (Lookahead_inner :: ctx)
-    | NegativeLookahead r0 => pre_order_walk r0 (NegativeLookahead_inner :: ctx)
-    | Lookbehind r0 => pre_order_walk r0 (Lookbehind_inner :: ctx)
-    | NegativeLookbehind r0 => pre_order_walk r0 (NegativeLookbehind_inner :: ctx)
-    end.
-
-  Lemma pre_order_walk_roots: forall r ctx i r' ctx', List.Indexing.Nat.indexing (pre_order_walk r ctx) i = Success (r', ctx') -> zip r ctx = zip r' ctx'.
-  Proof.
-    induction r; intros; cbn in *; (destruct i; [ intros; cbn in *; injection H as <- <-; reflexivity | rewrite -> List.Indexing.Nat.cons in H ]).
-    + rewrite -> List.Indexing.Nat.nil in H. Result.assertion_failed_helper.
-    + rewrite -> List.Indexing.Nat.nil in H. Result.assertion_failed_helper.
-    + rewrite -> List.Indexing.Nat.nil in H. Result.assertion_failed_helper.
-    + rewrite -> List.Indexing.Nat.nil in H. Result.assertion_failed_helper.
-    + rewrite -> List.Indexing.Nat.nil in H. Result.assertion_failed_helper.
-    + apply List.Indexing.Nat.concat in H as  [[ _ ? ]|[ _ ? ]].
-      * symmetry in H. rewrite <- IHr1 with (1 := H). cbn. reflexivity.
-      * symmetry in H. rewrite <- IHr2 with (1 := H). cbn. reflexivity.
-    + rewrite <- IHr with (1 := H). cbn. reflexivity.
-    + apply List.Indexing.Nat.concat in H as  [[ _ ? ]|[ _ ? ]].
-      * symmetry in H. rewrite <- IHr1 with (1 := H). cbn. reflexivity.
-      * symmetry in H. rewrite <- IHr2 with (1 := H). cbn. reflexivity.
-    + rewrite <- IHr with (1 := H). cbn. reflexivity.
-    + rewrite <- IHr with (1 := H). cbn. reflexivity.
-    + rewrite <- IHr with (1 := H). cbn. reflexivity.
-    + rewrite <- IHr with (1 := H). cbn. reflexivity.
-    + rewrite <- IHr with (1 := H). cbn. reflexivity.
-  Qed.
-
   (** 22.2.1.9 Static Semantics: RegExpIdentifierCodePoints *)
 
   (** 22.2.1.10 Static Semantics: RegExpIdentifierCodePoint *)
@@ -72,7 +31,7 @@ Module StaticSemantics.
         else nil
       | _ => nil
       end
-      ) (pre_order_walk pattern nil)
+      ) (Zip.Walk.walk pattern nil)
     in
     (* 5. Return result. *)
     result.
@@ -243,7 +202,7 @@ Module StaticSemantics.
     end.
 
   Definition earlyErrors (r: Regex) (ctx: RegexContext): Result bool SyntaxError :=
-    let nodes := pre_order_walk r ctx in
+    let nodes := Zip.Walk.walk r ctx in
     (**  Pattern :: Disjunction *)
     (* * It is a Syntax Error if CountLeftCapturingParensWithin(Pattern) ≥ 2^32 - 1. *)
     (* if (countLeftCapturingParensWithin r nil >=? 4294967295)%nat then true *)

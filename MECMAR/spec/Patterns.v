@@ -290,8 +290,17 @@ Module Patterns.
       Lemma same_root: forall root r0 ctx0 r1 ctx1, Down (r0, ctx0) (r1, ctx1) -> (Root root r0 ctx0 <-> Root root r1 ctx1).
       Proof. unfold Root. intros. dependent destruction H; cbn; easy. Qed.
 
-      Lemma same_root_down: forall root r0 ctx0 r1 ctx1, Down (r0, ctx0) (r1, ctx1) -> Root root r1 ctx1 -> Root root r0 ctx0.
+      Lemma same_root_down0: forall root r0 ctx0 r1 ctx1, Down (r0, ctx0) (r1, ctx1) -> Root root r1 ctx1 -> Root root r0 ctx0.
       Proof. intros. rewrite -> (same_root _ _ _ _ _ ltac:(eassumption)). assumption. Qed.
+
+      Lemma same_root_down: forall root r0 ctx0 r1 ctx1, Down* (r0, ctx0) (r1, ctx1) -> Root root r1 ctx1 -> Root root r0 ctx0.
+      Proof.
+        intros root r0 ctx0 r1 ctx1 D R_root. dependent induction D.
+        - eapply same_root_down0; eassumption.
+        - assumption.
+        - destruct y as [ ri ctxi ]. specialize IHD1 with (1 :=  eq_refl) (2 := eq_refl). specialize IHD2 with (1 :=  eq_refl) (2 := eq_refl).
+          apply IHD1. apply IHD2. assumption.
+      Qed.
 
       Lemma root_is_top: forall root ctx r, Root root r ctx -> Down* (r, ctx) (root, nil).
       Proof.

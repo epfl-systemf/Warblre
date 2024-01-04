@@ -665,8 +665,7 @@ Module Correctness.
           }
           apply EarlyErrors.groupSpecifiersThatMatch_is_filter_map in Eq_indexed as [ j [ ctx' [ Eq_ctx' Eq_indexing ] ]].
           subst. destruct (countLeftCapturingParensBefore_impl ctx' + 1) eqn:Eq; try lia. cbn in *.
-          apply StaticSemantics.pre_order_walk_roots in Eq_indexing. cbn in *.
-          rewrite <- R_r in *.
+          apply Zip.Walk.soundness in Eq_indexing. eapply Zip.Down.same_root_down in Eq_indexing; [ | eapply R_r ]. cbn in *.
           pose proof (EarlyErrors.countLeftCapturingParensBefore_contextualized _ _ _ Eq_indexing GR_root).
           subst. unfold countLeftCapturingParensBefore,countLeftCapturingParensWithin in *. cbn in *.
           apply NonNegInt.to_positive_soundness in AutoDest_1.
@@ -691,15 +690,15 @@ Module Correctness.
         + apply (IHr (Quantified_inner q :: ctx) _ _ _ ltac:(eassumption) ltac:(eassumption) ltac:(eassumption) ltac:(eassumption)).
       - intros x c V_x S_c.
         focus § _ [] _ § auto destruct in Eq_m; injection Eq_m as <-.
-        + specialize (IHr1 _ _ _ _ ltac:(eassumption) ltac:(eapply Zip.Down.same_root_down; [ constructor | eassumption]) ltac:(eassumption) ltac:(eassumption) _ _ V_x S_c) as [ y0 [ V_y0 [ P_x_y0 Eq_y0 ]]].
-          specialize (IHr2 _ _ _ _ ltac:(eassumption) ltac:(eapply Zip.Down.same_root_down; [ constructor | eassumption]) ltac:(eassumption) ltac:(eassumption) _ _ V_y0 Eq_y0) as [ y1 [ V_y1 [ P_x_y1 Eq_y1 ]]].
+        + specialize (IHr1 _ _ _ _ ltac:(eassumption) ltac:(eapply Zip.Down.same_root_down0; [ constructor | eassumption]) ltac:(eassumption) ltac:(eassumption) _ _ V_x S_c) as [ y0 [ V_y0 [ P_x_y0 Eq_y0 ]]].
+          specialize (IHr2 _ _ _ _ ltac:(eassumption) ltac:(eapply Zip.Down.same_root_down0; [ constructor | eassumption]) ltac:(eassumption) ltac:(eassumption) _ _ V_y0 Eq_y0) as [ y1 [ V_y1 [ P_x_y1 Eq_y1 ]]].
           search.
-        + specialize (IHr2 _ _ _ _ ltac:(eassumption) ltac:(eapply Zip.Down.same_root_down; [ constructor | eassumption]) ltac:(eassumption) ltac:(eassumption) _ _ V_x S_c) as [ y0 [ V_y0 [ P_x_y0 Eq_y0 ]]].
-          specialize (IHr1 _ _ _ _ ltac:(eassumption) ltac:(eapply Zip.Down.same_root_down; [ constructor | eassumption]) ltac:(eassumption) ltac:(eassumption) _ _ V_y0 Eq_y0) as [ y1 [ V_y1 [ P_x_y1 Eq_y1 ]]].
+        + specialize (IHr2 _ _ _ _ ltac:(eassumption) ltac:(eapply Zip.Down.same_root_down0; [ constructor | eassumption]) ltac:(eassumption) ltac:(eassumption) _ _ V_x S_c) as [ y0 [ V_y0 [ P_x_y0 Eq_y0 ]]].
+          specialize (IHr1 _ _ _ _ ltac:(eassumption) ltac:(eapply Zip.Down.same_root_down0; [ constructor | eassumption]) ltac:(eassumption) ltac:(eassumption) _ _ V_y0 Eq_y0) as [ y1 [ V_y1 [ P_x_y1 Eq_y1 ]]].
           search.
       - intros x c V_x Eq_af.
         focus § _ [] _ § auto destruct in Eq_m; injection Eq_m as <-.
-        specialize (IHr _ _ _ _ ltac:(eassumption) ltac:(eapply Zip.Down.same_root_down; [ constructor | eassumption]) ltac:(eassumption) ltac:(eassumption) _ _ V_x Eq_af) as [ y0 [ V_y0 [ P_x_y0 Eq_y0 ]]].
+        specialize (IHr _ _ _ _ ltac:(eassumption) ltac:(eapply Zip.Down.same_root_down0; [ constructor | eassumption]) ltac:(eassumption) ltac:(eassumption) _ _ V_x Eq_af) as [ y0 [ V_y0 [ P_x_y0 Eq_y0 ]]].
         focus § _ [] _ § auto destruct in Eq_y0.
         + focus § _ [] _ § auto destruct in AutoDest_0; focus § _ [] _ § auto destruct in AutoDest_1; rewrite -> Nat.add_sub in AutoDest_1.
           * search. MatchState.solve_with lia.

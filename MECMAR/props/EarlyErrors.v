@@ -99,10 +99,10 @@ Module EarlyErrors.
     List.Indexing.Nat.indexing (groupSpecifiersThatMatch r ctx gn) i = Success (r', ctx') ->
     exists j ctx'',
       Group_inner (Some gn) :: ctx'' = ctx' /\
-      List.Indexing.Nat.indexing (pre_order_walk (zip r ctx) nil) j = Success (Group (Some gn) r', ctx'').
+      List.Indexing.Nat.indexing (Zip.Walk.walk (zip r ctx) nil) j = Success (Group (Some gn) r', ctx'').
   Proof.
     unfold groupSpecifiersThatMatch.
-    intros r ctx. generalize dependent (pre_order_walk (zip r ctx) nil). clear r. clear ctx.
+    intros r ctx. generalize dependent (Zip.Walk.walk (zip r ctx) nil). clear r. clear ctx.
     induction l; intros gn i r' ctx' H; cbn in H.
     - rewrite -> List.Indexing.Nat.nil in H. Result.assertion_failed_helper.
     - destruct a as [[ ] ? ]; cbn in H;
@@ -123,7 +123,7 @@ Module EarlyErrors.
   Proof.
     intros r0 ctx0 gn r ctx t H.
     unfold groupSpecifiersThatMatch in H.
-    generalize dependent (pre_order_walk (zip r0 ctx0) nil). clear r0. clear ctx0.
+    generalize dependent (Zip.Walk.walk (zip r0 ctx0) nil). clear r0. clear ctx0.
     induction l as [ | h t' ]; intros H.
     - discriminate.
     - cbn in H. destruct h as [ h_r h_ctx ].
@@ -135,4 +135,6 @@ Module EarlyErrors.
       + cbn in H. apply (IHt' H).
   Qed.
 
+  Lemma completeness: forall r ctx, earlyErrors r ctx = Success false -> Pass.Regex r ctx.
+  Proof. Admitted.
 End EarlyErrors.

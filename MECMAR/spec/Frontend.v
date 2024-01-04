@@ -450,12 +450,12 @@ The abstract operation MakeMatchIndicesIndexPairArray takes arguments S (a Strin
           (* a. If lastIndex > length, then *)
           if (lastIndex >? length)%nat then
             (* i. If global is true or sticky is true, then *)
-            let nextInstance := if (orb global sticky) then
-                                  (* 1. Perform ? Set(R, "lastIndex", +0𝔽, true). *)
-                                  setlastindex R integer_zero
-                                else R in
+            let R := if (orb global sticky) then
+                       (* 1. Perform ? Set(R, "lastIndex", +0𝔽, true). *)
+                       setlastindex R integer_zero
+                     else R in
             (* ii. Return null. *)
-            Success (Terminates (Null nextInstance))
+            Success (Terminates (Null R))
           else
             (* b. Let inputIndex be the index into input of the character that was obtained from element lastIndex of S. *)
             let inputIndex := lastIndex in
@@ -466,9 +466,9 @@ The abstract operation MakeMatchIndicesIndexPairArray takes arguments S (a Strin
               (* i. If sticky is true, then *)
               if sticky then
                 (* 1. Perform ? Set(R, "lastIndex", +0𝔽, true). *)
-                let nextInstance := setlastindex R integer_zero in
+                let R := setlastindex R integer_zero in
                 (* 2. Return null. *)
-                Success (Terminates (Null nextInstance))
+                Success (Terminates (Null R))
               else
                 (* ii. Set lastIndex to AdvanceStringIndex(S, lastIndex, fullUnicode). *)
                 let! lastIndex =<< AdvanceStringIndex S lastIndex fullUnicode in
@@ -491,14 +491,14 @@ The abstract operation MakeMatchIndicesIndexPairArray takes arguments S (a Strin
       (* 15. If fullUnicode is true, set e to GetStringIndex(S, e). *)
       let e := if fullUnicode then GetStringIndex S e else e in
       (* 16. If global is true or sticky is true, then *)
-      let newInstance := if (orb global sticky) then
+      let R := if (orb global sticky) then
                            (* a. Perform ? Set(R, "lastIndex", 𝔽(e), true). *)
                            setlastindex R e
                          else R in
       (* 17. Let n be the number of elements in r.[[Captures]]. *)
       let n := List.length (MatchState.captures r) in
       (* 18. Assert: n = R.[[RegExpRecord]].[[CapturingGroupsCount]]. *)
-      assert! (n =? RegExp.capturingGroupsCount (RegExpRecord newInstance))%nat;
+      assert! (n =? RegExp.capturingGroupsCount (RegExpRecord R))%nat;
   (* 19. Assert: n < 2^32 - 1. *)
   (* assert! (n <? 4294967295)%nat; *)
   (* 22. Perform ! CreateDataPropertyOrThrow(A, "index", 𝔽(lastIndex)). *)
@@ -536,7 +536,7 @@ The abstract operation MakeMatchIndicesIndexPairArray takes arguments S (a Strin
   let! A_indices_groups =<<
        if hasIndices then MakeMatchIndicesGroups S indices groupNames hasGroups
        else Success None in
-  Success (Exotic (mkarray A_index A_input A_array A_groups A_indices_array A_indices_groups) (newInstance))
+  Success (Exotic (mkarray A_index A_input A_array A_groups A_indices_array A_indices_groups) (R))
   end.
 
 
@@ -736,25 +736,25 @@ This method searches string for an occurrence of the regular expression pattern 
     (* 4. Let previousLastIndex be ? Get(rx, "lastIndex"). *)
     let previousLastIndex := lastIndex rx in
     (* 5. If SameValue(previousLastIndex, +0𝔽) is false, then *)
-    let rxzero := if (BinInt.Z.eqb previousLastIndex integer_zero) then rx else
-                    (* a. Perform ? Set(rx, "lastIndex", +0𝔽, true). *)
-                    setlastindex rx integer_zero in
+    let rx := if (BinInt.Z.eqb previousLastIndex integer_zero) then rx else
+                (* a. Perform ? Set(rx, "lastIndex", +0𝔽, true). *)
+                setlastindex rx integer_zero in
     (* 6. Let result be ? RegExpExec(rx, S). *)
-    let! result =<< RegExpExec rxzero S in
-    let newrx := match result with | Null x => x | Exotic _ x => x end in
+    let! result =<< RegExpExec rx S in
+    let rx := match result with | Null x => x | Exotic _ x => x end in
     (* 7. Let currentLastIndex be ? Get(rx, "lastIndex"). *)
-    let currentLastIndex := lastIndex newrx in
+    let currentLastIndex := lastIndex rx in
      (* 8. If SameValue(currentLastIndex, previousLastIndex) is false, then *)
-    let finalrx := if (BinInt.Z.eqb currentLastIndex previousLastIndex) then newrx
+    let rx := if (BinInt.Z.eqb currentLastIndex previousLastIndex) then rx
 (* a. Perform ? Set(rx, "lastIndex", previousLastIndex, true). *)
-                   else setlastindex newrx previousLastIndex in
+                   else setlastindex rx previousLastIndex in
     match result with
     | Null _ =>
         (* 9. If result is null, return -1𝔽. *)
-        Success (integer_minus_one, finalrx)
+        Success (integer_minus_one, rx)
     | Exotic ArrayEx _ =>
         (* 10. Return ? Get(result, "index"). *)
-        Success (BinInt.Z.of_nat (index ArrayEx), finalrx)
+        Success (BinInt.Z.of_nat (index ArrayEx), rx)
     end.
     
 
@@ -810,7 +810,7 @@ This method searches string for an occurrence of the regular expression pattern 
         (* d. Let n be 0. *)
         let n := 0 in
         (* e. Repeat, *)
-        let fix repeatloop (A:list (list Character)) (fuel:nat) (n:nat): Result.Result (option (list (list Character)) * RegExpInstance) MatchError :=
+        let fix repeatloop (A:list (list Character)) (rx:RegExpInstance) (fuel:nat) (n:nat): Result.Result (option (list (list Character)) * RegExpInstance) MatchError :=
           match fuel with
           | O => out_of_fuel
           | S fuel' =>
@@ -818,36 +818,36 @@ This method searches string for an occurrence of the regular expression pattern 
               let! result =<< RegExpExec rx S in
               match result with
               (* ii. If result is null, then *)
-              | Null newrx =>
+              | Null rx =>
                   (* 1. If n = 0, return null. *)
-                  if (n =? O)%nat then Success (None, newrx)
+                  if (n =? O)%nat then Success (None, rx)
                   else          (* Return A. *)
-                    Success (Some A, newrx)
+                    Success (Some A, rx)
               (* iii. Else, *)
-              | Exotic result newrx =>
+              | Exotic result rx =>
                   (* 1. Let matchStr be ? ToString(? Get(result, "0")). *)
                   let! matchStrop =<< (array result)[O] in
                   let! matchStr =<< match matchStrop with | None => assertion_failed | Some s => Success s end in
                   (* 2. Perform ! CreateDataPropertyOrThrow(A, ! ToString(𝔽(n)), matchStr). *)
-                  let newA := app A (matchStr::nil) in
+                  let A := app A (matchStr::nil) in
                   (* 3. If matchStr is the empty String, then *)
-                  let! nextrx =<< if (isemptystring matchStr) then
+                  let! rx =<< if (isemptystring matchStr) then
                          (* a. Let thisIndex be ℝ(? ToLength(? Get(rx, "lastIndex"))). *)
-                         let thisIndex := lastIndex newrx in
+                         let thisIndex := lastIndex rx in
                          let! thisIndexnat =<< to_non_neg thisIndex in
                          (* b. Let nextIndex be AdvanceStringIndex(S, thisIndex, fullUnicode). *)
                          let! nextIndex =<< AdvanceStringIndex S thisIndexnat fullUnicode in
                          (* c. Perform ? Set(rx, "lastIndex", 𝔽(nextIndex), true). *)
-                         Success (setlastindex newrx (BinInt.Z.of_nat nextIndex))
-                       else Success newrx in
+                         Success (setlastindex rx (BinInt.Z.of_nat nextIndex))
+                       else Success rx in
                   (* 4. Set n to n + 1. *)
                   let n:= n + 1 in
-                  repeatloop newA fuel' n 
+                  repeatloop A rx fuel' n 
               end
           end in
         (* we know there are at most length S + 1 iterations since the index strictly increases *)
-        let! (repeat_result, repeat_rx) =<< repeatloop A ((List.length S) +1) n in
-        Success (GlobalResult repeat_result repeat_rx)
+        let! (repeat_result, rx) =<< repeatloop A rx ((List.length S) +1) n in
+        Success (GlobalResult repeat_result rx)
     end.
 
 
@@ -877,7 +877,7 @@ and performs the following steps when called: *)
               let! matchStrop =<< (array match_result)[O] in
               let! matchStr =<< match matchStrop with | None => assertion_failed | Some s => Success s end in
               (* v. If matchStr is the empty String, then *)
-              let! newrx =<<
+              let! rx =<<
                    if (isemptystring matchStr) then
                      (* 1. Let thisIndex be ℝ(? ToLength(? Get(R, "lastIndex"))). *)
                      let thisIndex := lastIndex rx in
@@ -888,7 +888,7 @@ and performs the following steps when called: *)
                      Success (setlastindex rx (BinInt.Z.of_nat nextIndex))
                    else Success rx in
               (* vi. Perform ? GeneratorYield(CreateIterResultObject(match, false)). *)
-              Success (Some match_result, newrx)
+              Success (Some match_result, rx)
           end
       end in
     (* 2. Return CreateIteratorFromClosure(closure, "%RegExpStringIteratorPrototype%", %RegExpStringIteratorPrototype%). *)

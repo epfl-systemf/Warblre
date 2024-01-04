@@ -416,7 +416,7 @@ The abstract operation MakeMatchIndicesIndexPairArray takes arguments S (a Strin
   (* this will need to changr as we implement unicode and the two ways to go from a string to a list of characters *)
   (* The abstract operation RegExpBuiltinExec takes arguments R (an initialized RegExp instance) and S (a String) and returns either a normal completion containing either an Array exotic object or null, or a throw completion. It performs the following steps when called: *)
 
-  Definition RegExpBuiltinExec (R:RegExpInstance) (S:list Character) (fuel:nat): Result.Result ExecResult MatchError :=
+  Definition RegExpBuiltinExec (R:RegExpInstance) (S:list Character): Result.Result ExecResult MatchError :=
     (* 1. Let length be the length of S. *)
     let length := List.length S in
     (* 2. Let lastIndex be ℝ(? ToLength(? Get(R, "lastIndex"))). *)
@@ -481,7 +481,8 @@ The abstract operation MakeMatchIndicesIndexPairArray takes arguments S (a Strin
               (*   ii. Set matchSucceeded to true. *)
               Success (Continues r lastIndex)
   end in
-  let! repeatresult =<< repeatloop lastIndex fuel in
+  (* we know that there are at most length+1 iterations, we can use that as fuel *)
+  let! repeatresult =<< repeatloop lastIndex ((List.length S) +1) in
   match repeatresult with
   | Terminates execresult => Success (execresult)
   | Continues r lastIndex =>
@@ -709,24 +710,24 @@ The abstract operation MakeMatchIndicesIndexPairArray takes arguments S (a Strin
 The abstract operation RegExpExec takes arguments R (an Object) and S (a String) and returns either a normal completion containing either an Object or null, or a throw completion. It performs the following steps when called: *)
 
 
-  Definition RegExpExec (R:RegExpInstance) (S:list Character) (fuel:nat) : Result.Result ExecResult MatchError :=
+  Definition RegExpExec (R:RegExpInstance) (S:list Character): Result.Result ExecResult MatchError :=
   (* Return ? RegExpBuiltinExec(R, S). *)
-    RegExpBuiltinExec R S fuel.
+    RegExpBuiltinExec R S.
 
 
   (* 22.2.6.2 RegExp.prototype.exec ( string )
 
 This method searches string for an occurrence of the regular expression pattern and returns an Array containing the results of the match, or null if string did not match. *)
 
-  Definition PrototypeExec (R:RegExpInstance) (S:list Character) (fuel:nat) : Result.Result ExecResult MatchError :=
+  Definition PrototypeExec (R:RegExpInstance) (S:list Character) : Result.Result ExecResult MatchError :=
     (* 3. Let S be ? ToString(string). *)
     (* TODO: missing the conversion from string to list character *)
     (* 4. Return ? RegExpBuiltinExec(R, S). *)
-    RegExpBuiltinExec R S fuel.
+    RegExpBuiltinExec R S.
 
 
   (* 22.2.6.12 RegExp.prototype [ @@search ] ( string ) *)
-  Definition PrototypeSearch (R:RegExpInstance) (S:list Character) (fuel:nat) : Result.Result (integer * RegExpInstance) MatchError :=
+  Definition PrototypeSearch (R:RegExpInstance) (S:list Character) : Result.Result (integer * RegExpInstance) MatchError :=
     (* NOTE: The "lastIndex" and "global" properties of this RegExp object are ignored when performing the search. The "lastIndex" property is left unchanged. *)
     (* 1. Let rx be the this value. *)
     let rx := R in
@@ -739,7 +740,7 @@ This method searches string for an occurrence of the regular expression pattern 
                     (* a. Perform ? Set(rx, "lastIndex", +0𝔽, true). *)
                     setlastindex rx integer_zero in
     (* 6. Let result be ? RegExpExec(rx, S). *)
-    let! result =<< RegExpExec rxzero S fuel in
+    let! result =<< RegExpExec rxzero S in
     let newrx := match result with | Null x => x | Exotic _ x => x end in
     (* 7. Let currentLastIndex be ? Get(rx, "lastIndex"). *)
     let currentLastIndex := lastIndex newrx in
@@ -758,14 +759,14 @@ This method searches string for an occurrence of the regular expression pattern 
     
 
   (* 22.2.6.16 RegExp.prototype.test ( S ) *)
-  Definition PrototypeTest (R:RegExpInstance) (S:list Character) (fuel:nat) : Result.Result (bool * RegExpInstance) MatchError :=
+  Definition PrototypeTest (R:RegExpInstance) (S:list Character): Result.Result (bool * RegExpInstance) MatchError :=
     (* 1. Let R be the this value. *)
     let R := R in
     (* 2. If R is not an Object, throw a TypeError exception. *)
     (* 3. Let string be ? ToString(S). *)
     let string := S in
     (* 4. Let match be ? RegExpExec(R, string). *)
-    let! match_res =<< RegExpExec R string fuel in
+    let! match_res =<< RegExpExec R string in
     (* 5. If match is not null, return true; else return false. *)
     match match_res with
     | Exotic A rx => Success (true, rx)
@@ -784,7 +785,7 @@ This method searches string for an occurrence of the regular expression pattern 
     | _ => false
     end.
 
-  Definition PrototypeMatch (R:RegExpInstance) (S:list Character) (fuel:nat) : Result.Result ProtoMatchResult MatchError :=
+  Definition PrototypeMatch (R:RegExpInstance) (S:list Character): Result.Result ProtoMatchResult MatchError :=
     (* 1. Let rx be the this value. *)
     let rx := R in
     (* 2. If rx is not an Object, throw a TypeError exception. *)
@@ -796,7 +797,7 @@ This method searches string for an occurrence of the regular expression pattern 
     (* 5. If flags does not contain "g", then *)
     | false =>
         (* a. Return ? RegExpExec(rx, S). *)
-        let! exec_res =<< RegExpExec rx S fuel in
+        let! exec_res =<< RegExpExec rx S in
         Success (NonGlobalResult exec_res)
     (* 6. Else, *)
     | true =>
@@ -814,7 +815,7 @@ This method searches string for an occurrence of the regular expression pattern 
           | O => out_of_fuel
           | S fuel' =>
               (* i. Let result be ? RegExpExec(rx, S). *)
-              let! result =<< RegExpExec rx S fuel in (* TODO: maybe have another fuel? *)
+              let! result =<< RegExpExec rx S in
               match result with
               (* ii. If result is null, then *)
               | Null newrx =>
@@ -844,7 +845,8 @@ This method searches string for an occurrence of the regular expression pattern 
                   repeatloop newA fuel' n 
               end
           end in
-        let! (repeat_result, repeat_rx) =<< repeatloop A fuel n in
+        (* we know there are at most length S + 1 iterations since the index strictly increases *)
+        let! (repeat_result, repeat_rx) =<< repeatloop A ((List.length S) +1) n in
         Success (GlobalResult repeat_result repeat_rx)
     end.
 
@@ -854,12 +856,12 @@ This method searches string for an occurrence of the regular expression pattern 
   (* The abstract operation CreateRegExpStringIterator takes arguments R (an Object), S (a String), global (a
 Boolean), and fullUnicode (a Boolean) and returns a Generator. It performs the following steps when called: *)
   
-  Definition CreateRegExpStringIterator (R:RegExpInstance) (S:list Character) (global:bool) (fullUnicode:bool) (fuel:nat): Result.Result (list ArrayExotic * RegExpInstance) MatchError :=
+  Definition CreateRegExpStringIterator (R:RegExpInstance) (S:list Character) (global:bool) (fullUnicode:bool): Result.Result (list ArrayExotic * RegExpInstance) MatchError :=
     (* 1. Let closure be a new Abstract Closure with no parameters that captures R, S, global, and fullUnicode
 and performs the following steps when called: *)
     let closure (R:RegExpInstance): Result.Result (option ArrayExotic * RegExpInstance) MatchError :=
       (* i. Let match be ? RegExpExec(R, S). *)
-      let! match_result =<< RegExpExec R S fuel in
+      let! match_result =<< RegExpExec R S in
       match match_result with
         (* ii. If match is null, return undefined. *)
       | Null rx => Success (None, rx)
@@ -901,11 +903,12 @@ and performs the following steps when called: *)
           | Some it_match => repeat_closure (List.app previous_matches (it_match::nil)) it_R fuel'
           end
       end in
-    repeat_closure nil R fuel.
+    (* each iteration of closure advances the index: we can use length S + 1 as fuel *)
+    repeat_closure nil R ((List.length S) +1).
         
   (* 22.2.6.9 RegExp.prototype [ @@matchAll ] ( string ) *)
 
-  Definition PrototypeMatchAll (R:RegExpInstance) (S:list Character) (fuel:nat) : Result.Result (list ArrayExotic * RegExpInstance) MatchError :=
+  Definition PrototypeMatchAll (R:RegExpInstance) (S:list Character): Result.Result (list ArrayExotic * RegExpInstance) MatchError :=
     (* 5. Let flags be ? ToString(? Get(R, "flags")). *)
     let flags := OriginalFlags R in
     (* 9. If flags contains "g", let global be true.*)
@@ -913,20 +916,20 @@ and performs the following steps when called: *)
     (* 11. If flags contains "u", let fullUnicode be true. *)
     let fullUnicode := u flags in
     (* 13. Return CreateRegExpStringIterator(matcher, S, global, fullUnicode). *)
-    CreateRegExpStringIterator R S global fullUnicode fuel.
+    CreateRegExpStringIterator R S global fullUnicode.
 
   (* 22.1.3.13 String.prototype.matchAll ( regexp ) *)
   (* This method performs a regular expression match of the String representing the this value against regexp
 and returns an iterator. Each iteration result's value is an Array containing the results of the match, or null if
 the String did not match. *)
 
-  Definition StringPrototypeMatchAll (R:RegExpInstance) (S:list Character) (fuel:nat): Result.Result (list ArrayExotic * RegExpInstance) MatchError :=
+  Definition StringPrototypeMatchAll (R:RegExpInstance) (S:list Character): Result.Result (list ArrayExotic * RegExpInstance) MatchError :=
     (* b. iii. If ? ToString(flags) does not contain "g", throw a TypeError exception. *)
     match (g (OriginalFlags R)) with
     | false => assertion_failed
     | true =>
         (* 5. Return ? Invoke(rx, @@matchAll, « S »). *)
-        PrototypeMatchAll R S fuel
+        PrototypeMatchAll R S
     end.
 
 

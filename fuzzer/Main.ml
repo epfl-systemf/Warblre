@@ -286,8 +286,6 @@ let () =
   let test_str = "dddbaababaaaabc" in
   let list_input = List.init (String.length test_str) (String.get test_str) in
 
-  let max_fuel = 10000000000 in
-
   let test_flags:Extracted.Frontend.coq_RegExpFlags =
     { d=false;
       g=true;
@@ -311,14 +309,14 @@ let () =
       pattern = test_rgx;
     } in
 
-  let test_result = Extracted.Frontend.coq_PrototypeTest test_instance list_input max_fuel in
+  let test_result = Extracted.Frontend.coq_PrototypeTest test_instance list_input in
   let _ = match test_result with
     | Success (true, newinstance) -> Printf.printf "true\n"
     | Success (false, newinstance) -> Printf.printf "false\n"
     | _ -> failwith "Failure\n"
   in
 
-  let search_result = Extracted.Frontend.coq_PrototypeSearch test_instance list_input max_fuel in
+  let search_result = Extracted.Frontend.coq_PrototypeSearch test_instance list_input in
   let _ = match search_result with
     | Success (i, newinstance) -> Printf.printf "Search index: %d\n" i
     | _ -> failwith "Failure\n"

@@ -1,5 +1,5 @@
 From Coq Require Import List Program.Equality PeanoNat.
-From Warblre Require Import Notation Numeric Characters.
+From Warblre Require Import List Result Notation Numeric Characters.
 
 (** 22.2.1 Patterns *)
 (* The RegExp constructor applies the following grammar to the input pattern String. An error occurs if the
@@ -221,22 +221,23 @@ Module Patterns.
     Proof. decide equality; solve [ apply Regex.eqs | apply RegexContext.eqs ]. Defined.
   End RegexNode.
 
+  Definition zip_one (focus: Regex) (ctx: RegexContextLayer) := match ctx with
+  | Disjunction_left r => Disjunction focus r
+  | Disjunction_right l => Disjunction l focus
+  | Quantified_inner q => Quantified focus q
+  | Seq_left r => Seq focus r
+  | Seq_right l => Seq l focus
+  | Group_inner name => Group name focus
+  | Lookahead_inner => Lookahead focus
+  | NegativeLookahead_inner => NegativeLookahead focus
+  | Lookbehind_inner => Lookbehind focus
+  | NegativeLookbehind_inner => NegativeLookbehind focus
+  end.
+
   Fixpoint zip (focus: Regex) (ctx: RegexContext): Regex :=
     match ctx with
     | nil => focus
-    | h :: t =>
-      zip (match h with
-      | Disjunction_left r => Disjunction focus r
-      | Disjunction_right l => Disjunction l focus
-      | Quantified_inner q => Quantified focus q
-      | Seq_left r => Seq focus r
-      | Seq_right l => Seq l focus
-      | Group_inner name => Group name focus
-      | Lookahead_inner => Lookahead focus
-      | NegativeLookahead_inner => NegativeLookahead focus
-      | Lookbehind_inner => Lookbehind focus
-      | NegativeLookbehind_inner => NegativeLookbehind focus
-      end) t
+    | h :: t => zip (zip_one focus h) t
     end.
 
   Definition Root (r f: Regex) (ctx: RegexContext) := r = zip f ctx.
@@ -271,43 +272,205 @@ Module Patterns.
     Lemma focus_bijection: forall ctx r0 r1, zip r0 ctx = zip r1 ctx <-> r0 = r1.
     Proof. intros. split; intros. - eapply focus_injection. eassumption. - subst. reflexivity. Qed.
 
+    Inductive Down: (Regex * RegexContext) -> (Regex * RegexContext) -> Prop :=
+    | Down_Disjunction_left: forall r1 r2 ctx, Down (r1, Disjunction_left r2 :: ctx) (Disjunction r1 r2, ctx)
+    | Down_Disjunction_right: forall r1 r2 ctx, Down (r2, Disjunction_right r1 :: ctx) (Disjunction r1 r2, ctx)
+    | Down_Quantified_inner: forall r q ctx, Down (r, Quantified_inner q :: ctx) (Quantified r q, ctx)
+    | Down_Seq_left: forall r1 r2 ctx, Down (r1, Seq_left r2 :: ctx) (Seq r1 r2, ctx)
+    | Down_Seq_right: forall r1 r2 ctx, Down (r2, Seq_right r1 :: ctx) (Seq r1 r2, ctx)
+    | Down_Group_inner: forall name r ctx, Down (r, Group_inner name :: ctx) (Group name r, ctx)
+    | Down_Lookahead_inner: forall r ctx, Down (r, Lookahead_inner :: ctx) (Lookahead r, ctx)
+    | Down_NegativeLookahead_inner: forall r ctx, Down (r, NegativeLookahead_inner :: ctx) (NegativeLookahead r, ctx)
+    | Down_Lookbehind_inner: forall r ctx, Down (r, Lookbehind_inner :: ctx) (Lookbehind r, ctx)
+    | Down_NegativeLookbehind_inner: forall r ctx, Down (r, NegativeLookbehind_inner :: ctx) (NegativeLookbehind r, ctx).
+
+    Notation "'Down*'" := (Relation_Operators.clos_refl_trans _ Down).
+
     Module Down.
-      Lemma disjunction_left: forall root r f ctx, Root root (Disjunction f r) ctx -> Root root f (Disjunction_left r :: ctx).
-      Proof. intros. cbn. assumption. Qed.
-      Lemma disjunction_right: forall root l f ctx, Root root (Disjunction l f) ctx -> Root root f (Disjunction_right l :: ctx).
-      Proof. intros. cbn. assumption. Qed.
+      Lemma same_root: forall root r0 ctx0 r1 ctx1, Down (r0, ctx0) (r1, ctx1) -> (Root root r0 ctx0 <-> Root root r1 ctx1).
+      Proof. unfold Root. intros. dependent destruction H; cbn; easy. Qed.
 
-      Lemma seq_left: forall root r f ctx, Root root (Seq f r) ctx -> Root root f (Seq_left r :: ctx).
-      Proof. intros. cbn. assumption. Qed.
-      Lemma seq_right: forall root l f ctx, Root root (Seq l f) ctx -> Root root f (Seq_right l :: ctx).
-      Proof. intros. cbn. assumption. Qed.
+      Lemma same_root_down: forall root r0 ctx0 r1 ctx1, Down (r0, ctx0) (r1, ctx1) -> Root root r1 ctx1 -> Root root r0 ctx0.
+      Proof. intros. rewrite -> (same_root _ _ _ _ _ ltac:(eassumption)). assumption. Qed.
 
-      Lemma quantified_inner: forall root q f ctx, Root root (Quantified f q) ctx -> Root root f (Quantified_inner q :: ctx).
-      Proof. intros. cbn. assumption. Qed.
-      Lemma group_inner: forall root id f ctx, Root root (Group id f) ctx -> Root root f (Group_inner id :: ctx).
-      Proof. intros. cbn. assumption. Qed.
-
-      Lemma lookahead_inner: forall root f ctx, Root root (Lookahead f) ctx -> Root root f (Lookahead_inner :: ctx).
-      Proof. intros. cbn. assumption. Qed.
-      Lemma negativeLookahead_inner: forall root f ctx, Root root (NegativeLookahead f) ctx -> Root root f (NegativeLookahead_inner :: ctx).
-      Proof. intros. cbn. assumption. Qed.
-      Lemma lookbehind_inner: forall root f ctx, Root root (Lookbehind f) ctx -> Root root f (Lookbehind_inner :: ctx).
-      Proof. intros. cbn. assumption. Qed.
-      Lemma negativeLookbehind_inner: forall root f ctx, Root root (NegativeLookbehind f) ctx -> Root root f (NegativeLookbehind_inner :: ctx).
-      Proof. intros. cbn. assumption. Qed.
+      Lemma root_is_top: forall root ctx r, Root root r ctx -> Down* (r, ctx) (root, nil).
+      Proof.
+        intros root. induction ctx; intros r Root.
+        - apply Root.nil in Root. subst. apply Relation_Operators.rt_refl.
+        - remember (zip_one r a) as r' eqn:Eq_r'.
+          assert (Down (r, a :: ctx) (r', ctx)) as D_step by (destruct a; subst; cbn in *; constructor).
+          apply Relation_Operators.rt_trans with (y := (r', ctx)).
+          + apply Relation_Operators.rt_step. assumption.
+          + apply IHctx. rewrite <- same_root by eapply D_step. assumption.
+      Qed.
     End Down.
 
-    Create HintDb down.
-    #[export]
-    Hint Resolve Down.disjunction_left Down.disjunction_right: down.
-    #[export]
-    Hint Resolve Down.seq_left Down.seq_right: down.
-    #[export]
-    Hint Resolve Down.quantified_inner Down.group_inner: down.
-    #[export]
-    Hint Resolve Down.lookahead_inner Down.negativeLookahead_inner Down.lookbehind_inner Down.negativeLookbehind_inner: down.
+    Module Walk.
+      Fixpoint walk (r: Regex) (ctx: RegexContext): list (Regex * RegexContext) :=
+        (r, ctx) ::
+        match r with
+        | Empty => nil
+        | Char _ => nil
+        | Dot => nil
+        | CharacterClass _ => nil
+        | AtomEsc _ => nil
+        | Disjunction r1 r2 => walk r1 (Disjunction_left r2 :: ctx) ++ walk r2 (Disjunction_right r1 :: ctx)
+        | Quantified r0 q => walk r0 (Quantified_inner q :: ctx)
+        | Seq r1 r2 => walk r1 (Seq_left r2 :: ctx) ++ walk r2 (Seq_right r1 :: ctx)
+        | Group name r0 => walk r0 (Group_inner name :: ctx)
+        | Lookahead r0 => walk r0 (Lookahead_inner :: ctx)
+        | NegativeLookahead r0 => walk r0 (NegativeLookahead_inner :: ctx)
+        | Lookbehind r0 => walk r0 (Lookbehind_inner :: ctx)
+        | NegativeLookbehind r0 => walk r0 (NegativeLookbehind_inner :: ctx)
+        end.
 
-    Ltac down := eauto with down.
+      Lemma shape: forall r ctx, exists t, walk r ctx = (r, ctx) :: t.
+      Proof. intros. destruct r; cbn; eexists; reflexivity. Qed.
+
+      Lemma down_yield_sublist0 {F: Type} {_: Result.AssertionError F}: forall r0 ctx0 r1 ctx1,
+        Down (r0, ctx0) (r1, ctx1) -> List.Sublist.sublist (walk r0 ctx0) (walk r1 ctx1).
+      Proof.
+        intros r0 ctx0 r1 ctx1 D; dependent destruction D; cbn;
+          repeat match goal with
+          | [|- List.Sublist.sublist ?s (_ :: ?s) ] =>
+              apply List.Sublist.cons_super; apply List.Sublist.refl
+          | [|- List.Sublist.sublist ?s (_ :: (?s ++ ?l)) ] =>
+              apply List.Sublist.trans with (l1 := (s ++ l));
+                [ apply List.Sublist.concat_super_right; apply List.Sublist.refl
+                | apply List.Sublist.cons_super; apply List.Sublist.refl ]
+          | [|- List.Sublist.sublist ?s (_ :: (?l ++ ?s)) ] =>
+              apply List.Sublist.trans with (l1 := (l ++ s));
+                [ apply List.Sublist.concat_super_left; apply List.Sublist.refl
+                | apply List.Sublist.cons_super; apply List.Sublist.refl ]
+          end.
+      Qed.
+
+      Lemma down_yield_sublist {F: Type} {_: Result.AssertionError F}: forall r0 ctx0 r1 ctx1,
+        Down* (r0, ctx0) (r1, ctx1) -> List.Sublist.sublist (walk r0 ctx0) (walk r1 ctx1).
+      Proof.
+        intros r0 ctx0 r1 ctx1 D. dependent induction D.
+        - apply down_yield_sublist0. assumption.
+        - apply List.Sublist.refl.
+        - destruct y as [ri ctxi]. specialize IHD1 with (X := X) (1 := eq_refl) (2 := eq_refl). specialize IHD2 with (X := X) (1 := eq_refl) (2 := eq_refl).
+          apply List.Sublist.trans with (l1 := (walk ri ctxi)); assumption.
+      Qed.
+
+      Lemma soundness {F: Type} {_: Result.AssertionError F}: forall r ctx, List.Forall.Forall (walk r ctx) (fun node => Down* node (r, ctx)).
+      Proof.
+        induction r; intros ctx i [ r' ctx' ] Eq_indexed; cbn in *;
+          (destruct i; [ intros; cbn in *; injection Eq_indexed as <- <-; apply (Relation_Operators.rt_refl) | rewrite -> List.Indexing.Nat.cons in Eq_indexed ]).
+        - rewrite -> List.Indexing.Nat.nil in Eq_indexed. Result.assertion_failed_helper.
+        - rewrite -> List.Indexing.Nat.nil in Eq_indexed. Result.assertion_failed_helper.
+        - rewrite -> List.Indexing.Nat.nil in Eq_indexed. Result.assertion_failed_helper.
+        - rewrite -> List.Indexing.Nat.nil in Eq_indexed. Result.assertion_failed_helper.
+        - rewrite -> List.Indexing.Nat.nil in Eq_indexed. Result.assertion_failed_helper.
+        - apply List.Indexing.Nat.concat in Eq_indexed as  [[ _ Eq_indexed ]|[ _ Eq_indexed ]].
+          + symmetry in Eq_indexed. specialize (IHr1 _ _ _ Eq_indexed). apply Relation_Operators.rt_trans with (1 := IHr1). apply Relation_Operators.rt_step. constructor.
+          + symmetry in Eq_indexed. specialize (IHr2 _ _ _ Eq_indexed). apply Relation_Operators.rt_trans with (1 := IHr2). apply Relation_Operators.rt_step. constructor.
+        - specialize (IHr _ _ _ Eq_indexed). apply Relation_Operators.rt_trans with (1 := IHr). apply Relation_Operators.rt_step. constructor.
+        - apply List.Indexing.Nat.concat in Eq_indexed as  [[ _ Eq_indexed ]|[ _ Eq_indexed ]].
+          + symmetry in Eq_indexed. specialize (IHr1 _ _ _ Eq_indexed). apply Relation_Operators.rt_trans with (1 := IHr1). apply Relation_Operators.rt_step. constructor.
+          + symmetry in Eq_indexed. specialize (IHr2 _ _ _ Eq_indexed). apply Relation_Operators.rt_trans with (1 := IHr2). apply Relation_Operators.rt_step. constructor.
+        - specialize (IHr _ _ _ Eq_indexed). apply Relation_Operators.rt_trans with (1 := IHr). apply Relation_Operators.rt_step. constructor.
+        - specialize (IHr _ _ _ Eq_indexed). apply Relation_Operators.rt_trans with (1 := IHr). apply Relation_Operators.rt_step. constructor.
+        - specialize (IHr _ _ _ Eq_indexed). apply Relation_Operators.rt_trans with (1 := IHr). apply Relation_Operators.rt_step. constructor.
+        - specialize (IHr _ _ _ Eq_indexed). apply Relation_Operators.rt_trans with (1 := IHr). apply Relation_Operators.rt_step. constructor.
+        - specialize (IHr _ _ _ Eq_indexed). apply Relation_Operators.rt_trans with (1 := IHr). apply Relation_Operators.rt_step. constructor.
+      Qed.
+
+      Lemma completeness0 {F: Type} {_: Result.AssertionError F}: forall n0 r1 ctx1, Down n0 (r1, ctx1) -> List.Exists.ExistValue (walk r1 ctx1) n0.
+      Proof.
+        intros n0 r1 ctx1 D. dependent destruction D; cbn;
+          repeat match goal with | [ |- context[ walk ?r ?ctx ] ] => destruct (shape r ctx) as [ ? -> ] end;
+          try solve [ exists 1; rewrite -> List.Indexing.Nat.cons; reflexivity ].
+        - exists (S (List.length ((r0, Disjunction_left r2 :: ctx1) :: x) + 0)). rewrite -> List.Indexing.Nat.cons. apply List.Indexing.Nat.concat_right. reflexivity.
+        - exists (S (List.length ((r0, Seq_left r2 :: ctx1) :: x) + 0)). rewrite -> List.Indexing.Nat.cons. apply List.Indexing.Nat.concat_right. reflexivity.
+      Qed.
+      Lemma completeness0' {F: Type} {_: Result.AssertionError F}: forall n0 r1 ctx1, Down n0 (r1, ctx1) -> List.Exists.Exist (walk r1 ctx1) (fun v' => n0 = v').
+      Proof. setoid_rewrite -> List.Exists.exist_value_eq. apply completeness0. Qed.
+
+      Tactic Notation "indexing_eval" "in" hyp(H) := repeat
+      (   cbn in H
+      ||  rewrite List.Indexing.Nat.cons in H
+      ||  rewrite -> List.Indexing.Nat.nil in H
+      ||  match type of H with
+          | Result.assertion_failed = Success _ => Result.assertion_failed_helper
+          | Success _ = Success _ => injection H as <-
+          end ).
+
+      Tactic Notation "indexing_eval" := repeat
+      (   cbn
+      ||  rewrite List.Indexing.Nat.cons
+      ||  rewrite -> List.Indexing.Nat.nil
+      ||  match goal with
+          | [|- Success _ = Success _ ] => f_equal
+          end ).
+
+
+      Ltac exist_autodestruct := repeat match goal with
+      | [ H: List.Exists.Exist (_ :: _) _ |- _ ] => apply List.Exists.cons_inv in H as [ H | H ]
+      | [ H: List.Exists.Exist (_ ++ _) _ |- _ ] => apply List.Exists.concat_inv in H as [ H | H ]
+      end.
+
+      Lemma completeness1 {F: Type} {_: Result.AssertionError F}: forall r2 ctx2 n0 n1,
+        List.Exists.ExistValue (walk r2 ctx2) n1 ->
+        Down n0 n1 ->
+        List.Exists.ExistValue (walk r2 ctx2) n0.
+      Proof.
+        induction r2; intros ctx2 n0 n1 Eq_indexed D; cbn in Eq_indexed |-.
+        - destruct Eq_indexed as [ [] Eq_indexed ]; indexing_eval in Eq_indexed. dependent destruction D.
+        - destruct Eq_indexed as [ [] Eq_indexed ]; indexing_eval in Eq_indexed. dependent destruction D.
+        - destruct Eq_indexed as [ [] Eq_indexed ]; indexing_eval in Eq_indexed. dependent destruction D.
+        - destruct Eq_indexed as [ [] Eq_indexed ]; indexing_eval in Eq_indexed. dependent destruction D.
+        - destruct Eq_indexed as [ [] Eq_indexed ]; indexing_eval in Eq_indexed. dependent destruction D.
+        - rewrite <- List.Exists.exist_value_eq in *. exist_autodestruct.
+          + subst. apply completeness0'. assumption.
+          + setoid_rewrite <- List.Exists.exist_value_eq in IHr2_1. apply IHr2_1 with (2 := D) in Eq_indexed.
+            apply List.Exists.cons_tail. apply List.Exists.concat_right. assumption.
+          + setoid_rewrite <- List.Exists.exist_value_eq in IHr2_2. apply IHr2_2 with (2 := D) in Eq_indexed.
+            apply List.Exists.cons_tail. apply List.Exists.concat_left. assumption.
+        - rewrite <- List.Exists.exist_value_eq in *. exist_autodestruct.
+          + subst. apply completeness0'. assumption.
+          + setoid_rewrite <- List.Exists.exist_value_eq in IHr2. specialize (IHr2 _ _ _ Eq_indexed D).
+            apply List.Exists.cons_tail. assumption.
+        - rewrite <- List.Exists.exist_value_eq in *. exist_autodestruct.
+          + subst. apply completeness0'. assumption.
+          + setoid_rewrite <- List.Exists.exist_value_eq in IHr2_1. apply IHr2_1 with (2 := D) in Eq_indexed.
+            apply List.Exists.cons_tail. apply List.Exists.concat_right. assumption.
+          + setoid_rewrite <- List.Exists.exist_value_eq in IHr2_2. apply IHr2_2 with (2 := D) in Eq_indexed.
+            apply List.Exists.cons_tail. apply List.Exists.concat_left. assumption.
+        - rewrite <- List.Exists.exist_value_eq in *. exist_autodestruct.
+          + subst. apply completeness0'. assumption.
+          + setoid_rewrite <- List.Exists.exist_value_eq in IHr2. specialize (IHr2 _ _ _ Eq_indexed D).
+            apply List.Exists.cons_tail. assumption.
+        - rewrite <- List.Exists.exist_value_eq in *. exist_autodestruct.
+          + subst. apply completeness0'. assumption.
+          + setoid_rewrite <- List.Exists.exist_value_eq in IHr2. specialize (IHr2 _ _ _ Eq_indexed D).
+            apply List.Exists.cons_tail. assumption.
+        - rewrite <- List.Exists.exist_value_eq in *. exist_autodestruct.
+          + subst. apply completeness0'. assumption.
+          + setoid_rewrite <- List.Exists.exist_value_eq in IHr2. specialize (IHr2 _ _ _ Eq_indexed D).
+            apply List.Exists.cons_tail. assumption.
+        - rewrite <- List.Exists.exist_value_eq in *. exist_autodestruct.
+          + subst. apply completeness0'. assumption.
+          + setoid_rewrite <- List.Exists.exist_value_eq in IHr2. specialize (IHr2 _ _ _ Eq_indexed D).
+            apply List.Exists.cons_tail. assumption.
+        - rewrite <- List.Exists.exist_value_eq in *. exist_autodestruct.
+          + subst. apply completeness0'. assumption.
+          + setoid_rewrite <- List.Exists.exist_value_eq in IHr2. specialize (IHr2 _ _ _ Eq_indexed D).
+            apply List.Exists.cons_tail. assumption.
+        Qed.
+
+      Lemma completeness {F: Type} {f: Result.AssertionError F}: forall n0 r1 ctx1, Down* n0 (r1, ctx1) -> List.Exists.ExistValue (walk r1 ctx1) n0.
+      Proof.
+        setoid_rewrite <- List.Exists.exist_value_eq.
+        intros [r0 ctx0] r1 ctx1 D.
+        pose proof down_yield_sublist as S_w. specialize S_w with (1 := D).
+        apply List.Sublist.exist with (1 := S_w).
+        destruct (shape r0 ctx0) as [ ? -> ].
+        apply List.Exists.cons_head. reflexivity.
+      Qed.
+    End Walk.
   End Zip.
 
 End Patterns.

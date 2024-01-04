@@ -676,10 +676,10 @@ Module Correctness.
       - intros x c Vx Sc.
         focus § _ [] _ § auto destruct in Eq_m; injection Eq_m as <-.
         focus § _ [] _ § auto destruct in Sc.
-        + specialize (IHr2 (Disjunction_right r1 :: ctx) _ str _ ltac:(Zip.down) ltac:(eassumption) ltac:(eassumption) ltac:(eassumption) x c ltac:(eassumption) ltac:(eassumption)) as [ ? [ ? [ ? ? ]]].
+        + specialize (IHr2 (Disjunction_right r1 :: ctx) _ str _ ltac:(eassumption) ltac:(eassumption) ltac:(eassumption) ltac:(eassumption) x c ltac:(eassumption) ltac:(eassumption)) as [ ? [ ? [ ? ? ]]].
           search.
         + injection Sc as ->.
-          specialize (IHr1 (Disjunction_left r2 :: ctx) _ str _ ltac:(Zip.down) ltac:(eassumption) ltac:(eassumption) ltac:(eassumption) x c ltac:(eassumption) ltac:(eassumption)) as [ ? [ ? [ ? ? ]]].
+          specialize (IHr1 (Disjunction_left r2 :: ctx) _ str _ ltac:(eassumption) ltac:(eassumption) ltac:(eassumption) ltac:(eassumption) x c ltac:(eassumption) ltac:(eassumption)) as [ ? [ ? [ ? ? ]]].
           search.
       - focus § _ [] _ § auto destruct in Eq_m; injection Eq_m as <-.
         apply repeatMatcher.
@@ -688,18 +688,18 @@ Module Correctness.
           apply List.Range.Nat.Bounds.indexing in Eq_indexed.
           pose proof (EarlyErrors.countLeftCapturingParensBefore_contextualized _ _ _ R_r GR_root).
           unfold countLeftCapturingParensBefore,countLeftCapturingParensWithin in *. cbn in *. lia.
-        + apply (IHr (Quantified_inner q :: ctx) _ _ _ ltac:(Zip.down) ltac:(eassumption) ltac:(eassumption) ltac:(eassumption)).
+        + apply (IHr (Quantified_inner q :: ctx) _ _ _ ltac:(eassumption) ltac:(eassumption) ltac:(eassumption) ltac:(eassumption)).
       - intros x c V_x S_c.
         focus § _ [] _ § auto destruct in Eq_m; injection Eq_m as <-.
-        + specialize (IHr1 _ _ _ _ ltac:(eassumption) (Zip.Down.seq_left _ _ _ _ R_r) ltac:(eassumption) ltac:(eassumption) _ _ V_x S_c) as [ y0 [ V_y0 [ P_x_y0 Eq_y0 ]]].
-          specialize (IHr2 _ _ _ _ ltac:(eassumption) (Zip.Down.seq_right _ _ _ _ R_r) ltac:(eassumption) ltac:(eassumption) _ _ V_y0 Eq_y0) as [ y1 [ V_y1 [ P_x_y1 Eq_y1 ]]].
+        + specialize (IHr1 _ _ _ _ ltac:(eassumption) ltac:(eapply Zip.Down.same_root_down; [ constructor | eassumption]) ltac:(eassumption) ltac:(eassumption) _ _ V_x S_c) as [ y0 [ V_y0 [ P_x_y0 Eq_y0 ]]].
+          specialize (IHr2 _ _ _ _ ltac:(eassumption) ltac:(eapply Zip.Down.same_root_down; [ constructor | eassumption]) ltac:(eassumption) ltac:(eassumption) _ _ V_y0 Eq_y0) as [ y1 [ V_y1 [ P_x_y1 Eq_y1 ]]].
           search.
-        + specialize (IHr2 _ _ _ _ ltac:(eassumption) (Zip.Down.seq_right _ _ _ _ R_r) ltac:(eassumption) ltac:(eassumption) _ _ V_x S_c) as [ y0 [ V_y0 [ P_x_y0 Eq_y0 ]]].
-          specialize (IHr1 _ _ _ _ ltac:(eassumption) (Zip.Down.seq_left _ _ _ _ R_r) ltac:(eassumption) ltac:(eassumption) _ _ V_y0 Eq_y0) as [ y1 [ V_y1 [ P_x_y1 Eq_y1 ]]].
+        + specialize (IHr2 _ _ _ _ ltac:(eassumption) ltac:(eapply Zip.Down.same_root_down; [ constructor | eassumption]) ltac:(eassumption) ltac:(eassumption) _ _ V_x S_c) as [ y0 [ V_y0 [ P_x_y0 Eq_y0 ]]].
+          specialize (IHr1 _ _ _ _ ltac:(eassumption) ltac:(eapply Zip.Down.same_root_down; [ constructor | eassumption]) ltac:(eassumption) ltac:(eassumption) _ _ V_y0 Eq_y0) as [ y1 [ V_y1 [ P_x_y1 Eq_y1 ]]].
           search.
       - intros x c V_x Eq_af.
         focus § _ [] _ § auto destruct in Eq_m; injection Eq_m as <-.
-        specialize (IHr _ _ _ _ ltac:(eassumption) (Zip.Down.group_inner _ _ _ _ R_r) ltac:(eassumption) ltac:(eassumption) _ _ V_x Eq_af) as [ y0 [ V_y0 [ P_x_y0 Eq_y0 ]]].
+        specialize (IHr _ _ _ _ ltac:(eassumption) ltac:(eapply Zip.Down.same_root_down; [ constructor | eassumption]) ltac:(eassumption) ltac:(eassumption) _ _ V_x Eq_af) as [ y0 [ V_y0 [ P_x_y0 Eq_y0 ]]].
         focus § _ [] _ § auto destruct in Eq_y0.
         + focus § _ [] _ § auto destruct in AutoDest_0; focus § _ [] _ § auto destruct in AutoDest_1; rewrite -> Nat.add_sub in AutoDest_1.
           * search. MatchState.solve_with lia.
@@ -724,17 +724,17 @@ Module Correctness.
       - focus § _ [] _ § auto destruct in Eq_m; injection Eq_m as <-.
         apply positiveLookaroundMatcher with (dir' := forward).
         + apply IntermediateValue.compileSubPattern with (1 := AutoDest_).
-        + apply (IHr (Lookahead_inner :: ctx) _ _ _ ltac:(Zip.down) ltac:(eassumption) ltac:(eassumption) ltac:(eassumption)).
+        + apply (IHr (Lookahead_inner :: ctx) _ _ _ ltac:(eassumption) ltac:(eassumption) ltac:(eassumption) ltac:(eassumption)).
       - focus § _ [] _ § auto destruct in Eq_m; injection Eq_m as <-.
         apply negativeLookaroundMatcher with (dir' := forward).
-        apply (IHr (NegativeLookahead_inner :: ctx) _ _ _ ltac:(Zip.down) ltac:(eassumption) ltac:(eassumption) ltac:(eassumption)).
+        apply (IHr (NegativeLookahead_inner :: ctx) _ _ _ ltac:(eassumption) ltac:(eassumption) ltac:(eassumption) ltac:(eassumption)).
       - focus § _ [] _ § auto destruct in Eq_m; injection Eq_m as <-.
         apply positiveLookaroundMatcher with (dir' := backward).
         + apply IntermediateValue.compileSubPattern with (1 := AutoDest_).
-        + apply (IHr (Lookbehind_inner :: ctx) _ _ _ ltac:(Zip.down) ltac:(eassumption) ltac:(eassumption) ltac:(eassumption)).
+        + apply (IHr (Lookbehind_inner :: ctx) _ _ _ ltac:(eassumption) ltac:(eassumption) ltac:(eassumption) ltac:(eassumption)).
       - focus § _ [] _ § auto destruct in Eq_m; injection Eq_m as <-.
         apply negativeLookaroundMatcher with (dir' := backward).
-        eapply (IHr (NegativeLookbehind_inner :: ctx) _ _ _ ltac:(Zip.down) ltac:(eassumption) ltac:(eassumption) ltac:(eassumption)).
+        eapply (IHr (NegativeLookbehind_inner :: ctx) _ _ _ ltac:(eassumption) ltac:(eassumption) ltac:(eassumption) ltac:(eassumption)).
     Qed.
 
     Theorem compilePattern: forall r rer input i m,

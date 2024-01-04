@@ -134,4 +134,5 @@ Module EarlyErrors.
         * exists h_ctx. symmetry. assumption.
       + cbn in H. apply (IHt' H).
   Qed.
+
 End EarlyErrors.

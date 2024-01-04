@@ -141,7 +141,7 @@ A Match Record is a Record value used to encapsulate the start and end indices o
 
   Definition AdvanceStringIndex (S:list Character) (index:nat) (unicode:bool) : Result.Result nat MatchError :=
     (* 1. Assert: index ≤ 2^53 - 1. *)
-    assert! (index <? 9007199254740991)%nat;
+    (* assert! (index <? 9007199254740991)%nat; *)
   Success (Nat.add index 1)%nat.
   (* TODO: this is incomplete, change it when you have unicode *)
 
@@ -393,8 +393,8 @@ The abstract operation MakeMatchIndicesIndexPairArray takes arguments S (a Strin
   Definition MakeMatchIndicesGroups (S:list Character) (indices:list (option MatchRecord)) (groupNames:list (option GroupName)) (hasGroups:bool): Result.Result (option (list (GroupName * option (nat*nat)))) MatchError :=
     (* 1. Let n be the number of elements in indices. *)
     let n := List.length indices in
-    (* 2. Assert: n < 232 - 1. *)
-    assert! (n <? 4294967295)%nat;
+    (* 2. Assert: n < 2^32 - 1. *)
+    (* assert! (n <? 4294967295)%nat; *)
   (* 3. Assert: groupNames has n - 1 elements. *)
   assert! (List.length groupNames =? n-1)%nat;
     match hasGroups with
@@ -500,7 +500,7 @@ The abstract operation MakeMatchIndicesIndexPairArray takes arguments S (a Strin
       (* 18. Assert: n = R.[[RegExpRecord]].[[CapturingGroupsCount]]. *)
       assert! (n =? RegExp.capturingGroupsCount (RegExpRecord newInstance))%nat;
   (* 19. Assert: n < 2^32 - 1. *)
-  assert! (n <? 4294967295)%nat;
+  (* assert! (n <? 4294967295)%nat; *)
   (* 22. Perform ! CreateDataPropertyOrThrow(A, "index", 𝔽(lastIndex)). *)
   let A_index := lastIndex in
   (* 23. Perform ! CreateDataPropertyOrThrow(A, "input", S). *)

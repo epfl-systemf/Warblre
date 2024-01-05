@@ -176,6 +176,19 @@ Module EarlyErrors.
       + unfold GroupName.eqb in *. destruct (GroupName.eqs name name) eqn:Falsum. * discriminate. * contradiction.
   Qed.
 
+  Lemma isCharacterClass_singleton {F: Type} {_: Result.AssertionError F}: forall c, isCharacterClass c = false -> exists v, SingletonClassAtom c v.
+  Proof.
+    intros [ ]; cbn.
+    - eexists; repeat econstructor.
+    - destruct esc; try discriminate; intros _.
+      + eexists. econstructor.
+      + eexists. econstructor.
+      + destruct esc.
+        * destruct esc; eexists; do 3 econstructor.
+        * eexists; do 2 econstructor.
+        * eexists; do 2 econstructor.
+  Qed.
+
   Lemma characterValue_singleton {F: Type} {_: Result.AssertionError F}: forall c v, characterValue c = @Success _ F (Character.numeric_value v) <-> SingletonClassAtom c v.
   Proof.
     intros c v; split; intros H; (repeat match goal with
@@ -189,92 +202,145 @@ Module EarlyErrors.
       end); try solve [ cbn in H; injection H as Eq; apply Character.numeric_inj in Eq as <-; repeat constructor | Result.assertion_failed_helper | reflexivity ].
   Qed.
 
-  Lemma isCharacterClass_false: forall a, isCharacterClass a = false -> exists c, SingletonClassAtom a c.
-  Proof.
-    intros a Eq. repeat match goal with
-      | [ c: ClassAtom |- _] => destruct c
-      | [ c: ClassEscape |- _] => destruct c
-      | [ c: CharacterEscape |- _] => destruct c
-      | [ c: CharacterClassEscape |- _] => destruct c
-      | [ c: ControlEscape |- _] => destruct c
-      end; cbn in Eq; try solve [ discriminate | eexists; repeat econstructor ].
-  Qed.
+  Module Safety.
 
-  Lemma completeness_earlyErrors_class_ranges: forall c,
-    earlyErrors_class_ranges c = Success false ->
-    ClassRanges c.
-  Proof.
-    induction c; intros H; cbn in *.
-    - constructor.
-    - constructor. apply IHc. apply H.
-    - focus § _ [] _ § auto destruct in H. boolean_simplifier.
-      apply isCharacterClass_false in H0 as (cl & ?). apply isCharacterClass_false in H1 as (ch & ?).
-      apply RangeCR with (cl := cl) (ch := ch); try assumption.
-      + destruct s;
-          repeat match goal with
-          | [ H: SingletonClassAtom ?c ?cc, G: characterValue ?c = _ |- _ ] => rewrite <- (@characterValue_singleton) in H; rewrite -> H in *; injection G as ->
-          end; try spec_reflector Nat.leb_spec0; lia.
-      + apply IHc. apply H.
-  Qed.
-
-  Definition earlyErrors_char_class: forall cc, earlyErrors_char_class cc = Success false -> Pass.CharClass cc.
-  Proof. intros; destruct cc; constructor; apply completeness_earlyErrors_class_ranges; assumption. Qed.
-
-  Definition earlyErrors_quantifier_prefix: forall q, earlyErrors_quantifier_prefix q = false -> Pass.QuantifierPrefix q.
-  Proof. intros; destruct q; constructor. cbn in H. destruct min as [ ] eqn:Eq_min. - lia. - destruct (max <=? n) eqn:Ineq; spec_reflector Nat.leb_spec0; lia. Qed.
-
-
-  Definition earlyErrors_quantifier: forall q, earlyErrors_quantifier q = false -> Pass.Quantifier q.
-  Proof. intros; destruct q; constructor; apply earlyErrors_quantifier_prefix; assumption. Qed.
-
-  Lemma completeness_rec: forall root r ctx,
-      List.Exists.exist (Zip.Walk.walk root nil) (fun node0 =>
-        List.Exists.exist (Zip.Walk.walk root nil) (fun node1 =>
-          if RegexNode.eqs node0 node1 then Success false
-          else
-            let (r0, ctx0) := node0 in
-            let (r1, ctx1) := node1 in
-            match r0, r1 with
-            | Group (Some name0) _, Group (Some name1) _ => Success (GroupName.eqb name0 name1)
-            | _, _ => Success false
-            end))
-        = @Success _ SyntaxError false ->
-    Root root r ctx ->
-    earlyErrors_rec r ctx = Success false ->
-    Pass.Regex r ctx.
-  Proof.
-    intros root. induction r; intros ctx RP Root_r EE_r.
-    - constructor.
-    - constructor.
-    - constructor.
-    - constructor. destruct ae; cbn in EE_r; constructor.
-      + focus § _ [] _ § auto destruct in EE_r. unfold capturingGroupNumber,positive_to_non_neg,positive_to_nat in *. focus § _ [] _ § auto destruct in AutoDest_.
-        * lia.
-        * spec_reflector Nat.leb_spec0. lia.
-      + focus § _ [] _ § auto destruct in EE_r. spec_reflector Nat.eqb_spec.
-        pose proof (groupSpecifiersThatMatch_singleton _ id RP).
-        unfold groupSpecifiersThatMatch in *. rewrite <- Root_r in *.
-        rewrite -> Zip.id in *.
-        lia.
-    - constructor. apply earlyErrors_char_class. apply EE_r.
-    - constructor.
-      + cbn in EE_r. focus § _ [] _ § auto destruct in EE_r. apply IHr1; try assumption.
-      + cbn in EE_r. focus § _ [] _ § auto destruct in EE_r. apply IHr2; try assumption.
-    - constructor. cbn in EE_r. focus § _ [] _ § auto destruct in EE_r. apply IHr; try assumption.
-      apply earlyErrors_quantifier.
-      cbn in EE_r. focus § _ [] _ § auto destruct in EE_r. injection EE_r as EE_r. apply EE_r.
-    - constructor.
-      + cbn in EE_r. focus § _ [] _ § auto destruct in EE_r. apply IHr1; try assumption.
-      + cbn in EE_r. focus § _ [] _ § auto destruct in EE_r. apply IHr2; try assumption.
-    - constructor. cbn in EE_r. focus § _ [] _ § auto destruct in EE_r. apply IHr; try assumption.
-    - constructor. cbn in EE_r. focus § _ [] _ § auto destruct in EE_r. apply IHr; try assumption.
-    - constructor. cbn in EE_r. focus § _ [] _ § auto destruct in EE_r. apply IHr; try assumption.
-    - constructor. cbn in EE_r. focus § _ [] _ § auto destruct in EE_r. apply IHr; try assumption.
-    - constructor. cbn in EE_r. focus § _ [] _ § auto destruct in EE_r. apply IHr; try assumption.
+    Lemma characterValue: forall ca, isCharacterClass ca = false -> characterValue ca <> Failure SyntaxError.AssertionFailed.
+    Proof.
+      intros ca H.
+      destruct ca; Result.assertion_failed_helper.
+      destruct esc; Result.assertion_failed_helper.
+      destruct esc; Result.assertion_failed_helper.
+      destruct esc; Result.assertion_failed_helper.
     Qed.
 
-  Lemma completeness: forall r, earlyErrors r nil = Success false -> Pass.Regex r nil.
-  Proof.
-    intros r H. unfold earlyErrors in H. focus § _ [] _ § auto destruct in H. apply completeness_rec with (root := r); solve [ assumption | reflexivity ].
-  Qed.
+    Lemma class_ranges: forall c, earlyErrors_class_ranges c <> Failure SyntaxError.AssertionFailed.
+    Proof.
+      induction c; Result.assertion_failed_helper.
+      cbn. focus § _ (_ [] _) § auto destruct; subst; focus § _ [] _ § auto destruct in AutoDest_0; try easy;
+        repeat lazymatch goal with
+        | [ f: SyntaxError |- _ ] => destruct f
+        | [ _: context[ if ?b then _ else _ ] |- _ ] => destruct b eqn:?Eq
+        | [ H0: isCharacterClass ?c = false, H1: StaticSemantics.characterValue ?c = Failure SyntaxError.AssertionFailed |- _ ] => exfalso; apply (characterValue _ H0 H1)
+        end; boolean_simplifier; try discriminate.
+    Qed.
+
+    Definition char_class: forall cc, earlyErrors_char_class cc <> Failure SyntaxError.AssertionFailed.
+    Proof. destruct cc; cbn; apply class_ranges. Qed.
+
+    Lemma rec: forall r ctx, earlyErrors_rec r ctx <> Failure SyntaxError.AssertionFailed.
+    Proof.
+      induction r; intros ctx H; cbn in H; Result.assertion_failed_helper.
+      - focus § _ [] _ § auto destruct in H.
+      - apply (char_class _ H).
+      - focus § _ [] _ § auto destruct in H; subst. + apply (IHr2 _ H). + destruct f. apply (IHr1 _ AutoDest_).
+      - focus § _ [] _ § auto destruct in H. Result.assertion_failed_helper. apply (IHr _ AutoDest_).
+      - focus § _ [] _ § auto destruct in H; subst. + apply (IHr2 _ H). + destruct f. apply (IHr1 _ AutoDest_).
+      - apply (IHr _ H).
+      - apply (IHr _ H).
+      - apply (IHr _ H).
+      - apply (IHr _ H).
+      - apply (IHr _ H).
+    Qed.
+
+    Lemma earlyErrors: forall r, earlyErrors r nil <> Failure SyntaxError.AssertionFailed.
+    Proof.
+      intros r H. unfold earlyErrors in H. focus § _ [] _ § auto destruct in H.
+      - apply (rec _ _ H).
+      - Result.assertion_failed_helper.
+        apply List.Exists.failure_kind in AutoDest_ as (_ & ? & _ & H).
+        apply List.Exists.failure_kind in H as (_ & ? & _ & H).
+        focus § _ [] _ § auto destruct in H.
+    Qed.
+  End Safety.
+
+  Module Completeness.
+    Lemma isCharacterClass_false: forall a, isCharacterClass a = false -> exists c, SingletonClassAtom a c.
+    Proof.
+      intros a Eq. repeat match goal with
+        | [ c: ClassAtom |- _] => destruct c
+        | [ c: ClassEscape |- _] => destruct c
+        | [ c: CharacterEscape |- _] => destruct c
+        | [ c: CharacterClassEscape |- _] => destruct c
+        | [ c: ControlEscape |- _] => destruct c
+        end; cbn in Eq; try solve [ discriminate | eexists; repeat econstructor ].
+    Qed.
+
+    Lemma class_ranges: forall c,
+      earlyErrors_class_ranges c = Success false ->
+      ClassRanges c.
+    Proof.
+      induction c; intros H; cbn in *.
+      - constructor.
+      - constructor. apply IHc. apply H.
+      - focus § _ [] _ § auto destruct in H. boolean_simplifier. focus § _ [] _ § auto destruct in AutoDest_0. subst. injection AutoDest_0 as ?.
+        apply isCharacterClass_false in H0 as (cl & ?). apply isCharacterClass_false in H1 as (ch & ?).
+        apply RangeCR with (cl := cl) (ch := ch); try assumption.
+        + destruct s1;
+            repeat match goal with
+            | [ H: SingletonClassAtom ?c ?cc, G: characterValue ?c = _ |- _ ] => rewrite <- (@characterValue_singleton) in H; rewrite -> H in *; injection G as ->
+            end; try spec_reflector Nat.leb_spec0; try lia.
+        + apply IHc. apply H.
+    Qed.
+
+    Definition char_class: forall cc, earlyErrors_char_class cc = Success false -> Pass.CharClass cc.
+    Proof. intros; destruct cc; constructor; apply class_ranges; assumption. Qed.
+
+    Definition quantifier_prefix: forall q, earlyErrors_quantifier_prefix q = false -> Pass.QuantifierPrefix q.
+    Proof. intros; destruct q; constructor. cbn in H. destruct min as [ ] eqn:Eq_min. - lia. - destruct (max <=? n) eqn:Ineq; spec_reflector Nat.leb_spec0; lia. Qed.
+
+
+    Definition quantifier: forall q, earlyErrors_quantifier q = false -> Pass.Quantifier q.
+    Proof. intros; destruct q; constructor; apply quantifier_prefix; assumption. Qed.
+
+    Lemma rec: forall root r ctx,
+        List.Exists.exist (Zip.Walk.walk root nil) (fun node0 =>
+          List.Exists.exist (Zip.Walk.walk root nil) (fun node1 =>
+            if RegexNode.eqs node0 node1 then Success false
+            else
+              let (r0, ctx0) := node0 in
+              let (r1, ctx1) := node1 in
+              match r0, r1 with
+              | Group (Some name0) _, Group (Some name1) _ => Success (GroupName.eqb name0 name1)
+              | _, _ => Success false
+              end))
+          = @Success _ SyntaxError false ->
+      Root root r ctx ->
+      earlyErrors_rec r ctx = Success false ->
+      Pass.Regex r ctx.
+    Proof.
+      intros root. induction r; intros ctx RP Root_r EE_r.
+      - constructor.
+      - constructor.
+      - constructor.
+      - constructor. destruct ae; cbn in EE_r; constructor.
+        + focus § _ [] _ § auto destruct in EE_r. unfold capturingGroupNumber,positive_to_non_neg,positive_to_nat in *. focus § _ [] _ § auto destruct in AutoDest_.
+          * lia.
+          * spec_reflector Nat.leb_spec0. lia.
+        + focus § _ [] _ § auto destruct in EE_r. spec_reflector Nat.eqb_spec.
+          pose proof (groupSpecifiersThatMatch_singleton _ id RP).
+          unfold groupSpecifiersThatMatch in *. rewrite <- Root_r in *.
+          rewrite -> Zip.id in *.
+          lia.
+      - constructor. apply char_class. apply EE_r.
+      - constructor.
+        + cbn in EE_r. focus § _ [] _ § auto destruct in EE_r. apply IHr1; try assumption.
+        + cbn in EE_r. focus § _ [] _ § auto destruct in EE_r. apply IHr2; try assumption.
+      - constructor. cbn in EE_r. focus § _ [] _ § auto destruct in EE_r. apply IHr; try assumption.
+        apply quantifier.
+        cbn in EE_r. focus § _ [] _ § auto destruct in EE_r. injection EE_r as EE_r. apply EE_r.
+      - constructor.
+        + cbn in EE_r. focus § _ [] _ § auto destruct in EE_r. apply IHr1; try assumption.
+        + cbn in EE_r. focus § _ [] _ § auto destruct in EE_r. apply IHr2; try assumption.
+      - constructor. cbn in EE_r. focus § _ [] _ § auto destruct in EE_r. apply IHr; try assumption.
+      - constructor. cbn in EE_r. focus § _ [] _ § auto destruct in EE_r. apply IHr; try assumption.
+      - constructor. cbn in EE_r. focus § _ [] _ § auto destruct in EE_r. apply IHr; try assumption.
+      - constructor. cbn in EE_r. focus § _ [] _ § auto destruct in EE_r. apply IHr; try assumption.
+      - constructor. cbn in EE_r. focus § _ [] _ § auto destruct in EE_r. apply IHr; try assumption.
+      Qed.
+
+    Lemma earlyErrors: forall r, earlyErrors r nil = Success false -> Pass.Regex r nil.
+    Proof.
+      intros r H. unfold earlyErrors in H. focus § _ [] _ § auto destruct in H. apply rec with (root := r); solve [ assumption | reflexivity ].
+    Qed.
+  End Completeness.
 End EarlyErrors.

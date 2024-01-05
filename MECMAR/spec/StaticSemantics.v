@@ -151,12 +151,14 @@ Module StaticSemantics.
   | ClassAtomCR _ t => earlyErrors_class_ranges t
   (**  NonemptyClassRanges :: ClassAtom - ClassAtom ClassRanges *)
   | RangeCR l h t =>
-      let! cvl =<< characterValue l in
-      let! cvr =<< characterValue h in
       (* * It is a Syntax Error if IsCharacterClass of the first ClassAtom is true or IsCharacterClass of the second ClassAtom is true. *)
       if (isCharacterClass l is true) || (isCharacterClass h is true) then true
       (* * It is a Syntax Error if IsCharacterClass of the first ClassAtom is false, IsCharacterClass of the second ClassAtom is false, and the CharacterValue of the first ClassAtom is strictly greater than the CharacterValue of the second ClassAtom.  *)
-      else if (isCharacterClass l is false) && (isCharacterClass h is false) && (cvl >? cvr)%nat then true
+      else if!
+          Success (isCharacterClass l is false) &&!
+          Success (isCharacterClass h is false) &&!
+          (let! cvl =<< characterValue l in let! cvr =<< characterValue h in cvl >? cvr)%nat
+        then true
       else earlyErrors_class_ranges t
   end.
   Definition earlyErrors_char_class (cc: CharClass): Result bool SyntaxError := match cc with

@@ -73,6 +73,12 @@ Module Result.
       | Success false => Success false
       | Failure f => Failure f
       end) (at level 40, left associativity): result_flow.
+
+      Notation "l '||!' r" := (match l with
+      | Success true => Success true
+      | Success false => r
+      | Failure f => Failure f
+      end) (at level 50, left associativity): result_flow.
     End Boolean.
   End Notations.
 End Result.

@@ -157,7 +157,7 @@ Module StaticSemantics.
       if (isCharacterClass l is true) || (isCharacterClass h is true) then true
       (* * It is a Syntax Error if IsCharacterClass of the first ClassAtom is false, IsCharacterClass of the second ClassAtom is false, and the CharacterValue of the first ClassAtom is strictly greater than the CharacterValue of the second ClassAtom.  *)
       else if (isCharacterClass l is false) && (isCharacterClass h is false) && (cvl >? cvr)%nat then true
-      else false
+      else earlyErrors_class_ranges t
   end.
   Definition earlyErrors_char_class (cc: CharClass): Result bool SyntaxError := match cc with
   | NoninvertedCC cr => earlyErrors_class_ranges cr
@@ -191,9 +191,9 @@ Module StaticSemantics.
         if (List.length (groupSpecifiersThatMatch (AtomEsc (Patterns.AtomEscape.GroupEsc name)) ctx name) =? 0)%nat then true else false
     | AtomEsc _ => false
     | CharacterClass cc => earlyErrors_char_class cc
-    | Disjunction r1 r2 => earlyErrors_rec r1 (Disjunction_left r2 :: ctx) &&! earlyErrors_rec r2 (Disjunction_right r1 :: ctx)
-    | Quantified r q => earlyErrors_rec r (Quantified_inner q :: ctx) &&! earlyErrors_quantifier q
-    | Seq r1 r2 => earlyErrors_rec r1 (Seq_left r2 :: ctx) &&! earlyErrors_rec r2 (Seq_right r1 :: ctx)
+    | Disjunction r1 r2 => earlyErrors_rec r1 (Disjunction_left r2 :: ctx) ||! earlyErrors_rec r2 (Disjunction_right r1 :: ctx)
+    | Quantified r q => earlyErrors_rec r (Quantified_inner q :: ctx) ||! earlyErrors_quantifier q
+    | Seq r1 r2 => earlyErrors_rec r1 (Seq_left r2 :: ctx) ||! earlyErrors_rec r2 (Seq_right r1 :: ctx)
     | Group name r => earlyErrors_rec r (Group_inner name :: ctx)
     | Lookahead r => earlyErrors_rec r (Lookahead_inner :: ctx)
     | NegativeLookahead r => earlyErrors_rec r (NegativeLookahead_inner :: ctx)
@@ -209,12 +209,14 @@ Module StaticSemantics.
     (* * It is a Syntax Error if Pattern contains two or more GroupSpecifiers for which CapturingGroupName of GroupSpecifier is the same. *)
     if! List.Exists.exist nodes (fun node0 =>
       List.Exists.exist nodes (fun node1 =>
-        let (r0, ctx0) := node0 in
-        let (r1, ctx1) := node1 in
-        match r0, r1 with
-        | Group (Some name0) _, Group (Some name1) _ => if GroupName.eqb name0 name1 then true else false
-        | _, _ => false
-        end
+        if RegexNode.eqs node0 node1 then false
+        else
+          let (r0, ctx0) := node0 in
+          let (r1, ctx1) := node1 in
+          match r0, r1 with
+          | Group (Some name0) _, Group (Some name1) _ => GroupName.eqb name0 name1
+          | _, _ => false
+          end
     )) then true
     else earlyErrors_rec r ctx.
 End StaticSemantics.

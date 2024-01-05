@@ -25,6 +25,25 @@ Module List.
 
   Definition empty {T: Type} := @nil T.
 
+  Lemma rec_eq {T: Type}: forall (l: list T) a, a :: l = l -> False.
+  Proof. intros l a H. apply (@f_equal _ _ (@length _) _ _) in H. cbn in H. apply Nat.neq_succ_diag_l in H. assumption. Qed.
+  Ltac rec_eq := solve [ exfalso; apply rec_eq with (1 := ltac:(eassumption)) ].
+
+  Lemma app_cons {A: Type}: forall l (h: A) r, l ++ (h :: r) = (l ++ (h :: nil)) ++ r.
+  Proof. induction l; intros h r. - reflexivity. - cbn. f_equal. apply IHl. Qed.
+
+  Lemma same_tail {T: Type}: forall (t: list T) p0 p1 h0 h1, p0 ++ h0 :: t = p1 ++ h1 :: t -> h0 = h1.
+  Proof. intros. rewrite -> (app_cons p0) in H. rewrite -> (app_cons p1) in H. apply app_inv_tail in H. apply app_inj_tail in H as [_ ?]. assumption. Qed.
+
+  Lemma mutual_prefixes {T: Type}: forall (l1 l2 p12 p21: list T), l1 = p12 ++ l2 -> l2 = p21 ++ l1 -> l1 = l2.
+  Proof.
+    intros l1 l2 p12 p21 Eq_l1 Eq_l2. 
+    pose proof (@f_equal _ _ (@length _) _ _ Eq_l1). pose proof (@f_equal _ _ (@length _) _ _ Eq_l2).
+    rewrite -> app_length in *.
+    assert (length p12 = 0)%nat as Eq_p12 by lia. assert (length p21 = 0)%nat as Eq_p21 by lia.
+    rewrite -> length_zero_iff_nil in *. subst. reflexivity.
+  Qed.
+
   Module Unique.
     Definition unique {T F: Type} {_: Result.AssertionError F} (ls: list T): Result T F := match ls with
       | h :: nil => Success h
@@ -337,7 +356,13 @@ Module List.
 
         Lemma failure_bounds0 {T F: Type} {f: Result.AssertionError F}: forall (ls: list T) (i: nat) (v: T),
           @update T F f v ls i = Result.assertion_failed <-> (length ls <= i)%nat.
-        Proof. Admitted.
+        Proof.
+          induction ls; intros i v; split; intros H.
+          - cbn. lia.
+          - reflexivity.
+          - destruct i. + Result.assertion_failed_helper. + cbn in H. destruct (update v ls i) eqn:Eq; Result.assertion_failed_helper. rewrite -> IHls in Eq. cbn. lia.
+          - destruct i. + Result.assertion_failed_helper. + cbn in H|-*. apply le_S_n in H. rewrite <- (IHls i v) in H. rewrite -> H. Result.assertion_failed_helper.
+        Qed.
 
         Lemma failure_bounds {T F: Type} {f: Result.AssertionError F}: forall (ls: list T) (i: nat) (v: T) (f': F),
           @update T F f v ls i = Result.Failure f' -> (length ls <= i)%nat.
@@ -514,6 +539,28 @@ Module List.
       intros ls v; split; intros H.
       - destruct H as (i & v' & Eq_indexed & <-). exists i. assumption.
       - destruct H as (i & Eq_indexed). exists i. exists v. split; [ assumption | reflexivity ].
+    Qed.
+
+    Lemma true_to_prop {T F: Type} {_: Result.AssertionError F}: forall ls (p: T -> Result bool F), exist ls p = Success true -> Exist ls (fun v => p v = Success true).
+    Proof.
+      induction ls; intros p H.
+      - Result.assertion_failed_helper.
+      - destruct (p a) as [ [ | ] | f ] eqn:Eq_pa.
+        + exists 0%nat. exists a. split; [ reflexivity | assumption ].
+        + cbn in H. rewrite -> Eq_pa in H. apply cons_tail. apply IHls. apply H.
+        + cbn in H. rewrite -> Eq_pa in H. discriminate.
+    Qed.
+
+    Lemma false_to_prop {T F: Type} {_: Result.AssertionError F}: forall ls (p: T -> Result bool F), exist ls p = Success false -> Forall.Forall ls (fun v => p v = Success false).
+    Proof.
+      induction ls; intros p H i v Eq_indexed.
+      - rewrite -> Indexing.Nat.nil in Eq_indexed. Result.assertion_failed_helper.
+      - destruct (p a) as [ [ | ] | f ] eqn:Eq_pa.
+        + cbn in H. rewrite -> Eq_pa in H. discriminate.
+        + destruct i.
+          * injection Eq_indexed as <-. assumption.
+          * cbn in H. rewrite -> Eq_pa in H. rewrite -> Indexing.Nat.cons in Eq_indexed. unfold Forall.Forall in IHls. apply IHls with (1 := H) (2 := Eq_indexed).
+        + cbn in H. rewrite -> Eq_pa in H. discriminate.
     Qed.
   End Exists.
 

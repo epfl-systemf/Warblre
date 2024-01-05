@@ -1,5 +1,5 @@
-From Coq Require Import List Lia Program.Equality.
-From Warblre Require Import List Result Focus Base Patterns StaticSemantics.
+From Coq Require Import PeanoNat List Lia Program.Equality.
+From Warblre Require Import Tactics List Result Focus Base Patterns StaticSemantics.
 
 Module EarlyErrors.
 
@@ -68,16 +68,6 @@ Module EarlyErrors.
     | NegativeLookbehind: forall r ctx, Regex r (NegativeLookbehind_inner :: ctx) -> Regex (Patterns.NegativeLookbehind r) ctx.
   End Pass.
 
-  Lemma down: forall ctx root r,
-    Root root r ctx ->
-    Pass.Regex root nil ->
-    Pass.Regex r ctx.
-  Proof.
-    induction ctx; intros root r R_root P_root.
-    - apply Root.nil in R_root. subst. assumption.
-    - unfold Root in R_root. destruct a; cbn in R_root; specialize (IHctx _ _ R_root P_root); dependent destruction IHctx; assumption.
-  Qed.
-
   Lemma countLeftCapturingParensBefore_contextualized: forall ctx f r,
     Root r f ctx ->
     Pass.Regex r nil ->
@@ -95,26 +85,51 @@ Module EarlyErrors.
         specialize (IHctx _ _ ltac:(eassumption) ltac:(eassumption)); lia ].
   Qed.
 
-  Lemma groupSpecifiersThatMatch_is_filter_map: forall r ctx gn i r' ctx',
-    List.Indexing.Nat.indexing (groupSpecifiersThatMatch r ctx gn) i = Success (r', ctx') ->
-    exists j ctx'',
+  Lemma groupSpecifiersThatMatch_is_filter_map {F: Type} {_: Result.AssertionError F}: forall r ctx gn, exists f,
+    (forall i j, f i = f j -> i = j) /\
+    (forall i r' ctx', List.Indexing.Nat.indexing (groupSpecifiersThatMatch r ctx gn) i = Success (r', ctx') ->
+    exists ctx'',
       Group_inner (Some gn) :: ctx'' = ctx' /\
-      List.Indexing.Nat.indexing (Zip.Walk.walk (zip r ctx) nil) j = Success (Group (Some gn) r', ctx'').
+      List.Indexing.Nat.indexing (Zip.Walk.walk (zip r ctx) nil) (f i) = Success (Group (Some gn) r', ctx'')).
   Proof.
     unfold groupSpecifiersThatMatch.
-    intros r ctx. generalize dependent (Zip.Walk.walk (zip r ctx) nil). clear r. clear ctx.
-    induction l; intros gn i r' ctx' H; cbn in H.
-    - rewrite -> List.Indexing.Nat.nil in H. Result.assertion_failed_helper.
-    - destruct a as [[ ] ? ]; cbn in H;
-        try solve [ specialize IHl with (1 := H) as [ j Eq_indexed ]; exists (S j); rewrite -> List.Indexing.Nat.cons; assumption ].
-      destruct name;
-        try solve [ specialize IHl with (1 := H) as [ j Eq_indexed ]; exists (S j); rewrite -> List.Indexing.Nat.cons; assumption ].
-      destruct (GroupName.eqs t (capturingGroupName gn));
-        try solve [ specialize IHl with (1 := H) as [ j Eq_indexed ]; exists (S j); rewrite -> List.Indexing.Nat.cons; assumption ].
-      destruct i; cbn in H.
-      + subst. injection H as <- <-.
-        exists 0. exists l0. cbn. split; reflexivity.
-      + specialize IHl with (1 := H) as [ j Eq_indexed ]; exists (S j); rewrite -> List.Indexing.Nat.cons; assumption.
+    intros r ctx gn. generalize dependent (Zip.Walk.walk (zip r ctx) nil). clear r. clear ctx.
+    induction l as [| [rh ctxh] l' (f' & H0 & H1) ].
+    - exists (fun x => x). split.
+      + intros i j <-. reflexivity.
+      + intros i r' ctx' Eq_indexed. cbn in Eq_indexed. rewrite -> List.Indexing.Nat.nil in Eq_indexed. Result.assertion_failed_helper.
+    - let direct_recursion := solve [ exists (fun i => S (f' i)); setoid_rewrite -> Nat.succ_inj_wd; split; try assumption ] in
+        destruct rh; try direct_recursion;
+        destruct name as [ name | ]; try direct_recursion;
+        cbn; destruct (name =? capturingGroupName gn)%GrName eqn:Eq_gs_gn; try direct_recursion.
+      exists (fun i => if Nat.eqb i 0 then 0 else S (f' (i - 1))).
+      split.
+      + intros i j H. destruct (Nat.eqb i 0) eqn:Eq_i; destruct (Nat.eqb j 0) eqn:Eq_j; spec_reflector Nat.eqb_spec; subst.
+        * reflexivity. * discriminate. * discriminate. * apply Nat.succ_inj in H. specialize H0 with (1 := H). lia.
+      + intros [| i] r' ctx'; cbn.
+        * cbn. subst. intros [=<-<-]. exists ctxh. split; reflexivity.
+        * rewrite -> List.Indexing.Nat.cons. rewrite -> Nat.sub_0_r. apply H1.
+  Qed.
+
+  Lemma groupSpecifiersThatMatch_too_big_cause {F: Type} {_: Result.AssertionError F}: forall r ctx gn,
+    (List.length (groupSpecifiersThatMatch r ctx gn) >= 2)%nat ->
+    exists i j ri ctxi rj ctxj,
+      i <> j /\
+      List.Indexing.Nat.indexing (Zip.Walk.walk (zip r ctx) nil) i = Success (Group (Some gn) ri, ctxi) /\
+      List.Indexing.Nat.indexing (Zip.Walk.walk (zip r ctx) nil) j = Success (Group (Some gn) rj, ctxj).
+  Proof.
+    intros r ctx gn B_length.
+    assert (exists v w, List.Indexing.Nat.indexing (groupSpecifiersThatMatch r ctx gn) 0 = Success v /\ List.Indexing.Nat.indexing (groupSpecifiersThatMatch r ctx gn) 1 = Success w)
+        as ([ r0 ctx0 ] & [ r1 ctx1 ] & Eq_indexed_0 & Eq_indexed_1). {
+      destruct (groupSpecifiersThatMatch r ctx gn) as [ | h0 [ | h1 ? ]] eqn:Eq; try solve [ cbn in B_length; lia ].
+      exists h0. exists h1. split; reflexivity.
+    }
+    pose proof (groupSpecifiersThatMatch_is_filter_map r ctx gn) as (f & Inj_f & Def_f).
+    pose proof (Def_f _ _ _ Eq_indexed_0) as (? & ? & ?).
+    pose proof (Def_f _ _ _ Eq_indexed_1) as (? & ? & ?).
+    exists (f 0). exists (f 1). do 4 eexists. split; [ | repeat (split; [ eassumption | ]); eassumption ].
+    destruct (Nat.eq_dec (f 0) (f 1)) as [ Eq_f |]; try assumption.
+    specialize Inj_f with (1 := Eq_f). discriminate.
   Qed.
 
   Lemma groupSpecifiersThatMatch_head_is_group: forall r0 ctx0 gn r ctx t, groupSpecifiersThatMatch r0 ctx0 gn = (r, ctx) :: t ->
@@ -135,6 +150,131 @@ Module EarlyErrors.
       + cbn in H. apply (IHt' H).
   Qed.
 
-  Lemma completeness: forall r ctx, earlyErrors r ctx = Success false -> Pass.Regex r ctx.
-  Proof. Admitted.
+  Lemma groupSpecifiersThatMatch_singleton {_: Result.AssertionError SyntaxError}: forall r name,
+      List.Exists.exist (Zip.Walk.walk r nil) (fun node0 =>
+        List.Exists.exist (Zip.Walk.walk r nil) (fun node1 =>
+          if RegexNode.eqs node0 node1 then Success false
+          else
+            let (r0, ctx0) := node0 in
+            let (r1, ctx1) := node1 in
+            match r0, r1 with
+            | Group (Some name0) _, Group (Some name1) _ => Success (GroupName.eqb name0 name1)
+            | _, _ => Success false
+            end))
+        = @Success _ SyntaxError false ->
+      (List.length (groupSpecifiersThatMatch r nil name) <= 1)%nat.
+  Proof.
+    intros r name Ex.
+    destruct (Compare_dec.lt_dec (List.length (groupSpecifiersThatMatch r nil name)) 2) as [ Ineq | Ineq ].
+    - lia.
+    - apply Compare_dec.not_lt in Ineq. apply groupSpecifiersThatMatch_too_big_cause in Ineq as (i & j & ri & ctxi & rj & ctxj & Ineq_ij & Eq_indexed_i & Eq_indexed_j).
+      rewrite -> Zip.id in *.
+      apply List.Exists.false_to_prop in Ex. specialize (Ex _ _ Eq_indexed_i).
+      apply List.Exists.false_to_prop in Ex. specialize (Ex _ _ Eq_indexed_j). cbn beta in Ex.
+      focus § _ [] _ § auto destruct in Ex.
+      + injection e as <- <-. pose proof Zip.Walk.uniqueness as Falsum. specialize Falsum with (1 := Eq_indexed_i) (2 := Eq_indexed_j). contradiction.
+      + unfold GroupName.eqb in *. destruct (GroupName.eqs name name) eqn:Falsum. * discriminate. * contradiction.
+  Qed.
+
+  Lemma characterValue_singleton {F: Type} {_: Result.AssertionError F}: forall c v, characterValue c = @Success _ F (Character.numeric_value v) <-> SingletonClassAtom c v.
+  Proof.
+    intros c v; split; intros H; (repeat match goal with
+      | [ c: ClassAtom |- _] => destruct c
+      | [ c: ClassEscape |- _] => destruct c
+      | [ c: CharacterEscape |- _] => destruct c
+      | [ c: CharacterClassEscape |- _] => destruct c
+      | [ c: ControlEscape |- _] => destruct c
+      | [ S: SingletonClassAtom _ _ |- _ ] => dependent destruction S
+      | [ S: SingletonCharacterEscape _ _ |- _ ] => dependent destruction S
+      end); try solve [ cbn in H; injection H as Eq; apply Character.numeric_inj in Eq as <-; repeat constructor | Result.assertion_failed_helper | reflexivity ].
+  Qed.
+
+  Lemma isCharacterClass_false: forall a, isCharacterClass a = false -> exists c, SingletonClassAtom a c.
+  Proof.
+    intros a Eq. repeat match goal with
+      | [ c: ClassAtom |- _] => destruct c
+      | [ c: ClassEscape |- _] => destruct c
+      | [ c: CharacterEscape |- _] => destruct c
+      | [ c: CharacterClassEscape |- _] => destruct c
+      | [ c: ControlEscape |- _] => destruct c
+      end; cbn in Eq; try solve [ discriminate | eexists; repeat econstructor ].
+  Qed.
+
+  Lemma completeness_earlyErrors_class_ranges: forall c,
+    earlyErrors_class_ranges c = Success false ->
+    ClassRanges c.
+  Proof.
+    induction c; intros H; cbn in *.
+    - constructor.
+    - constructor. apply IHc. apply H.
+    - focus § _ [] _ § auto destruct in H. boolean_simplifier.
+      apply isCharacterClass_false in H0 as (cl & ?). apply isCharacterClass_false in H1 as (ch & ?).
+      apply RangeCR with (cl := cl) (ch := ch); try assumption.
+      + destruct s;
+          repeat match goal with
+          | [ H: SingletonClassAtom ?c ?cc, G: characterValue ?c = _ |- _ ] => rewrite <- (@characterValue_singleton) in H; rewrite -> H in *; injection G as ->
+          end; try spec_reflector Nat.leb_spec0; lia.
+      + apply IHc. apply H.
+  Qed.
+
+  Definition earlyErrors_char_class: forall cc, earlyErrors_char_class cc = Success false -> Pass.CharClass cc.
+  Proof. intros; destruct cc; constructor; apply completeness_earlyErrors_class_ranges; assumption. Qed.
+
+  Definition earlyErrors_quantifier_prefix: forall q, earlyErrors_quantifier_prefix q = false -> Pass.QuantifierPrefix q.
+  Proof. intros; destruct q; constructor. cbn in H. destruct min as [ ] eqn:Eq_min. - lia. - destruct (max <=? n) eqn:Ineq; spec_reflector Nat.leb_spec0; lia. Qed.
+
+
+  Definition earlyErrors_quantifier: forall q, earlyErrors_quantifier q = false -> Pass.Quantifier q.
+  Proof. intros; destruct q; constructor; apply earlyErrors_quantifier_prefix; assumption. Qed.
+
+  Lemma completeness_rec: forall root r ctx,
+      List.Exists.exist (Zip.Walk.walk root nil) (fun node0 =>
+        List.Exists.exist (Zip.Walk.walk root nil) (fun node1 =>
+          if RegexNode.eqs node0 node1 then Success false
+          else
+            let (r0, ctx0) := node0 in
+            let (r1, ctx1) := node1 in
+            match r0, r1 with
+            | Group (Some name0) _, Group (Some name1) _ => Success (GroupName.eqb name0 name1)
+            | _, _ => Success false
+            end))
+        = @Success _ SyntaxError false ->
+    Root root r ctx ->
+    earlyErrors_rec r ctx = Success false ->
+    Pass.Regex r ctx.
+  Proof.
+    intros root. induction r; intros ctx RP Root_r EE_r.
+    - constructor.
+    - constructor.
+    - constructor.
+    - constructor. destruct ae; cbn in EE_r; constructor.
+      + focus § _ [] _ § auto destruct in EE_r. unfold capturingGroupNumber,positive_to_non_neg,positive_to_nat in *. focus § _ [] _ § auto destruct in AutoDest_.
+        * lia.
+        * spec_reflector Nat.leb_spec0. lia.
+      + focus § _ [] _ § auto destruct in EE_r. spec_reflector Nat.eqb_spec.
+        pose proof (groupSpecifiersThatMatch_singleton _ id RP).
+        unfold groupSpecifiersThatMatch in *. rewrite <- Root_r in *.
+        rewrite -> Zip.id in *.
+        lia.
+    - constructor. apply earlyErrors_char_class. apply EE_r.
+    - constructor.
+      + cbn in EE_r. focus § _ [] _ § auto destruct in EE_r. apply IHr1; try assumption.
+      + cbn in EE_r. focus § _ [] _ § auto destruct in EE_r. apply IHr2; try assumption.
+    - constructor. cbn in EE_r. focus § _ [] _ § auto destruct in EE_r. apply IHr; try assumption.
+      apply earlyErrors_quantifier.
+      cbn in EE_r. focus § _ [] _ § auto destruct in EE_r. injection EE_r as EE_r. apply EE_r.
+    - constructor.
+      + cbn in EE_r. focus § _ [] _ § auto destruct in EE_r. apply IHr1; try assumption.
+      + cbn in EE_r. focus § _ [] _ § auto destruct in EE_r. apply IHr2; try assumption.
+    - constructor. cbn in EE_r. focus § _ [] _ § auto destruct in EE_r. apply IHr; try assumption.
+    - constructor. cbn in EE_r. focus § _ [] _ § auto destruct in EE_r. apply IHr; try assumption.
+    - constructor. cbn in EE_r. focus § _ [] _ § auto destruct in EE_r. apply IHr; try assumption.
+    - constructor. cbn in EE_r. focus § _ [] _ § auto destruct in EE_r. apply IHr; try assumption.
+    - constructor. cbn in EE_r. focus § _ [] _ § auto destruct in EE_r. apply IHr; try assumption.
+    Qed.
+
+  Lemma completeness: forall r, earlyErrors r nil = Success false -> Pass.Regex r nil.
+  Proof.
+    intros r H. unfold earlyErrors in H. focus § _ [] _ § auto destruct in H. apply completeness_rec with (root := r); solve [ assumption | reflexivity ].
+  Qed.
 End EarlyErrors.

@@ -10,14 +10,14 @@ Module Patterns.
   Module GroupName.
     Parameter type: Type.
     Parameter eqs: forall (l r: type), {l = r} + {l <> r}.
-    Parameter eqb: forall (l r: type), bool.
+    Definition eqb (l r: type) := if eqs l r then true else false.
     Definition neqb (l r: type) := negb (eqb l r).
   End GroupName.
   Notation GroupName := GroupName.type.
 
   Declare Scope GroupName_scope.
   Delimit Scope GroupName_scope with GrName.
-  Infix "=?" := GroupName.eqb (at level 70): GroupName_scope.
+  Infix "=?" := GroupName.eqs (at level 70): GroupName_scope.
   Infix "!=?" := GroupName.neqb (at level 70): GroupName_scope.
 
   (** CharacterClassEscape :: *)
@@ -263,10 +263,10 @@ Module Patterns.
 
     Lemma focus_injection: forall ctx r0 r1, zip r0 ctx = zip r1 ctx -> r0 = r1.
     Proof.
-      induction ctx; intros r0 r1 Ineq.
+      induction ctx; intros r0 r1 Eq.
       - assumption.
-      - cbn in Ineq.
-        specialize IHctx with (1 := Ineq); destruct a; injection IHctx as ->; reflexivity.
+      - cbn in Eq.
+        specialize IHctx with (1 := Eq); destruct a; injection IHctx as ->; reflexivity.
     Qed.
 
     Lemma focus_bijection: forall ctx r0 r1, zip r0 ctx = zip r1 ctx <-> r0 = r1.
@@ -311,6 +311,32 @@ Module Patterns.
           apply Relation_Operators.rt_trans with (y := (r', ctx)).
           + apply Relation_Operators.rt_step. assumption.
           + apply IHctx. rewrite <- same_root by eapply D_step. assumption.
+      Qed.
+
+      Lemma down_prefix: forall r0 ctx0 r1 ctx1, Down* (r0, ctx0) (r1, ctx1) -> exists ext, ctx0 = ext ++ ctx1.
+      Proof.
+        intros r0 ctx0 r1 ctx1 D. dependent induction D.
+        - dependent destruction H; match goal with | [|- exists _, ?a :: ?ctx = _ ++ ?ctx ] => exists (a :: nil) end; reflexivity.
+        - exists nil. reflexivity.
+        - destruct y as [ ri ctxi ].
+          specialize IHD1 with (1 := eq_refl) (2 := eq_refl) as [ ext0 Eq_ext0 ].
+          specialize IHD2 with (1 := eq_refl) (2 := eq_refl) as [ ext1 Eq_ext1 ].
+          exists (ext0 ++ ext1). subst. apply app_assoc.
+      Qed.
+
+      Lemma antisymmetry: forall n0 n1, Down* n0 n1 -> Down* n1 n0 -> n0 = n1.
+      Proof.
+        intros [r0 ctx0] [r1 ctx1] D01 D10.
+        pose proof (down_prefix _ _ _ _ D01) as [ext01 Eq_01].
+        pose proof (down_prefix _ _ _ _ D10) as [ext10 Eq_10].
+        pose proof (List.mutual_prefixes _ _ _ _ Eq_01 Eq_10) as <-. clear Eq_01 Eq_10 ext01 ext10.
+
+        remember (zip r0 ctx0) as root eqn:Eq_root.
+        assert (Root root r0 ctx0) as Root_0 by (subst; reflexivity). clear Eq_root.
+        pose proof (same_root_down _ _ _ _ _ D10 Root_0) as Root_1.
+        unfold Root in *. rewrite -> Root_1 in Root_0.
+        pose proof (focus_injection _ _ _ Root_0). subst.
+        reflexivity.
       Qed.
     End Down.
 
@@ -387,89 +413,6 @@ Module Patterns.
         - specialize (IHr _ _ _ Eq_indexed). apply Relation_Operators.rt_trans with (1 := IHr). apply Relation_Operators.rt_step. constructor.
       Qed.
 
-      Lemma completeness0 {F: Type} {_: Result.AssertionError F}: forall n0 r1 ctx1, Down n0 (r1, ctx1) -> List.Exists.ExistValue (walk r1 ctx1) n0.
-      Proof.
-        intros n0 r1 ctx1 D. dependent destruction D; cbn;
-          repeat match goal with | [ |- context[ walk ?r ?ctx ] ] => destruct (shape r ctx) as [ ? -> ] end;
-          try solve [ exists 1; rewrite -> List.Indexing.Nat.cons; reflexivity ].
-        - exists (S (List.length ((r0, Disjunction_left r2 :: ctx1) :: x) + 0)). rewrite -> List.Indexing.Nat.cons. apply List.Indexing.Nat.concat_right. reflexivity.
-        - exists (S (List.length ((r0, Seq_left r2 :: ctx1) :: x) + 0)). rewrite -> List.Indexing.Nat.cons. apply List.Indexing.Nat.concat_right. reflexivity.
-      Qed.
-      Lemma completeness0' {F: Type} {_: Result.AssertionError F}: forall n0 r1 ctx1, Down n0 (r1, ctx1) -> List.Exists.Exist (walk r1 ctx1) (fun v' => n0 = v').
-      Proof. setoid_rewrite -> List.Exists.exist_value_eq. apply completeness0. Qed.
-
-      Tactic Notation "indexing_eval" "in" hyp(H) := repeat
-      (   cbn in H
-      ||  rewrite List.Indexing.Nat.cons in H
-      ||  rewrite -> List.Indexing.Nat.nil in H
-      ||  match type of H with
-          | Result.assertion_failed = Success _ => Result.assertion_failed_helper
-          | Success _ = Success _ => injection H as <-
-          end ).
-
-      Tactic Notation "indexing_eval" := repeat
-      (   cbn
-      ||  rewrite List.Indexing.Nat.cons
-      ||  rewrite -> List.Indexing.Nat.nil
-      ||  match goal with
-          | [|- Success _ = Success _ ] => f_equal
-          end ).
-
-
-      Ltac exist_autodestruct := repeat match goal with
-      | [ H: List.Exists.Exist (_ :: _) _ |- _ ] => apply List.Exists.cons_inv in H as [ H | H ]
-      | [ H: List.Exists.Exist (_ ++ _) _ |- _ ] => apply List.Exists.concat_inv in H as [ H | H ]
-      end.
-
-      Lemma completeness1 {F: Type} {_: Result.AssertionError F}: forall r2 ctx2 n0 n1,
-        List.Exists.ExistValue (walk r2 ctx2) n1 ->
-        Down n0 n1 ->
-        List.Exists.ExistValue (walk r2 ctx2) n0.
-      Proof.
-        induction r2; intros ctx2 n0 n1 Eq_indexed D; cbn in Eq_indexed |-.
-        - destruct Eq_indexed as [ [] Eq_indexed ]; indexing_eval in Eq_indexed. dependent destruction D.
-        - destruct Eq_indexed as [ [] Eq_indexed ]; indexing_eval in Eq_indexed. dependent destruction D.
-        - destruct Eq_indexed as [ [] Eq_indexed ]; indexing_eval in Eq_indexed. dependent destruction D.
-        - destruct Eq_indexed as [ [] Eq_indexed ]; indexing_eval in Eq_indexed. dependent destruction D.
-        - destruct Eq_indexed as [ [] Eq_indexed ]; indexing_eval in Eq_indexed. dependent destruction D.
-        - rewrite <- List.Exists.exist_value_eq in *. exist_autodestruct.
-          + subst. apply completeness0'. assumption.
-          + setoid_rewrite <- List.Exists.exist_value_eq in IHr2_1. apply IHr2_1 with (2 := D) in Eq_indexed.
-            apply List.Exists.cons_tail. apply List.Exists.concat_right. assumption.
-          + setoid_rewrite <- List.Exists.exist_value_eq in IHr2_2. apply IHr2_2 with (2 := D) in Eq_indexed.
-            apply List.Exists.cons_tail. apply List.Exists.concat_left. assumption.
-        - rewrite <- List.Exists.exist_value_eq in *. exist_autodestruct.
-          + subst. apply completeness0'. assumption.
-          + setoid_rewrite <- List.Exists.exist_value_eq in IHr2. specialize (IHr2 _ _ _ Eq_indexed D).
-            apply List.Exists.cons_tail. assumption.
-        - rewrite <- List.Exists.exist_value_eq in *. exist_autodestruct.
-          + subst. apply completeness0'. assumption.
-          + setoid_rewrite <- List.Exists.exist_value_eq in IHr2_1. apply IHr2_1 with (2 := D) in Eq_indexed.
-            apply List.Exists.cons_tail. apply List.Exists.concat_right. assumption.
-          + setoid_rewrite <- List.Exists.exist_value_eq in IHr2_2. apply IHr2_2 with (2 := D) in Eq_indexed.
-            apply List.Exists.cons_tail. apply List.Exists.concat_left. assumption.
-        - rewrite <- List.Exists.exist_value_eq in *. exist_autodestruct.
-          + subst. apply completeness0'. assumption.
-          + setoid_rewrite <- List.Exists.exist_value_eq in IHr2. specialize (IHr2 _ _ _ Eq_indexed D).
-            apply List.Exists.cons_tail. assumption.
-        - rewrite <- List.Exists.exist_value_eq in *. exist_autodestruct.
-          + subst. apply completeness0'. assumption.
-          + setoid_rewrite <- List.Exists.exist_value_eq in IHr2. specialize (IHr2 _ _ _ Eq_indexed D).
-            apply List.Exists.cons_tail. assumption.
-        - rewrite <- List.Exists.exist_value_eq in *. exist_autodestruct.
-          + subst. apply completeness0'. assumption.
-          + setoid_rewrite <- List.Exists.exist_value_eq in IHr2. specialize (IHr2 _ _ _ Eq_indexed D).
-            apply List.Exists.cons_tail. assumption.
-        - rewrite <- List.Exists.exist_value_eq in *. exist_autodestruct.
-          + subst. apply completeness0'. assumption.
-          + setoid_rewrite <- List.Exists.exist_value_eq in IHr2. specialize (IHr2 _ _ _ Eq_indexed D).
-            apply List.Exists.cons_tail. assumption.
-        - rewrite <- List.Exists.exist_value_eq in *. exist_autodestruct.
-          + subst. apply completeness0'. assumption.
-          + setoid_rewrite <- List.Exists.exist_value_eq in IHr2. specialize (IHr2 _ _ _ Eq_indexed D).
-            apply List.Exists.cons_tail. assumption.
-        Qed.
-
       Lemma completeness {F: Type} {f: Result.AssertionError F}: forall n0 r1 ctx1, Down* n0 (r1, ctx1) -> List.Exists.ExistValue (walk r1 ctx1) n0.
       Proof.
         setoid_rewrite <- List.Exists.exist_value_eq.
@@ -478,6 +421,60 @@ Module Patterns.
         apply List.Sublist.exist with (1 := S_w).
         destruct (shape r0 ctx0) as [ ? -> ].
         apply List.Exists.cons_head. reflexivity.
+      Qed.
+
+      Lemma uniqueness {F: Type} {f: Result.AssertionError F}: forall r ctx i j v,
+        List.Indexing.Nat.indexing (walk r ctx) i = Success v ->
+        List.Indexing.Nat.indexing (walk r ctx) j = Success v ->
+        i = j.
+      Proof.
+        induction r; intros ctx i j v Eq_indexed_i Eq_indexed_j; cbn in *;
+          repeat lazymatch goal with
+          | [ H: ?x = ?x |- _ ] => clear H
+          | [ H: Success _ = List.Indexing.Nat.indexing _ _ |- _ ] => symmetry in H
+          | [ H: List.Indexing.Nat.indexing nil _ = Success _ |- _ ] => solve [ rewrite -> List.Indexing.Nat.nil in H; Result.assertion_failed_helper ]
+          | [ H: List.Indexing.Nat.indexing (_ :: _) ?i = Success _ |- _ ] =>
+              destruct i; [ cbn in H; try injection H as <- | rewrite -> List.Indexing.Nat.cons in H ]
+          | [ H: List.Indexing.Nat.indexing (_ ++ _) ?i = Success _ |- _ ] =>
+              apply List.Indexing.Nat.concat in H as [ [ ? H ] | [ ? H ]]
+          end;
+          try solve
+          [ lazymatch goal with | [ H: List.Indexing.Nat.indexing (walk ?r0 ?ctx0) _ = Success ?n1 |- _ ] =>
+              apply soundness in H;
+              assert (Down* (r0, ctx0) n1) as Falsum by (constructor; constructor);
+              apply Down.antisymmetry with (2 := H) in Falsum as [=]; List.rec_eq
+              end
+          | reflexivity].
+        - f_equal. eapply IHr1; eassumption.
+        - destruct v as [ r' ctx' ].
+          apply soundness in Eq_indexed_i. apply Down.down_prefix in Eq_indexed_i as [pre_i ctx_i].
+          apply soundness in Eq_indexed_j. apply Down.down_prefix in Eq_indexed_j as [pre_j ctx_j].
+          rewrite -> ctx_j in ctx_i.
+          apply List.same_tail in ctx_i. discriminate.
+        - destruct v as [ r' ctx' ].
+          apply soundness in Eq_indexed_i. apply Down.down_prefix in Eq_indexed_i as [pre_i ctx_i].
+          apply soundness in Eq_indexed_j. apply Down.down_prefix in Eq_indexed_j as [pre_j ctx_j].
+          rewrite -> ctx_j in ctx_i.
+          apply List.same_tail in ctx_i. discriminate.
+        - f_equal. apply (NNI.sub_lower _ _ _ H0 H). eapply IHr2 ; eassumption.
+        - f_equal. eapply IHr; eassumption.
+        - f_equal. eapply IHr1; eassumption.
+        - destruct v as [ r' ctx' ].
+          apply soundness in Eq_indexed_i. apply Down.down_prefix in Eq_indexed_i as [pre_i ctx_i].
+          apply soundness in Eq_indexed_j. apply Down.down_prefix in Eq_indexed_j as [pre_j ctx_j].
+          rewrite -> ctx_j in ctx_i.
+          apply List.same_tail in ctx_i. discriminate.
+        - destruct v as [ r' ctx' ].
+          apply soundness in Eq_indexed_i. apply Down.down_prefix in Eq_indexed_i as [pre_i ctx_i].
+          apply soundness in Eq_indexed_j. apply Down.down_prefix in Eq_indexed_j as [pre_j ctx_j].
+          rewrite -> ctx_j in ctx_i.
+          apply List.same_tail in ctx_i. discriminate.
+        - f_equal. apply (NNI.sub_lower _ _ _ H0 H). eapply IHr2 ; eassumption.
+        - f_equal. eapply IHr; eassumption.
+        - f_equal. eapply IHr; eassumption.
+        - f_equal. eapply IHr; eassumption.
+        - f_equal. eapply IHr; eassumption.
+        - f_equal. eapply IHr; eassumption.
       Qed.
     End Walk.
   End Zip.

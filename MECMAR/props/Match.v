@@ -663,10 +663,11 @@ Module Correctness.
           assert (List.Indexing.Nat.indexing (groupSpecifiersThatMatch (AtomEsc (AtomEscape.GroupEsc id)) ctx id) 0 = Success (r, l)) as Eq_indexed. {
             rewrite -> AutoDest_0. reflexivity.
           }
-          apply EarlyErrors.groupSpecifiersThatMatch_is_filter_map in Eq_indexed as [ j [ ctx' [ Eq_ctx' Eq_indexing ] ]].
+          pose proof (EarlyErrors.groupSpecifiersThatMatch_is_filter_map (AtomEsc (AtomEscape.GroupEsc id)) ctx id) as (f & _ & Def_f).
+          apply Def_f in Eq_indexed. destruct Eq_indexed as (ctx' & ? & Eq_indexed).
           subst. destruct (countLeftCapturingParensBefore_impl ctx' + 1) eqn:Eq; try lia. cbn in *.
-          apply Zip.Walk.soundness in Eq_indexing. eapply Zip.Down.same_root_down in Eq_indexing; [ | eapply R_r ]. cbn in *.
-          pose proof (EarlyErrors.countLeftCapturingParensBefore_contextualized _ _ _ Eq_indexing GR_root).
+          apply Zip.Walk.soundness in Eq_indexed. eapply Zip.Down.same_root_down in Eq_indexed; [ | eapply R_r ]. cbn in *.
+          pose proof (EarlyErrors.countLeftCapturingParensBefore_contextualized _ _ _ Eq_indexed GR_root).
           subst. unfold countLeftCapturingParensBefore,countLeftCapturingParensWithin in *. cbn in *.
           apply NonNegInt.to_positive_soundness in AutoDest_1.
           lia.

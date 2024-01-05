@@ -61,6 +61,10 @@ Module NonNegInt.
   Proof. intros. destruct n eqn:Eq_n. - reflexivity. - pose proof (to_positive_completeness (S n0) ltac:(lia)) as [ ? ? ]. congruence. Qed.
 End NonNegInt.
 
+Module NNI.
+  Lemma sub_lower: forall i j n, (n <= i)%nat -> (n <= j)%nat -> (i - n = j - n)%nat -> (i = j)%nat.
+  Proof. intros. lia. Qed.
+End NNI.
 
 (* Nat or Infinity *)
 Module NoI.

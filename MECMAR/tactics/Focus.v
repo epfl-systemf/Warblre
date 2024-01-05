@@ -6,6 +6,7 @@ Inductive focus :=
 | ArrowR (f: focus)
 | IteCond (f: focus)
 | LetBound (f: focus)
+| FunR (f: focus)
 .
 
 Fixpoint focus_insert (f inserted: focus) := match f with
@@ -16,6 +17,7 @@ Fixpoint focus_insert (f inserted: focus) := match f with
 | ArrowR f' => ArrowR (focus_insert f' inserted)
 | IteCond f' => IteCond (focus_insert f' inserted)
 | LetBound f' => LetBound (focus_insert f' inserted)
+| FunR f' => FunR (focus_insert f' inserted)
 end.
 
 
@@ -39,6 +41,7 @@ Ltac focus_excise f t :=
   | ArrowR ?f' => lazymatch t with _ -> ?t' => iter f' t' end
   | IteCond ?f' => lazymatch t with if ?t' then _ else _ => iter f' t' end
   | LetBound ?f' => lazymatch t with let _ := ?t' in _ => iter f' t' end
+  | FunR ?f' => lazymatch t with fun x => ?t' => iter f' t' end
   | _ => fail 100 "Unknown focus" f
   end in
   iter f t.
@@ -55,6 +58,11 @@ Ltac focus_replace f t r :=
   | LetBound ?f' => lazymatch t with let x := ?t' in ?o => 
     let t'' := iter f' t' r in
     let s := constr:(let x := t'' in o) in
+    s
+    end
+  | FunR ?f' => lazymatch t with fun x => ?t' => 
+    let t'' := iter f' t' r in
+    let s := constr:(fun x => t'') in
     s
     end
   | _ => fail 100 "Unknown focus" f
@@ -209,3 +217,9 @@ Notation "'_' '_' '_' '_' '_' '_' '_' f" := (AppR f) (in custom focus at level 5
 Notation "'_' '_' '_' '_' '_' '_' '_' '_' f" := (AppR f) (in custom focus at level 50, f at level 49, left associativity, only parsing).
 Notation "'_' '_' '_' '_' '_' '_' '_' '_' '_' f" := (AppR f) (in custom focus at level 50, f at level 49, left associativity, only parsing).
 Notation "'_' '_' '_' '_' '_' '_' '_' '_' '_' '_' f" := (AppR f) (in custom focus at level 50, f at level 49, left associativity, only parsing).
+Notation "'fun' '_' '=>' f" := (FunR f) (in custom focus at level 99, right associativity).
+Notation "'fun' '_' '_' '=>' f" := (FunR (FunR f)) (in custom focus at level 99, right associativity).
+Notation "'fun' '_' '_' '_' '=>' f" := (FunR (FunR (FunR f))) (in custom focus at level 99, right associativity).
+Notation "'fun' '_' '_' '_' '_' '=>' f" := (FunR (FunR (FunR (FunR f)))) (in custom focus at level 99, right associativity).
+Notation "'fun' '_' '_' '_' '_' '_' '=>' f" := (FunR (FunR (FunR (FunR (FunR f))))) (in custom focus at level 99, right associativity).
+Notation "'fun' '_' '_' '_' '_' '_' '_' '=>' f" := (FunR (FunR (FunR (FunR (FunR (FunR f)))))) (in custom focus at level 99, right associativity).

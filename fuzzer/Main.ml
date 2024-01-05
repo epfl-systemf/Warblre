@@ -59,6 +59,19 @@ let rec regex_to_string (r:coq_Regex) : string =
   | NegativeLookbehind (r1) -> "(?<!"^ regex_to_string r1 ^")"
   | BackReference (gid) -> "\\"^ string_of_int gid
 
+let flags_to_string (flags:Extracted.Frontend.coq_RegExpFlags) : string =
+  let s = ref "" in
+  if (flags.s) then s := "d" ^ !s;
+  if (flags.g) then s := "g" ^ !s;
+  if (flags.i) then s := "i" ^ !s;
+  if (flags.m) then s := "m" ^ !s;
+  if (flags.s) then s := "s" ^ !s;
+  if (flags.u) then s := "u" ^ !s;
+  if (flags.v) then s := "v" ^ !s;
+  if (flags.y) then s := "y" ^ !s;
+  !s
+  
+
 (** * Calling the Node Matcher (V8 backtracking)  *)
 
 (* geting the result of a command as a string *)
@@ -128,7 +141,128 @@ let get_reference_result (regex:coq_Regex) (str:string) : string option =
   let matcher = Extracted.Semantics.compilePattern regex maxgroup in
   let list_input = List.init (String.length str) (String.get str) in
   get_first_result matcher list_input str 0
-  
+
+(* printing the results of executing the different frontend functions *)
+
+let print_char_list (l:char list): string =
+  List.fold_left (fun acc c -> acc ^ String.make 1 c) "" l
+
+let print_char_list_option (o:char list option) : string =
+  match o with
+  | None -> "Undefined"
+  | Some l ->
+     print_char_list l
+
+let rec print_array_indexed (l:char list option list) (index:int) : string =
+  match l with
+  | [] -> ""
+  | o::l' -> "#"^string_of_int index^":"^print_char_list_option o^"\n"^
+               print_array_indexed l (index+1)
+
+let print_array (l:char list option list) : string =
+  print_array_indexed l 0
+
+let print_groups_map (g:Extracted.Frontend.groups_map) : string =
+  List.fold_left
+    (fun acc (gname, op) -> acc ^ "#"^string_of_int gname^":"^print_char_list_option op^"\n") "" g
+
+let print_groups_map_option (g:Extracted.Frontend.groups_map option) : string =
+  match g with
+  | None -> "None"
+  | Some g -> print_groups_map g
+
+let print_pair_option (p:(int*int) option) : string =
+  match p with
+  | None -> "Undefined"
+  | Some (i1,i2) -> "("^string_of_int i1^","^string_of_int i2^")"
+
+let print_index_array_indexed (l:(int*int) option list) (index:int) : string =
+  List.fold_left
+    (fun acc pairop -> acc ^ "#"^string_of_int index^":"^print_pair_option pairop^"\n") "" l
+
+let print_index_array (o:(int*int) option list option) : string =
+  match o with
+  | None -> "None"
+  | Some l -> print_index_array_indexed l 0
+
+let print_group_option (p:(Extracted.groupName * (int * int) option)) : string =
+  match snd p with
+  | None -> "Undefined"
+  | Some (i1,i2) ->
+     "#"^string_of_int (fst p)^"("^string_of_int i1^","^string_of_int i2^")"
+
+let print_indices_group (o:(Extracted.groupName * (int * int) option) list option) : string =
+  match o with
+  | None -> "None"
+  | Some l ->
+     List.fold_left
+       (fun acc p -> acc ^ print_group_option p ^ "\n") "" l
+
+let print_array_exotic (a:Extracted.Frontend.coq_ArrayExotic) : string =
+  let s = ref "" in
+  s := "index:" ^ string_of_int a.index ^ "\n" ^ !s;
+  s := "array:" ^ print_array a.array ^ "\n" ^ !s;
+  s := "groups:" ^ print_groups_map_option a.groups ^ "\n" ^ !s;
+  s := "indices_array:" ^ print_index_array a.indices_array ^ "\n" ^ !s;
+  s := "indices_groups:" ^ print_indices_group a.indices_groups ^ "\n" ^ !s;
+  !s
+
+let print_array_exotic_list l : string =
+  List.fold_left (fun acc a -> acc ^ print_array_exotic a ^ "\n") "" l
+
+let print_exec_result (r:Extracted.Frontend.coq_ExecResult) : string =
+  match r with
+  | Null _ -> "NoMatch\n\n"
+  | Exotic (a,_) -> print_array_exotic a
+
+let print_match_result (r:Extracted.Frontend.coq_ProtoMatchResult) : string =
+  match r with
+  | GlobalResult (lo,_) ->
+     begin match lo with
+     | None -> "None"
+     | Some l ->
+        List.fold_left (fun acc s -> acc ^ print_char_list s ^ "\n") "" l
+     end
+  | NonGlobalResult e -> print_exec_result e
+
+(* exec *)
+let reference_exec (r:Extracted.Frontend.coq_RegExpInstance) (str:string) : string option =
+  let list_input = List.init (String.length str) (String.get str) in
+  match (Extracted.Frontend.coq_PrototypeExec r list_input) with
+  | Success res -> Some (print_exec_result res)
+  | Failure _ -> failwith "Failure"
+
+(* search *)
+let reference_search (r:Extracted.Frontend.coq_RegExpInstance) (str:string): string option =
+  let list_input = List.init (String.length str) (String.get str) in
+  match (Extracted.Frontend.coq_PrototypeSearch r list_input) with
+  | Success (res,_) -> Some (string_of_int res)
+  | Failure _ -> failwith "failure"
+
+(* test *)
+let reference_test (r:Extracted.Frontend.coq_RegExpInstance) (str:string): string option =
+  let list_input = List.init (String.length str) (String.get str) in
+  match (Extracted.Frontend.coq_PrototypeTest r list_input) with
+  | Success (res,_) -> Some (string_of_bool res)
+  | Failure _ -> failwith "failure"
+
+(* match *)
+let reference_match (r:Extracted.Frontend.coq_RegExpInstance) (str:string): string option =
+  let list_input = List.init (String.length str) (String.get str) in
+  match (Extracted.Frontend.coq_PrototypeMatch r list_input) with
+  | Success res -> Some (print_match_result res)
+  | Failure _ -> failwith "failure"
+
+(* matchAll *)
+let reference_matchall (r:Extracted.Frontend.coq_RegExpInstance) (str:string): string option =
+  let list_input = List.init (String.length str) (String.get str) in
+  match (Extracted.Frontend.coq_PrototypeMatchAll r list_input) with
+  | Success (res,_) -> Some (print_array_exotic_list res)
+  | Failure _ -> failwith "failure"
+
+
+let print_op (o:string option) : string =
+  match o with | None -> "None" | Some s -> s
 
 (** * Comparing 2 engine results *)
 
@@ -235,6 +369,18 @@ let random_regex (): coq_Regex =
   let maxgroup = max_group ast in
   fill_backref ast maxgroup
 
+(* generates random flags *)
+let random_flags () : Extracted.Frontend.coq_RegExpFlags =
+  { d=Random.bool();
+    g=Random.bool();
+    i=Random.bool();
+    m=Random.bool();
+    s=Random.bool();
+    u=false;                    (* unsupported for now *)
+    v=false;                    (* unsupported for now *)
+    y=Random.bool();
+  }
+
 (** * Creating Random Strings  *)
 
 let random_string () : string =
@@ -297,30 +443,18 @@ let () =
       y=false;
     } in
 
-  let maxgroup = Extracted.StaticSemantics.countLeftCapturingParensWithin test_rgx [] in
-  let matcher = Extracted.Semantics.compilePattern test_rgx maxgroup in
-
+  let test_instance : Extracted.Frontend.coq_RegExpInstance =
+    Extracted.Frontend.coq_RegExpInitialize test_rgx test_flags in 
   
-  let test_instance :Extracted.Frontend.coq_RegExpInstance =
-    { coq_OriginalFlags = test_flags;
-      coq_RegExpRecord = maxgroup; (* todo: missing some flags *)
-      coq_RegExpMatcher = matcher;
-      lastIndex = 0;
-      pattern = test_rgx;
-    } in
-
-  let test_result = Extracted.Frontend.coq_PrototypeTest test_instance list_input in
-  let _ = match test_result with
-    | Success (true, newinstance) -> Printf.printf "true\n"
-    | Success (false, newinstance) -> Printf.printf "false\n"
-    | _ -> failwith "Failure\n"
-  in
-
-  let search_result = Extracted.Frontend.coq_PrototypeSearch test_instance list_input in
-  let _ = match search_result with
-    | Success (i, newinstance) -> Printf.printf "Search index: %d\n" i
-    | _ -> failwith "Failure\n"
-  in
+  Printf.printf "Flags: %s\n" (flags_to_string test_flags);
+  (* Printf.printf "Exec: %s\n" (print_op (reference_exec test_instance test_str)); *)
+  (* stack overflow *)
+  Printf.printf "Test: %s\n" (print_op (reference_test test_instance test_str));
+  Printf.printf "Search: %s\n" (print_op (reference_search test_instance test_str));
+  (* Printf.printf "Match: %s\n" (print_op (reference_match test_instance test_str)); *)
+  (* failure *)
+  (* Printf.printf "MatchAll: %s\n" (print_op (reference_matchall test_instance test_str)); *)
+  (* failure *)
   ()
 
 

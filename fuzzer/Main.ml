@@ -157,7 +157,7 @@ let rec print_array_indexed (l:char list option list) (index:int) : string =
   match l with
   | [] -> ""
   | o::l' -> "#"^string_of_int index^":"^print_char_list_option o^"\n"^
-               print_array_indexed l (index+1)
+               print_array_indexed l' (index+1)
 
 let print_array (l:char list option list) : string =
   print_array_indexed l 0
@@ -251,7 +251,8 @@ let reference_match (r:Extracted.Frontend.coq_RegExpInstance) (str:string): stri
   let list_input = List.init (String.length str) (String.get str) in
   match (Extracted.Frontend.coq_PrototypeMatch r list_input) with
   | Success res -> Some (print_match_result res)
-  | Failure _ -> failwith "failure"
+  | Failure OutOfFuel -> failwith "failure out of fuel"
+  | Failure AssertionFailed -> failwith "assertion failed"
 
 (* matchAll *)
 let reference_matchall (r:Extracted.Frontend.coq_RegExpInstance) (str:string): string option =
@@ -429,13 +430,12 @@ let () =
 
 
   let test_rgx = Seq(Quantified(Char('a'),Greedy Star),Char('b')) in
-  let test_str = "dddbaababaaaabc" in
-  let list_input = List.init (String.length test_str) (String.get test_str) in
+  let test_str = "dddbabaabaaab" in
 
   let test_flags:Extracted.Frontend.coq_RegExpFlags =
     { d=false;
       g=true;
-      i=false;
+      i=true;
       m=false;
       s=false;
       u=false;
@@ -447,14 +447,11 @@ let () =
     Extracted.Frontend.coq_RegExpInitialize test_rgx test_flags in 
   
   Printf.printf "Flags: %s\n" (flags_to_string test_flags);
-  (* Printf.printf "Exec: %s\n" (print_op (reference_exec test_instance test_str)); *)
-  (* stack overflow *)
+  Printf.printf "Exec: %s\n" (print_op (reference_exec test_instance test_str));
   Printf.printf "Test: %s\n" (print_op (reference_test test_instance test_str));
   Printf.printf "Search: %s\n" (print_op (reference_search test_instance test_str));
-  (* Printf.printf "Match: %s\n" (print_op (reference_match test_instance test_str)); *)
-  (* failure *)
-  (* Printf.printf "MatchAll: %s\n" (print_op (reference_matchall test_instance test_str)); *)
-  (* failure *)
+  Printf.printf "Match: %s\n" (print_op (reference_match test_instance test_str));
+  Printf.printf "MatchAll: %s\n" (print_op (reference_matchall test_instance test_str));
   ()
 
 

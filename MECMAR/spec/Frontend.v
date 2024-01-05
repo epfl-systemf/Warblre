@@ -56,6 +56,12 @@ Module Frontend.
   Definition to_non_neg (i:integer) : Result non_neg_integer MatchError :=
     assert! (BinInt.Z.geb i integer_zero);
   Success (BinInt.Z.to_nat i).
+
+  Definition get_zero {A:Type} (l:list A) : Result A MatchError :=
+    match l with
+    | nil => Failure AssertionFailed
+    | a::_ => Success a
+    end.
   
   Record RegExpFlags :=
     mkflags {
@@ -804,7 +810,7 @@ This method searches string for an occurrence of the regular expression pattern 
         (* a. If flags contains "u", let fullUnicode be true. Otherwise, let fullUnicode be false. *)
         let fullUnicode := u flags in
         (* b. Perform ? Set(rx, "lastIndex", +0𝔽, true). *)
-        let rxzero := setlastindex rx integer_zero in
+        let rx := setlastindex rx integer_zero in
         (* c. Let A be ! ArrayCreate(0). *)
         let A := nil in
         (* d. Let n be 0. *)
@@ -826,7 +832,7 @@ This method searches string for an occurrence of the regular expression pattern 
               (* iii. Else, *)
               | Exotic result rx =>
                   (* 1. Let matchStr be ? ToString(? Get(result, "0")). *)
-                  let! matchStrop =<< (array result)[O] in
+                  let! matchStrop =<< get_zero (array result) in
                   let! matchStr =<< match matchStrop with | None => assertion_failed | Some s => Success s end in
                   (* 2. Perform ! CreateDataPropertyOrThrow(A, ! ToString(𝔽(n)), matchStr). *)
                   let A := app A (matchStr::nil) in
@@ -874,7 +880,7 @@ and performs the following steps when called: *)
               Success (None, rx)
           | true =>
               (* iv. Let matchStr be ? ToString(? Get(match, "0")). *)
-              let! matchStrop =<< (array match_result)[O] in
+              let! matchStrop =<< get_zero (array match_result) in
               let! matchStr =<< match matchStrop with | None => assertion_failed | Some s => Success s end in
               (* v. If matchStr is the empty String, then *)
               let! rx =<<

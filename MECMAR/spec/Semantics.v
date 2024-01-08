@@ -2,6 +2,7 @@ From Coq Require Import PeanoNat ZArith Bool Lia Program.Equality List Program.W
 From Warblre Require Import Tactics Focus Result Base Patterns StaticSemantics Notation List.
 
 Import Result.Notations.
+Import Result.Notations.Boolean.
 Import Coercions.
 Local Open Scope result_flow.
 
@@ -246,7 +247,7 @@ Module Semantics.
   (** End --- 22.2.2.9.1 CharacterRange ( A, B ) *)
 
   (** 22.2.2.9.2 WordCharacters ( rer ) *)
-  Definition wordCharacters (rer: RegExp): Result CharSet CompileError :=
+  Definition wordCharacters {F: Type} {_: Result.AssertionError F} (rer: RegExp): Result CharSet F :=
     (* 1. Let basicWordChars be the CharSet containing every character in the ASCII word characters. *)
     let basicWordChars := CharSet.ascii_word_characters in
     (* 2. Let extraWordChars be the CharSet containing all characters c such that c is not in basicWordChars but Canonicalize(rer, c) is in basicWordChars. *)
@@ -388,6 +389,26 @@ Module Semantics.
   end.
   (** End --- 22.2.2.8 Runtime Semantics: CompileCharacterClass *)
 
+  (** 22.2.2.4.1 IsWordChar ( rer, Input, e ) *)
+  Definition isWordChar (rer: RegExp) (input: list Character) (e: integer): Result bool MatchError :=
+    (* 1. Let InputLength be the number of elements in Input. *)
+    let inputLength := List.length input in
+    (* 2. If e = -1 or e = InputLength, return false. *)
+    if (e =? -1)%Z || (e =? inputLength)%Z then
+      false
+    else
+    (* 3. Let c be the character Input[ e ]. *)
+    let! c =<< input[e] in
+    (* 4. If WordCharacters(rer) contains c, return true. *)
+    let! wc =<< wordCharacters rer in
+    if CharSet.contains wc c then
+      true
+    else
+    (* 5. Return false. *)
+    false
+    .
+  (** End --- 22.2.2.4.1 IsWordChar ( rer, Input, e ) *)
+
   (** 22.2.2.3 Runtime Semantics: CompileSubpattern *)
   (** 22.2.2.3.1 RepeatMatcher ( m, min, max, greedy, x, c, parenIndex, parenCount ) *)
   (*+ Coq wants to make sure the function will terminate; we do so by bounding recursion by an arbitrary fuel amount *)
@@ -521,6 +542,86 @@ Module Semantics.
   (** Term :: Assertion *)
   (* 1. Return CompileAssertion of Assertion with argument rer. *)
     (** 22.2.2.4 Runtime Semantics: CompileAssertion *)
+    (** Assertion :: ^ *)
+    | AssertInputStart =>
+        (* 1. Return a new Matcher with parameters (x, c) that captures rer and performs the following steps when called: *)
+        (fun (x: MatchState) (c: MatcherContinuation) =>
+          (* a. Assert: x is a MatchState. *)
+          (* b. Assert: c is a MatcherContinuation. *)
+          (* c. Let Input be x's input. *)
+          let input := MatchState.input x in
+          (* d. Let e be x's endIndex. *)
+          let e := MatchState.endIndex x in
+          (* e. If e = 0, or if rer.[[Multiline]] is true and the character Input[ e ] is matched by LineTerminator, then *)
+          if! Success (e =? 0)%Z ||! (Success (RegExp.multiline rer is true) &&! (let! c =<< input[(e-1)%Z] in CharSet.contains CharSet.line_terminators c)) then
+            (* i. Return c(x). *)
+            c x
+          else
+          (* f. Return failure. *)
+          failure): Matcher
+
+    (** Assertion :: $ *)
+    | AssertInputEnd =>
+        (* 1. Return a new Matcher with parameters (x, c) that captures rer and performs the following steps when called: *)
+        (fun (x: MatchState) (c: MatcherContinuation) =>
+          (* a. Assert: x is a MatchState. *)
+          (* b. Assert: c is a MatcherContinuation. *)
+          (* c. Let Input be x's input. *)
+          let input := MatchState.input x in
+          (* d. Let e be x's endIndex. *)
+          let e := MatchState.endIndex x in
+          (* e. Let InputLength be the number of elements in Input. *)
+          let inputLength := List.length input in
+          (* f. If e = InputLength, or if rer.[[Multiline]] is true and the character Input[ e ] is matched by LineTerminator, then *)
+          if! Success (e =? inputLength)%Z ||! (Success (RegExp.multiline rer is true) &&! (let! c =<< input[e] in CharSet.contains CharSet.line_terminators c)) then
+            (* i. Return c(x). *)
+            c x
+          else
+          (* g. Return failure. *)
+          failure): Matcher
+
+    (** Assertion :: \b *)
+    | AssertWordBoundary =>
+        (* 1. Return a new Matcher with parameters (x, c) that captures rer and performs the following steps when called: *)
+        (fun (x: MatchState) (c: MatcherContinuation) =>
+          (* a. Assert: x is a MatchState. *)
+          (* b. Assert: c is a MatcherContinuation. *)
+          (* c. Let Input be x's input. *)
+          let input := MatchState.input x in
+          (* d. Let e be x's endIndex. *)
+          let e := MatchState.endIndex x in
+          (* e. Let a be IsWordChar(rer, Input, e - 1). *)
+          let! a =<< isWordChar rer input (e - 1)%Z in
+          (* f. Let b be IsWordChar(rer, Input, e). *)
+          let! b =<< isWordChar rer input e in
+          (* g. If a is true and b is false, or if a is false and b is true, return c(x). *)
+          if ((a is true) && (b is false)) || ((a is false) && (b is true)) then
+            c x
+          else
+          (* h. Return failure. *)
+          failure): Matcher
+
+    (** Assertion :: \B *)
+    | AssertNotWordBoundary =>
+        (* 1. Return a new Matcher with parameters (x, c) that captures rer and performs the following steps when called: *)
+        (fun (x: MatchState) (c: MatcherContinuation) =>
+          (* a. Assert: x is a MatchState. *)
+          (* b. Assert: c is a MatcherContinuation. *)
+          (* c. Let Input be x's input. *)
+          let input := MatchState.input x in
+          (* d. Let e be x's endIndex. *)
+          let e := MatchState.endIndex x in
+          (* e. Let a be IsWordChar(rer, Input, e - 1). *)
+          let! a =<< isWordChar rer input (e - 1)%Z in
+          (* f. Let b be IsWordChar(rer, Input, e). *)
+          let! b =<< isWordChar rer input e in
+          (* g. If a is true and b is true, or if a is false and b is false, return c(x). *)
+          if ((a is true) && (b is true)) || ((a is false) && (b is false)) then
+            c x
+          else
+          (* h. Return failure. *)
+          failure): Matcher
+
     (**  Assertion :: (?= Disjunction ) *)
     | Lookahead r =>
         (* 1. Let m be CompileSubpattern of Disjunction with arguments rer and forward. *)

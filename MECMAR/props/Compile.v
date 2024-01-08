@@ -7,20 +7,20 @@ Import Semantics.
 Module Compile.
   Module Safety.
 
-    Lemma canonicalize: forall c rer, canonicalize rer c <> compile_assertion_failed.
+    Lemma canonicalize {F: Type} {_: Result.AssertionError F}: forall c rer f, canonicalize rer c <> Failure f.
     Proof.
-      intros c rer. unfold canonicalize. focus § _ (_ [] _) § auto destruct.
+      intros c rer f. unfold canonicalize. clear_result. focus § _ (_ [] _) § auto destruct.
       apply List.Unique.failure_bounds in AutoDest_2. boolean_simplifier. spec_reflector Nat.eqb_spec.
       contradiction.
     Qed.
 
-    Lemma wordCharacters: forall rer, wordCharacters rer <> compile_assertion_failed.
+    Lemma wordCharacters {F: Type} {_: Result.AssertionError F}: forall rer f, wordCharacters rer <> Failure f.
     Proof.
-      intros rer. unfold wordCharacters. focus § _ (_ [] _) § auto destruct.
+      intros rer f. unfold wordCharacters. clear_result. focus § _ (_ [] _) § auto destruct.
       unfold CharSet.filter in *. apply List.Filter.failure_kind in AutoDest_ as [ i [ v [ Eq_indexed Eq_f ]]].
       destruct (Semantics.canonicalize rer v) eqn:Eq_canon.
       - discriminate.
-      - injection Eq_f as ->. exfalso. destruct f. apply (canonicalize _ _ Eq_canon).
+      - injection Eq_f as ->. exfalso. apply (canonicalize _ _ _ Eq_canon).
     Qed.
 
     (* TODO: remove it going with unfolded implementation *)
@@ -57,7 +57,7 @@ Module Compile.
       - cbn. apply wordCharacters.
       - cbn. destruct (Semantics.wordCharacters rer) eqn:Eq_wc.
         + easy.
-        + destruct f. exfalso. apply (wordCharacters _ Eq_wc).
+        + exfalso. apply (wordCharacters _ _ Eq_wc).
     Qed.
 
     Lemma compileToCharSet_ClassAtom_singleton: forall a rer r c,
@@ -112,8 +112,8 @@ Module Compile.
       - focus § _ (_ [] _) § auto destruct; dependent destruction H0.
         + boolean_simplifier. spec_reflector Nat.leb_spec0. cbn in *. rewrite -> H in *. contradiction.
         + repeat match goal with | [ H: _ = Failure _ |- _ ] => focus § _ [] _ § auto destruct in H; try injection H as -> end.
-          * exfalso. destruct f. apply (wordCharacters _ ltac:(eassumption)).
-          * exfalso. destruct f. apply (wordCharacters _ ltac:(eassumption)).
+          * exfalso. apply (wordCharacters _ _ ltac:(eassumption)).
+          * exfalso. apply (wordCharacters _ _ ltac:(eassumption)).
         + repeat match goal with | [ H: _ = Failure _ |- _ ] => focus § _ [] _ § auto destruct in H; try injection H as -> end.
         + boolean_simplifier. spec_reflector Nat.eqb_spec. contradiction.
         + destruct (groupSpecifiersThatMatch (AtomEsc (AtomEscape.GroupEsc id)) ctx id) eqn:Eq_gstm; try discriminate.

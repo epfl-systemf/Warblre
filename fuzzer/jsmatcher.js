@@ -111,7 +111,7 @@ function print_match (result, glob) {
 	}
 	output = "";
 	for (i = 0; i < result.length; i++) {
-            output += result[i];
+            output += "·" + result[i];
             output += "\n";
 	}
 	return output;

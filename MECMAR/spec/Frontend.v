@@ -101,7 +101,7 @@ A Match Record is a Record value used to encapsulate the start and end indices o
   (* So let's define a constructor that checks this invariant *)
   Definition MakeMatchRecord (mstart:nat) (mend:integer) : Result.Result MatchRecord MatchError :=
     let! enat =<< to_non_neg mend in
-    assert! (enat >? mstart);
+    assert! (enat >=? mstart);
   Success (mkrec mstart enat).
 
   (* 22.2.7.6 GetMatchString ( S, match ) *)
@@ -544,171 +544,6 @@ The abstract operation MakeMatchIndicesIndexPairArray takes arguments S (a Strin
        else Success None in
   Success (Exotic (mkarray A_index A_input A_array A_groups A_indices_array A_indices_groups) (R))
   end.
-
-
-  (* Deprecated Version *)
-  (* triggers a Coq anomaly *)
-  (*  Definition RegExpBuiltinExec (R:RegExpInstance) (S:list Character) (fuel:nat): Result.Result ExecResult MatchError :=
-    (* 1. Let length be the length of S. *)
-    let length := List.length S in
-    (* 2. Let lastIndex be ℝ(? ToLength(? Get(R, "lastIndex"))). *)
-    let lastIndex := lastIndex R in
-    (* 3. Let flags be R.[[OriginalFlags]]. *)
-    let flags := OriginalFlags R in
-    (* 4. If flags contains "g", let global be true; else let global be false. *)
-    let global := g flags in
-    (* 5. If flags contains "y", let sticky be true; else let sticky be false. *)
-    let sticky := y flags in
-    (* 6. If flags contains "d", let hasIndices be true; else let hasIndices be false. *)
-    let hasIndices := d flags in
-    (* 7. If global is false and sticky is false, set lastIndex to 0. *)
-    let lIndex:integer := if (andb (negb global) (negb sticky)) then integer_zero else lastIndex in
-    let! lastIndex: nat =<< to_non_neg lIndex in
-    (* 8. Let matcher be R.[[RegExpMatcher]]. *)
-    let matcher := RegExpMatcher R in
-    (* 9. If flags contains "u" or flags contains "v", let fullUnicode be true; else let fullUnicode be false. *)
-    let fullUnicode := if (orb (u flags) (v flags)) then true else false in
-    (* 10. Let matchSucceeded be false. *)
-    let matchSucceeded := false in
-    (* 11. If fullUnicode is true, let input be StringToCodePoints(S). Otherwise, let input be a List whose elements are the code units that are the elements of S. *)
-    (* TODO: go from string to list at this point *)
-    let input := S in
-    (* 12. NOTE: Each element of input is considered to be a character. *)
-    (* We change the repeat loop to a recursive function with fuel *)
-    let fix repeatloop (lastIndex:nat) (fuel:nat): Result LoopResult MatchError :=
-      match fuel with
-      | 0 => out_of_fuel
-      | S fuel' =>
-          (* a. If lastIndex > length, then *)
-          if (lastIndex >? length)%nat then
-            (* i. If global is true or sticky is true, then *)
-            let nextInstance := if (orb global sticky) then
-                                  (* 1. Perform ? Set(R, "lastIndex", +0𝔽, true). *)
-                                  setlastindex R integer_zero
-                                else R in
-            (* ii. Return null. *)
-            Success (Terminates (Null nextInstance))
-          else
-            (* b. Let inputIndex be the index into input of the character that was obtained from element lastIndex of S. *)
-            let inputIndex := lastIndex in
-            (* c. Let r be matcher(input, inputIndex). *)
-            let! r:(option MatchState) =<< matcher input inputIndex in
-            (* d. If r is failure, then *)
-            if r is (failure) then
-              (* i. If sticky is true, then *)
-              if sticky then
-                (* 1. Perform ? Set(R, "lastIndex", +0𝔽, true). *)
-                let nextInstance := setlastindex R integer_zero in
-                (* 2. Return null. *)
-                Success (Terminates (Null nextInstance))
-              else
-                (* ii. Set lastIndex to AdvanceStringIndex(S, lastIndex, fullUnicode). *)
-                let! lastIndex =<< AdvanceStringIndex S lastIndex fullUnicode in
-                repeatloop lastIndex fuel' 
-                           (* e. Else *)
-            else
-              (* i. Assert: r is a MatchState. *)
-              assert! (r is (Some _));
-              destruct! Some r <- (r:option MatchState) in
-              (*   ii. Set matchSucceeded to true. *)
-              Success (Continues r lastIndex)
-  end in
-  let! repeatresult =<< repeatloop lastIndex fuel in
-  match repeatresult with
-  | Terminates execresult => Success (execresult)
-  | Continues r lastIndex =>
-      (* 14. Let e be r.[[EndIndex]]. *)
-      let e := MatchState.endIndex r in
-      (* 15. If fullUnicode is true, set e to GetStringIndex(S, e). *)
-      let e := if fullUnicode then GetStringIndex S e else e in
-      (* 16. If global is true or sticky is true, then *)
-      let newInstance := if (orb global sticky) then
-                           (* a. Perform ? Set(R, "lastIndex", 𝔽(e), true). *)
-                           setlastindex R e
-                         else R in
-      (* 17. Let n be the number of elements in r.[[Captures]]. *)
-      let n := List.length (MatchState.captures r) in
-      (* 18. Assert: n = R.[[RegExpRecord]].[[CapturingGroupsCount]]. *)
-      assert! (n =? RegExp.capturingGroupsCount (RegExpRecord newInstance))%nat;
-  (* 19. Assert: n < 2^32 - 1. *)
-  assert! (n <? 4294967295)%nat;
-  (* 20. Let A be ! ArrayCreate(n + 1). *)
-  let A_array:(list (option (list Character))) := List.repeat None (n+1) in
-  (* 21. Assert: The mathematical value of A's "length" property is n + 1. *)
-  assert! (List.length A_array =? n+1);
-  (* 22. Perform ! CreateDataPropertyOrThrow(A, "index", 𝔽(lastIndex)). *)
-  let A_index := lastIndex in
-  (* 23. Perform ! CreateDataPropertyOrThrow(A, "input", S). *)
-  let A_input := S in
-  (* 24. Let match be the Match Record { [[StartIndex]]: lastIndex, [[EndIndex]]: e }. *)
-  let! match_rec =<< MakeMatchRecord lastIndex e in
-  (* 25. Let indices be a new empty List. *)
-  let indices: (list (option MatchRecord)) := nil in
-  (* 26. Let groupNames be a new empty List. *)
-  let groupNames: (list GroupName) := nil in
-  (* 27. Append match to indices. *)
-  let indices := (Some match_rec) :: indices in
-  (* 28. Let matchedSubstr be GetMatchString(S, match). *)
-  let! matchedSubstr =<< GetMatchString S match_rec in
-  (* 29. Perform ! CreateDataPropertyOrThrow(A, "0", matchedSubstr). *)
-  set A_array[0] := Some matchedSubstr in
-  (* 30. If R contains any GroupName, then *)
-  let hasGroups := containsgroupname (pattern R) in  
-  let groups := if hasGroups then
-                  (* a. Let groups be OrdinaryObjectCreate(null). *)
-                  Some nil
-                    (* b. Let hasGroups be true. *)
-                else
-                  (* 31. Else, *)
-                  (* a. Let groups be undefined. *)
-                  None
-                    (* b. Let hasGroups be false. *)
-  in
-  (* 32. Perform ! CreateDataPropertyOrThrow(A, "groups", groups). *)
-  (* 33. For each integer i such that 1 ≤ i ≤ n, in ascending order, do *)
-  let fix forloop (i:nat) (indices:list (option MatchRecord)) (groupNames:list GroupName) (fuel:nat): Result.Result (list (option MatchRecord) * list GroupName) MatchError:=
-    match fuel with
-    | O => out_of_fuel
-    | S fuel' => 
-        (* a. Let captureI be ith element of r.[[Captures]]. *)
-        let! captureI =<< (MatchState.captures r)[i] in
-        let! (capturedValue, indices) : (option (list Character) * list (option MatchRecord)) =<<
-          match captureI with
-          (* b. If captureI is undefined, then *)
-          | None =>
-              (* i. Let capturedValue be undefined. *)
-              let capturedValue := None in
-              (* ii. Append undefined to indices. *)
-              Success (capturedValue, None::indices)
-          (* c. Else, *)
-          | Some captureI =>
-              (* i. Let captureStart be captureI.[[StartIndex]]. *)
-              let captureStart := CaptureRange.startIndex captureI in
-              let! captureStart_non_neg =<< to_non_neg captureStart in
-              (* ii. Let captureEnd be captureI.[[EndIndex]]. *)
-              let captureEnd := CaptureRange.endIndex captureI in
-              (* iii. If fullUnicode is true, then
-    1. Set captureStart to GetStringIndex(S, captureStart).
-    2. Set captureEnd to GetStringIndex(S, captureEnd). *)
-              (* TODO *)
-              (* iv. Let capture be the Match Record { [[StartIndex]]: captureStart, [[EndIndex]]: captureEnd }. *)
-              let! capture =<< MakeMatchRecord captureStart_non_neg captureEnd in
-              (* v. Let capturedValue be GetMatchString(S, capture). *)
-              let! capturedValue =<< GetMatchString S capture in
-              (* vi. Append capture to indices. *)
-              Success (Some capturedValue, (Some capture)::indices)
-          end in
-        (* d. Perform ! CreateDataPropertyOrThrow(A, ! ToString(𝔽(i)), capturedValue). *)
-        set A_array[i] := Some capturedValue in
-
-  (* e. f. TODO *)
-  if (i >=? n)%nat then Success (indices, groupNames)
-  else forloop (i+1) indices groupNames fuel'
-    end in
-  let! (indices, groupNames) =<< forloop 1%nat indices groupNames fuel in
-  
-      Success (Exotic (mkarray A_index A_input A_array groups) (newInstance))
-  end. *)
   
 
   (* 22.2.7.1 RegExpExec ( R, S )
@@ -910,7 +745,7 @@ and performs the following steps when called: *)
           end
       end in
     (* each iteration of closure advances the index: we can use length S + 1 as fuel *)
-    repeat_closure nil R ((List.length S) +1).
+    repeat_closure nil R ((List.length S) +2).
         
   (* 22.2.6.9 RegExp.prototype [ @@matchAll ] ( string ) *)
 

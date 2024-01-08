@@ -484,7 +484,7 @@ Module Semantics.
       (* 3. Return a new Matcher with parameters (x, c) that captures m1 and m2 and performs the following steps when called: *)
       (fun (x: MatchState) (c: MatcherContinuation) =>
         (* a. Assert: x is a MatchState. *)
-        (* b. Assert: x is a MatchState. *)
+        (* b. Assert: c is a MatcherContinuation. *)
         (* c. Let r be m1(x, c). *)
         let! r =<< m1 x c in
         (* d. If r is not failure, return r. *)
@@ -553,7 +553,7 @@ Module Semantics.
           (* d. Let e be x's endIndex. *)
           let e := MatchState.endIndex x in
           (* e. If e = 0, or if rer.[[Multiline]] is true and the character Input[ e ] is matched by LineTerminator, then *)
-          if! Success (e =? 0)%Z ||! (Success (RegExp.multiline rer is true) &&! (let! c =<< input[(e-1)%Z] in CharSet.contains CharSet.line_terminators c)) then
+          if! (e =? 0)%Z ||! ((RegExp.multiline rer is true) &&! (let! c =<< input[(e-1)%Z] in CharSet.contains CharSet.line_terminators c)) then
             (* i. Return c(x). *)
             c x
           else
@@ -573,7 +573,7 @@ Module Semantics.
           (* e. Let InputLength be the number of elements in Input. *)
           let inputLength := List.length input in
           (* f. If e = InputLength, or if rer.[[Multiline]] is true and the character Input[ e ] is matched by LineTerminator, then *)
-          if! Success (e =? inputLength)%Z ||! (Success (RegExp.multiline rer is true) &&! (let! c =<< input[e] in CharSet.contains CharSet.line_terminators c)) then
+          if! (e =? inputLength)%Z ||! ((RegExp.multiline rer is true) &&! (let! c =<< input[e] in CharSet.contains CharSet.line_terminators c)) then
             (* i. Return c(x). *)
             c x
           else

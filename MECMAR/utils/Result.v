@@ -62,21 +62,21 @@ Module Result.
       (at level 20, r pattern, y at level 100, z at level 200): result_flow.
 
     Module Boolean.
-      Notation "'if!' b 'then' tf 'else' ff" := (match b with
+      Notation "'if!' b 'then' tf 'else' ff" := (match (b: Result bool _) with
       | Success true => tf
       | Success false => ff
       | Failure f => Failure f
       end) (at level 20, b at level 100, tf at level 100, ff at level 100): result_flow.
 
-      Notation "l '&&!' r" := (match l with
-      | Success true => r
+      Notation "l '&&!' r" := (match (l: Result bool _) with
+      | Success true => (r: Result bool _)
       | Success false => Success false
       | Failure f => Failure f
       end) (at level 40, left associativity): result_flow.
 
-      Notation "l '||!' r" := (match l with
+      Notation "l '||!' r" := (match (l: Result bool _) with
       | Success true => Success true
-      | Success false => r
+      | Success false => (r: Result bool _)
       | Failure f => Failure f
       end) (at level 50, left associativity): result_flow.
     End Boolean.

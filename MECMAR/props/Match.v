@@ -732,11 +732,13 @@ Module Correctness.
       - injection Eq_m as Eq_m. subst. intros x c V_x Eq_af.
         focus § _ [] _ § auto destruct in Eq_af; [search | injection Eq_af as <-].
         focus § _ [] _ § auto destruct in AutoDest_.
-        match goal with | [ H: List.Indexing.Int.indexing _ _ = Failure _ |- _ ] => apply List.Indexing.Int.failure_bounds in H; MatchState.solve_with lia end.
+        + match goal with | [ H: List.Indexing.Int.indexing _ _ = Failure _ |- _ ] => apply List.Indexing.Int.failure_bounds in H; MatchState.solve_with lia end.
+        + destruct (RegExp.multiline rer); discriminate.
       - injection Eq_m as Eq_m. subst. intros x c V_x Eq_af.
         focus § _ [] _ § auto destruct in Eq_af; [search | injection Eq_af as <-].
         focus § _ [] _ § auto destruct in AutoDest_.
-        match goal with | [ H: List.Indexing.Int.indexing _ _ = Failure _ |- _ ] => apply List.Indexing.Int.failure_bounds in H; MatchState.solve_with lia end.
+        + match goal with | [ H: List.Indexing.Int.indexing _ _ = Failure _ |- _ ] => apply List.Indexing.Int.failure_bounds in H; MatchState.solve_with lia end.
+        + destruct (RegExp.multiline rer); discriminate.
       - injection Eq_m as Eq_m. subst. intros x c V_x Eq_af.
         focus § _ [] _ § auto destruct in Eq_af; try search.
         all: lazymatch goal with | [ H: isWordChar _ _ _ = Failure _ |- _ ] =>  unfold isWordChar in H; focus § _ [] _ § auto destruct in H; clear_result; subst end.
@@ -1068,11 +1070,13 @@ Module Correctness.
       - clear_result. subst. intros x c Vx H.
         focus § _ [] _ § auto destruct in H; try search.
         focus § _ [] _ § auto destruct in AutoDest_. clear_result. subst.
-        match goal with | [ H: List.Indexing.Int.indexing _ _ = Failure _ |- _ ] => apply List.Indexing.Int.failure_bounds in H; MatchState.solve_with lia end.
+        + match goal with | [ H: List.Indexing.Int.indexing _ _ = Failure _ |- _ ] => apply List.Indexing.Int.failure_bounds in H; MatchState.solve_with lia end.
+        + destruct (RegExp.multiline rer); discriminate.
       - clear_result. subst. intros x c Vx H.
         focus § _ [] _ § auto destruct in H; [search| ].
         focus § _ [] _ § auto destruct in AutoDest_. clear_result. subst.
-        match goal with | [ H: List.Indexing.Int.indexing _ _ = Failure _ |- _ ] => apply List.Indexing.Int.failure_bounds in H; MatchState.solve_with lia end.
+        + match goal with | [ H: List.Indexing.Int.indexing _ _ = Failure _ |- _ ] => apply List.Indexing.Int.failure_bounds in H; MatchState.solve_with lia end.
+        + destruct (RegExp.multiline rer); discriminate.
       - clear_result. subst. intros x c Vx H.
         focus § _ [] _ § auto destruct in H; try search.
         all: lazymatch goal with | [ H: isWordChar _ _ _ = Failure _ |- _ ] =>  unfold isWordChar in H; focus § _ [] _ § auto destruct in H; clear_result; subst end.

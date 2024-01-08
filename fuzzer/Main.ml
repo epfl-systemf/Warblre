@@ -6,6 +6,13 @@ open Extracted.Notation
 open Notations
 open Helpers
 
+(* the different frontend functions we can test *)
+type frontend_function =
+  | Exec
+  | Search
+  | Test
+  | Match
+  | MatchAll
 
 (** * Fuzzer parameters  *)
 
@@ -70,9 +77,17 @@ let flags_to_string (flags:Extracted.Frontend.coq_RegExpFlags) : string =
   if (flags.v) then s := "v" ^ !s;
   if (flags.y) then s := "y" ^ !s;
   !s
-  
 
 (** * Calling the Node Matcher (V8 backtracking)  *)
+
+(* sending the type of frontend function to the JS matcher *)
+let frontend_func (f:frontend_function) : string =
+  match f with
+  | Exec -> "exec"
+  | Search -> "search"
+  | Test -> "test"
+  | Match -> "match"
+  | MatchAll -> "matchAll"
 
 (* geting the result of a command as a string *)
 let string_of_command (command:string) : string =
@@ -91,22 +106,31 @@ let string_of_command (command:string) : string =
 
 (* getting the Node result as a string, with a timeout in case of exponential complexity *)
 (* when the result is None, a Timeout occurred *)
-let get_js_result (regex:coq_Regex) (str:string) : string option =
+let get_js_result (regex:coq_Regex) (flags:Extracted.Frontend.coq_RegExpFlags) (lastindex:int) (str:string) (f:frontend_function): string option =
   let js_regex = regex_to_string regex in
   let js_regex = "'" ^ js_regex ^ "'" in (* adding quotes to escape special characters *)
-  let js_command = "timeout 5s node fuzzer/jsmatcher.js " ^ js_regex ^ " " ^ "'"^str^"'" in
+  let js_flags = "'" ^ flags_to_string flags ^ "'" in
+  let js_index = string_of_int lastindex in
+  let js_func = frontend_func f in
+  let js_command = "timeout 5s node fuzzer/jsmatcher.js "
+                   ^ js_regex ^ " "
+                   ^ js_flags ^ " "
+                   ^ js_index ^ " "
+                   ^ "'"^str^"'" ^ " "
+                   ^ js_func in
+  Printf.printf "%s\n%!" js_command;
   let result = string_of_command(js_command) in
   if (String.length result = 0) then None else Some result
 
 (** * Calling the Reference Implementation *)
 
+(* printing the result of different frontend functions *)
 let print_slice (string_input:string) single_capture : string =
   match single_capture with
   | None -> "Undefined"
   | Some { CaptureRange.startIndex = s; CaptureRange.endIndex = e } ->
      String.sub string_input s (e-s)
 
-(* printing the result of a match *)
 let print_result result (start:int) (string_input:string) : string =
   let s = ref "" in
   match result with
@@ -121,29 +145,6 @@ let print_result result (start:int) (string_input:string) : string =
      done;
      !s ^ "\n"
        
-(* calling the matcher at different starting position until a match is found *)
-let rec get_first_result matcher list_str string_input start: string option =
-  let maxlength = List.length list_str in
-  let open Extracted in
-  match (matcher list_str start) with
-  | Success (Some result) ->
-     Some (print_result result start string_input)
-  | Success None ->
-     if (maxlength = start) then (Some "NoMatch\n\n") (* reached the end *)
-     else get_first_result matcher list_str string_input (start+1)
-(* trying to find a match starting at the next string position *)
-  | Failure OutOfFuel -> failwith "Failure"
-  | Failure AssertionFailed -> failwith "Failure"
-
-(* calling the reference implementation *)
-let get_reference_result (regex:coq_Regex) (str:string) : string option =
-  let maxgroup = Extracted.StaticSemantics.countLeftCapturingParensWithin regex [] in
-  let matcher = Extracted.Semantics.compilePattern regex maxgroup in
-  let list_input = List.init (String.length str) (String.get str) in
-  get_first_result matcher list_input str 0
-
-(* printing the results of executing the different frontend functions *)
-
 let print_char_list (l:char list): string =
   List.fold_left (fun acc c -> acc ^ String.make 1 c) "" l
 
@@ -200,15 +201,15 @@ let print_indices_group (o:(Extracted.groupName * (int * int) option) list optio
 
 let print_array_exotic (a:Extracted.Frontend.coq_ArrayExotic) : string =
   let s = ref "" in
-  s := "index:" ^ string_of_int a.index ^ "\n" ^ !s;
-  s := "array:" ^ print_array a.array ^ "\n" ^ !s;
-  s := "groups:" ^ print_groups_map_option a.groups ^ "\n" ^ !s;
-  s := "indices_array:" ^ print_index_array a.indices_array ^ "\n" ^ !s;
-  s := "indices_groups:" ^ print_indices_group a.indices_groups ^ "\n" ^ !s;
+  s := !s ^ "index:" ^ string_of_int a.index ^ "\n";
+  s := !s ^ "array:" ^ print_array a.array ^ "\n";
+  s := !s ^ "groups:" ^ print_groups_map_option a.groups ^ "\n";
+  s := !s ^ "indices_array:" ^ print_index_array a.indices_array ^ "\n";
+  s := !s ^ "indices_groups:" ^ print_indices_group a.indices_groups ^ "\n";
   !s
 
 let print_array_exotic_list l : string =
-  List.fold_left (fun acc a -> acc ^ print_array_exotic a ^ "\n") "" l
+  List.fold_left (fun acc a -> acc ^ "-" ^ print_array_exotic a ^ "\n") "" l
 
 let print_exec_result (r:Extracted.Frontend.coq_ExecResult) : string =
   match r with
@@ -225,47 +226,54 @@ let print_match_result (r:Extracted.Frontend.coq_ProtoMatchResult) : string =
      end
   | NonGlobalResult e -> print_exec_result e
 
-(* exec *)
-let reference_exec (r:Extracted.Frontend.coq_RegExpInstance) (str:string) : string option =
-  let list_input = List.init (String.length str) (String.get str) in
-  match (Extracted.Frontend.coq_PrototypeExec r list_input) with
-  | Success res -> Some (print_exec_result res)
-  | Failure _ -> failwith "Failure"
+let get_success (r) =
+  match r with
+  | Success x -> x
+  | Failure Extracted.OutOfFuel -> failwith "Failure: Out of Fuel"
+  | Failure Extracted.AssertionFailed -> failwith "Failure: Assertion"
 
+(* exec *)
+let reference_exec (r:Extracted.Frontend.coq_RegExpInstance) (str) : string =
+  let res = get_success (Extracted.Frontend.coq_PrototypeExec r str) in
+  print_exec_result res
+  
 (* search *)
-let reference_search (r:Extracted.Frontend.coq_RegExpInstance) (str:string): string option =
-  let list_input = List.init (String.length str) (String.get str) in
-  match (Extracted.Frontend.coq_PrototypeSearch r list_input) with
-  | Success (res,_) -> Some (string_of_int res)
-  | Failure _ -> failwith "failure"
+let reference_search (r:Extracted.Frontend.coq_RegExpInstance) (str): string =
+  let res = get_success (Extracted.Frontend.coq_PrototypeSearch r str) in
+  string_of_int (fst res) ^ "\n"
 
 (* test *)
-let reference_test (r:Extracted.Frontend.coq_RegExpInstance) (str:string): string option =
-  let list_input = List.init (String.length str) (String.get str) in
-  match (Extracted.Frontend.coq_PrototypeTest r list_input) with
-  | Success (res,_) -> Some (string_of_bool res)
-  | Failure _ -> failwith "failure"
+let reference_test (r:Extracted.Frontend.coq_RegExpInstance) (str): string =
+  let res = get_success (Extracted.Frontend.coq_PrototypeTest r str) in
+  string_of_bool (fst res) ^ "\n"
 
 (* match *)
-let reference_match (r:Extracted.Frontend.coq_RegExpInstance) (str:string): string option =
-  let list_input = List.init (String.length str) (String.get str) in
-  match (Extracted.Frontend.coq_PrototypeMatch r list_input) with
-  | Success res -> Some (print_match_result res)
-  | Failure OutOfFuel -> failwith "failure out of fuel"
-  | Failure AssertionFailed -> failwith "assertion failed"
+let reference_match (r:Extracted.Frontend.coq_RegExpInstance) (str): string =
+  let res = get_success (Extracted.Frontend.coq_PrototypeMatch r str) in
+  print_match_result res 
 
 (* matchAll *)
-let reference_matchall (r:Extracted.Frontend.coq_RegExpInstance) (str:string): string option =
-  let list_input = List.init (String.length str) (String.get str) in
-  match (Extracted.Frontend.coq_PrototypeMatchAll r list_input) with
-  | Success (res,_) -> Some (print_array_exotic_list res)
-  | Failure _ -> failwith "failure"
+let reference_matchall (r:Extracted.Frontend.coq_RegExpInstance) (str): string =
+  let res = get_success (Extracted.Frontend.coq_PrototypeMatchAll r str) in
+  print_array_exotic_list (fst res)
 
+let get_reference_result (regex:coq_Regex) (flags:Extracted.Frontend.coq_RegExpFlags) (index:int) (str:string) (f:frontend_function) : string option =
+  let instance = Extracted.Frontend.coq_RegExpInitialize regex flags in
+  let instance = Extracted.Frontend.setlastindex instance index in
+  let list_input = List.init (String.length str) (String.get str) in
+  match f with
+  | Exec -> Some (reference_exec instance list_input)
+  | Search -> Some (reference_search instance list_input)
+  | Test -> Some (reference_test instance list_input)
+  | Match -> Some (reference_match instance list_input)
+  | MatchAll -> Some (reference_matchall instance list_input)
+
+
+
+(** * Comparing 2 engine results *)
 
 let print_op (o:string option) : string =
   match o with | None -> "None" | Some s -> s
-
-(** * Comparing 2 engine results *)
 
 let print_result (s:string option) : string =
   match s with
@@ -273,12 +281,14 @@ let print_result (s:string option) : string =
   | Some s -> s
 
 (* calling the two engines and failing if they disagree on the result *)
-let compare_engines (regex:coq_Regex) (str:string) : unit =
-  Printf.printf "\027[36mJS Regex:\027[0m %s\n " (regex_to_string regex);
+let compare_engines (regex:coq_Regex) (flags:Extracted.Frontend.coq_RegExpFlags) (index:int) (str:string) (f:frontend_function) : unit =
+  Printf.printf "\027[36mJS Regex:\027[0m %s\n" (regex_to_string regex);
   Printf.printf "\027[36mString:\027[0m \"%s\"\n%!" str;
-  let node_result = get_js_result regex str in
+  Printf.printf "\027[36mFlags:\027[0m \"%s\"\n%!" (flags_to_string flags);
+  Printf.printf "\027[36mFunction:\027[0m \"%s\"\n%!" (frontend_func f);
+  let node_result = get_js_result regex flags index str f in
   Printf.printf "\027[35mIrregexp  result:\n\027[0m%s\n%!" (print_result node_result);
-  let ref_result = get_reference_result regex str in
+  let ref_result = get_reference_result regex flags index str f in
   Printf.printf "\027[35mReference result:\n\027[0m%s\n%!" (print_result ref_result);
   match (node_result, ref_result) with
   | Some noderes, Some refres ->
@@ -382,6 +392,17 @@ let random_flags () : Extracted.Frontend.coq_RegExpFlags =
     y=Random.bool();
   }
 
+(* does not generate matchall if there is no global flag *)
+let random_frontend (glob:bool) : frontend_function =
+  let max = if glob then 5 else 4 in
+  match (Random.int(max)) with
+  | 0 -> Exec
+  | 1 -> Search
+  | 2 -> Test
+  | 3 -> Match
+  | 4 -> MatchAll
+  | _ -> failwith "random range error"
+
 (** * Creating Random Strings  *)
 
 let random_string () : string =
@@ -394,68 +415,30 @@ let random_string () : string =
 let fuzzer () : unit =
   for _ = 0 to max_tests do
     let rgx = random_regex () in
+    let flags = random_flags () in
     let str = random_string () in
-    compare_engines rgx str
+    let f = random_frontend (flags.g) in
+    compare_engines rgx flags 0 str f
   done;
   Printf.printf "Finished %d tests.\n" max_tests
 
 
 let () =
   Random.self_init();
-  (* fuzzer(); *)
-
-  (* let original_bug_regex : coq_Regex = *)
-  (*   Quantified ( *)
-  (*       Group(None, *)
-  (*             Quantified( *)
-  (*                 Quantified( *)
-  (*                     Disjunction( *)
-  (*                         Group(None *)
-  (*                              ,BackReference 2) *)
-  (*                        ,Empty) *)
-  (*                    ,Greedy(Plus)) *)
-  (*                ,Greedy(RepRange(8,16))) *)
-  (*         ) *)
-  (*      ,Greedy(RepExact(6))) in *)
-  (* let original_bug_string = "-bbabaa" in *)
-
-  
-  (* let bug_regex : coq_Regex = *)
-  (*   Group(None,Group(None, Seq(Char('a'),Group(None, Char('b'))))) in *)
-  
-  
-  (* let bug_string = "ab" in *)
-  (* compare_engines bug_regex bug_string *)
-  (* This bug was fixed by fixing the computation of parens before *)
+  (* fuzzer() *)
 
 
-  let test_rgx = Seq(Quantified(Char('a'),Greedy Star),Char('b')) in
-  let test_str = "dddbabaabaaab" in
-
+  let test_rgx = Empty in
+  let test_str = "-" in
   let test_flags:Extracted.Frontend.coq_RegExpFlags =
     { d=false;
-      g=true;
-      i=true;
+      g=false;
+      i=false;
       m=false;
       s=false;
       u=false;
       v=false;
       y=false;
     } in
+  Printf.printf "%s\n" (print_op (get_reference_result test_rgx test_flags 0 test_str Exec))
 
-  let test_instance : Extracted.Frontend.coq_RegExpInstance =
-    Extracted.Frontend.coq_RegExpInitialize test_rgx test_flags in 
-  
-  Printf.printf "Flags: %s\n" (flags_to_string test_flags);
-  Printf.printf "Exec: %s\n" (print_op (reference_exec test_instance test_str));
-  Printf.printf "Test: %s\n" (print_op (reference_test test_instance test_str));
-  Printf.printf "Search: %s\n" (print_op (reference_search test_instance test_str));
-  Printf.printf "Match: %s\n" (print_op (reference_match test_instance test_str));
-  Printf.printf "MatchAll: %s\n" (print_op (reference_matchall test_instance test_str));
-  ()
-
-
-  
-  
-  
-  (* fuzzer () *)

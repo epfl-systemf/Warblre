@@ -53,6 +53,9 @@ function print_index_array (a) {
 
 // prints the value of the indices for named groups for flag d
 function print_indices_groups (a) {
+    if (a.indices == null) {
+	return "None";
+    }
     if (a.indices.groups == null) {
 	return "None";
     }
@@ -73,8 +76,8 @@ function print_array_exotic (a) {
     s += "index:" + a.index.toString() + "\n";
     s += "array:" + print_array(a) + "\n";
     s += "groups:" + print_groups(a) + "\n";
-    s += "indices_array" + print_index_array(a) + "\n";
-    s += "indices_groups" + print_indices_groups(a) + "\n";
+    s += "indices_array:" + print_index_array(a) + "\n";
+    s += "indices_groups:" + print_indices_groups(a) + "\n";
     return s;
 }
 
@@ -91,7 +94,7 @@ function print_search (result) {
 // prints the result of the exec function - an array exotic
 function print_exec (result) {
     if (result == null) {
-	return "NoMatch\n\n";
+	return "NoMatch\n";
     }
     return (print_array_exotic(result));
 }
@@ -121,7 +124,7 @@ function print_match (result, glob) {
 function print_matchall (result) {
     output = "";
     for (var i = 0; i < result.length; i++) {
-        output += print_array_exotic (result[i]);
+        output += "-" + print_array_exotic (result[i]);
         output += "\n";
     }
     return output;

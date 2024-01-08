@@ -16,4 +16,4 @@ Extract Constant GroupName.eqb => "Int.equal".
 
 Extraction "Extracted.ml" Semantics.compilePattern ClutterFree.regex_match
   Frontend.PrototypeExec Frontend.PrototypeSearch Frontend.PrototypeTest Frontend.PrototypeMatch Frontend.StringPrototypeMatchAll
-  Frontend.RegExpInitialize.
+  Frontend.RegExpInitialize Frontend.setlastindex.

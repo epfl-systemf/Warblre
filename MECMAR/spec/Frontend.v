@@ -488,7 +488,7 @@ The abstract operation MakeMatchIndicesIndexPairArray takes arguments S (a Strin
               Success (Continues r lastIndex)
   end in
   (* we know that there are at most length+1 iterations, we can use that as fuel *)
-  let! repeatresult =<< repeatloop lastIndex ((List.length S) +1) in
+  let! repeatresult =<< repeatloop lastIndex ((List.length S) +2) in
   match repeatresult with
   | Terminates execresult => Success (execresult)
   | Continues r lastIndex =>
@@ -852,7 +852,7 @@ This method searches string for an occurrence of the regular expression pattern 
               end
           end in
         (* we know there are at most length S + 1 iterations since the index strictly increases *)
-        let! (repeat_result, rx) =<< repeatloop A rx ((List.length S) +1) n in
+        let! (repeat_result, rx) =<< repeatloop A rx ((List.length S) +2) n in
         Success (GlobalResult repeat_result rx)
     end.
 

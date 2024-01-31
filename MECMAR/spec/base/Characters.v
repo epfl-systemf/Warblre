@@ -12,6 +12,7 @@ Module Character.
   Parameter numeric_value: type -> non_neg_integer.
   Parameter from_numeric_value: non_neg_integer -> type.
 
+  Axiom numeric_inj: forall c c', Character.numeric_value c = Character.numeric_value c' -> c = c'.
   Axiom numeric_pseudo_bij: forall c, Character.from_numeric_value (Character.numeric_value c) = c.
 
   Module Unicode.

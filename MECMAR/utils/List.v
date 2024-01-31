@@ -25,6 +25,25 @@ Module List.
 
   Definition empty {T: Type} := @nil T.
 
+  Lemma rec_eq {T: Type}: forall (l: list T) a, a :: l = l -> False.
+  Proof. intros l a H. apply (@f_equal _ _ (@length _) _ _) in H. cbn in H. apply Nat.neq_succ_diag_l in H. assumption. Qed.
+  Ltac rec_eq := solve [ exfalso; apply rec_eq with (1 := ltac:(eassumption)) ].
+
+  Lemma app_cons {A: Type}: forall l (h: A) r, l ++ (h :: r) = (l ++ (h :: nil)) ++ r.
+  Proof. induction l; intros h r. - reflexivity. - cbn. f_equal. apply IHl. Qed.
+
+  Lemma same_tail {T: Type}: forall (t: list T) p0 p1 h0 h1, p0 ++ h0 :: t = p1 ++ h1 :: t -> h0 = h1.
+  Proof. intros. rewrite -> (app_cons p0) in H. rewrite -> (app_cons p1) in H. apply app_inv_tail in H. apply app_inj_tail in H as [_ ?]. assumption. Qed.
+
+  Lemma mutual_prefixes {T: Type}: forall (l1 l2 p12 p21: list T), l1 = p12 ++ l2 -> l2 = p21 ++ l1 -> l1 = l2.
+  Proof.
+    intros l1 l2 p12 p21 Eq_l1 Eq_l2. 
+    pose proof (@f_equal _ _ (@length _) _ _ Eq_l1). pose proof (@f_equal _ _ (@length _) _ _ Eq_l2).
+    rewrite -> app_length in *.
+    assert (length p12 = 0)%nat as Eq_p12 by lia. assert (length p21 = 0)%nat as Eq_p21 by lia.
+    rewrite -> length_zero_iff_nil in *. subst. reflexivity.
+  Qed.
+
   Module Unique.
     Definition unique {T F: Type} {_: Result.AssertionError F} (ls: list T): Result T F := match ls with
       | h :: nil => Success h
@@ -150,6 +169,21 @@ Module List.
       Proof.
         intros. destruct (concat' tl tr i) as [[ ? ?] | [ ? ? ]]; subst; [left; split | right; split]; assumption.
       Qed.
+
+      (* Lemma concat_left {T F: Type} {_: Result.AssertionError F}: forall (tl tr: list T) (i: nat) v, indexing (tl ++ tr) i = v -> (i < List.length tl)%nat ->  indexing tl i = v.
+      Proof. intros. destruct (concat tl tr i v ltac:(eassumption)) as [ [ _ ? ] | [ ? _ ] ]; solve [ symmetry; assumption | lia ]. Qed.
+
+      Lemma concat_right {T F: Type} {_: Result.AssertionError F}: forall (tl tr: list T) (i: nat) v, indexing (tl ++ tr) i = v -> (List.length tl <= i)%nat ->  indexing tr (i - List.length tl) = v.
+      Proof. intros. destruct (concat tl tr i v ltac:(eassumption)) as [ [ ? _ ] | [ _ ? ] ]; solve [ symmetry; assumption | lia ]. Qed. *)
+
+      Lemma concat_left {T F: Type} {_: Result.AssertionError F}: forall (i: nat) (tl tr: list T) v, indexing tl i = Success v -> indexing (tl ++ tr) (i)%nat = Success v.
+      Proof.
+        induction i; intros tl tr v H.
+        - destruct tl. + rewrite nil in H. Result.assertion_failed_helper. + cbn in *. assumption.
+        - destruct tl. + rewrite nil in H. Result.assertion_failed_helper. + cbn in *. rewrite -> cons in *. apply IHi. assumption.
+      Qed.
+      Lemma concat_right {T F: Type} {_: Result.AssertionError F}: forall (tl tr: list T) (i: nat) v, indexing tr i = v -> indexing (tl ++ tr) (length tl + i)%nat = v.
+      Proof. induction tl; intros. - assumption. - cbn. rewrite -> cons. apply IHtl. assumption. Qed.
 
       Lemma repeat {T F: Type} {failure: Result.AssertionError F}: forall n v i v',
         indexing (@List.repeat T v n) i = Success v' -> v = v'.
@@ -323,7 +357,12 @@ Module List.
         Lemma failure_bounds0 {T F: Type} {f: Result.AssertionError F}: forall (ls: list T) (i: nat) (v: T),
           @update T F f v ls i = Result.assertion_failed <-> (length ls <= i)%nat.
         Proof.
-        Admitted.
+          induction ls; intros i v; split; intros H.
+          - cbn. lia.
+          - reflexivity.
+          - destruct i. + Result.assertion_failed_helper. + cbn in H. destruct (update v ls i) eqn:Eq; Result.assertion_failed_helper. rewrite -> IHls in Eq. cbn. lia.
+          - destruct i. + Result.assertion_failed_helper. + cbn in H|-*. apply le_S_n in H. rewrite <- (IHls i v) in H. rewrite -> H. Result.assertion_failed_helper.
+        Qed.
 
         Lemma failure_bounds {T F: Type} {f: Result.AssertionError F}: forall (ls: list T) (i: nat) (v: T) (f': F),
           @update T F f v ls i = Result.Failure f' -> (length ls <= i)%nat.
@@ -442,6 +481,9 @@ Module List.
   End Update.
 
   Module Exists.
+    Definition Exist {T F: Type} {_: Result.AssertionError F} (ls: list T) (p: T -> Prop): Prop := exists i v, Indexing.Nat.indexing ls i = Success v /\ p v.
+    Definition ExistValue {T F: Type} {_: Result.AssertionError F} (ls: list T) (v: T): Prop := exists i, Indexing.Nat.indexing ls i = Success v.
+
     Fixpoint exist {T F: Type} (ls: list T) (p: T -> Result bool F): Result bool F := match ls with
     | nil => Success false
     | h :: t => let! b: bool =<< p h in if b then Success true else exist t p
@@ -460,7 +502,88 @@ Module List.
         + apply Indexing.Int.success_bounds in Indexed. destruct Indexed as [ Indexed _ ]. apply Indexed.
       - injection Ex as ->. exists 0. exists a. cbn. split; [ reflexivity | assumption].
     Qed.
+
+    Lemma cons_head {T F: Type} {_: Result.AssertionError F}: forall (h: T) ls p, p h -> Exist (h :: ls) p.
+    Proof. intros h ls p H. exists 0%nat. exists h. split; [ reflexivity | assumption ]. Qed.
+    Lemma cons_tail {T F: Type} {_: Result.AssertionError F}: forall (h: T) ls p, Exist ls p -> Exist (h :: ls) p.
+    Proof. intros h ls p (i & v & ?). exists (S i)%nat. exists v. rewrite -> List.Indexing.Nat.cons. assumption. Qed.
+    Lemma concat_right {T F: Type} {_: Result.AssertionError F}: forall (ls0 ls1: list T) p, Exist ls0 p -> Exist (ls0 ++ ls1) p.
+    Proof. intros ls0 ls1 p (i & v & H0 & H1). exists i. exists v. split; [ | assumption ]. apply Indexing.Nat.concat_left. assumption. Qed.
+    Lemma concat_left {T F: Type} {_: Result.AssertionError F}: forall (ls0 ls1: list T) p, Exist ls1 p -> Exist (ls0 ++ ls1) p.
+    Proof. intros ls0 ls1 p (i & v & H0 & H1). exists (List.length ls0 + i)%nat. exists v. split; [ | assumption ]. apply Indexing.Nat.concat_right. assumption. Qed.
+
+    Lemma cons_inv {T F: Type} {_: Result.AssertionError F}: forall (h: T) ls p, Exist (h :: ls) p -> p h \/ Exist ls p.
+    Proof.
+      intros h ls p ([ | i] & v & Eq_indexed & ?).
+      - cbn in Eq_indexed. injection Eq_indexed as <-. left. assumption.
+      - rewrite -> Indexing.Nat.cons in Eq_indexed. right. exists i. exists v. split; assumption.
+    Qed.
+
+    Lemma concat_inv {T F: Type} {_: Result.AssertionError F}: forall (ls0 ls1: list T) p, Exist (ls0 ++ ls1) p -> Exist ls0 p \/ Exist ls1 p.
+    Proof.
+      induction ls0; intros ls1 p (i & v & Eq_indexed & Eq_v).
+      - rewrite -> app_nil_l in Eq_indexed. right. exists i. exists v. split; assumption.
+      - destruct i as [ | i ].
+        + cbn in Eq_indexed. injection Eq_indexed as <-. left. exists 0%nat. exists a. split; [ reflexivity | assumption ].
+        + cbn in Eq_indexed. rewrite -> Indexing.Nat.cons in Eq_indexed.
+          pose proof (conj Eq_indexed Eq_v) as W.
+          pattern v in W. apply ex_intro in W. pattern i in W. apply ex_intro in W.
+          destruct (IHls0 _ _ W) as [ H | H ].
+          * left. apply cons_tail. assumption.
+          * right. assumption.
+    Qed.
+
+    Lemma exist_value_eq {T F: Type} {_: Result.AssertionError F}: forall ls v, Exist ls (fun (v': T) => v = v') <-> ExistValue ls v.
+    Proof.
+      unfold Exist,ExistValue.
+      intros ls v; split; intros H.
+      - destruct H as (i & v' & Eq_indexed & <-). exists i. assumption.
+      - destruct H as (i & Eq_indexed). exists i. exists v. split; [ assumption | reflexivity ].
+    Qed.
+
+    Lemma true_to_prop {T F: Type} {_: Result.AssertionError F}: forall ls (p: T -> Result bool F), exist ls p = Success true -> Exist ls (fun v => p v = Success true).
+    Proof.
+      induction ls; intros p H.
+      - Result.assertion_failed_helper.
+      - destruct (p a) as [ [ | ] | f ] eqn:Eq_pa.
+        + exists 0%nat. exists a. split; [ reflexivity | assumption ].
+        + cbn in H. rewrite -> Eq_pa in H. apply cons_tail. apply IHls. apply H.
+        + cbn in H. rewrite -> Eq_pa in H. discriminate.
+    Qed.
+
+    Lemma false_to_prop {T F: Type} {_: Result.AssertionError F}: forall ls (p: T -> Result bool F), exist ls p = Success false -> Forall.Forall ls (fun v => p v = Success false).
+    Proof.
+      induction ls; intros p H i v Eq_indexed.
+      - rewrite -> Indexing.Nat.nil in Eq_indexed. Result.assertion_failed_helper.
+      - destruct (p a) as [ [ | ] | f ] eqn:Eq_pa.
+        + cbn in H. rewrite -> Eq_pa in H. discriminate.
+        + destruct i.
+          * injection Eq_indexed as <-. assumption.
+          * cbn in H. rewrite -> Eq_pa in H. rewrite -> Indexing.Nat.cons in Eq_indexed. unfold Forall.Forall in IHls. apply IHls with (1 := H) (2 := Eq_indexed).
+        + cbn in H. rewrite -> Eq_pa in H. discriminate.
+    Qed.
   End Exists.
+
+  Module Sublist.
+    Definition sublist {T F: Type} {_: Result.AssertionError F} (l r: list T): Prop := Forall.Forall l (fun e => exists i, Indexing.Nat.indexing r i = Success e).
+
+    Lemma refl {T F: Type} {_: Result.AssertionError F}: forall (l: list T), sublist l l.
+    Proof. intros l i v Eq_indexed. exists i. assumption. Qed.
+
+    Lemma trans {T F: Type} {_: Result.AssertionError F}: forall (l0 l1 l2: list T), sublist l0 l1 -> sublist l1 l2 -> sublist l0 l2.
+    Proof. intros l0 l1 l2 S_01 S_12 i v Eq_indexed. specialize (S_01 _ _ Eq_indexed) as (i' & Eq_indexed'). specialize (S_12 _ _ Eq_indexed'). assumption. Qed.
+
+    Lemma cons_super {T F: Type} {_: Result.AssertionError F}: forall (l r: list T) h, sublist l r -> sublist l (h :: r).
+    Proof. intros l r h S_lr i v Eq_indexed. specialize (S_lr _ _ Eq_indexed) as (i' & Eq_indexed'). exists (S i'). rewrite -> Indexing.Nat.cons. assumption. Qed.
+
+    Lemma concat_super_left {T F: Type} {_: Result.AssertionError F}: forall (l r r': list T), sublist l r -> sublist l (r' ++ r).
+    Proof. intros l r r' S_lr i v Eq_indexed. specialize (S_lr _ _ Eq_indexed) as (i' & Eq_indexed'). apply Indexing.Nat.concat_right with (tl := r') in Eq_indexed'. exists (List.length r' + i')%nat. assumption. Qed.
+    Lemma concat_super_right {T F: Type} {_: Result.AssertionError F}: forall (l r r': list T), sublist l r -> sublist l (r ++ r').
+    Proof. intros l r r' S_lr i v Eq_indexed. specialize (S_lr _ _ Eq_indexed) as (i' & Eq_indexed'). apply Indexing.Nat.concat_left with (tr := r') in Eq_indexed'. exists i'. assumption. Qed.
+
+    Lemma exist {T F: Type} {_: Result.AssertionError F}: forall (l: list T) r p, sublist l r -> Exists.Exist l p -> Exists.Exist r p.
+    Proof. intros l r p S_lr (i & v & Eq_indexed & P_v). unfold sublist,Forall.Forall in S_lr. specialize (S_lr _ _ Eq_indexed) as (i' & Eq_indexed'). exists i'. exists v. split; assumption. Qed.
+  End Sublist.
 
   Module Filter.
     Fixpoint filter {T F: Type} (ls: list T) (f: T -> Result bool F): Result (list T) F := match ls with

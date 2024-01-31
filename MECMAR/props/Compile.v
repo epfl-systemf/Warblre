@@ -110,7 +110,7 @@ Module Compile.
     Proof.
       induction r; intros ctx rer dir H EE_r; dependent destruction EE_r; cbn; try discriminate.
       - focus § _ (_ [] _) § auto destruct; dependent destruction H0.
-        + boolean_simplifier. spec_reflector Nat.leb_spec0. destruct n. cbn in *. lia.
+        + boolean_simplifier. spec_reflector Nat.leb_spec0. cbn in *. rewrite -> H in *. contradiction.
         + repeat match goal with | [ H: _ = Failure _ |- _ ] => focus § _ [] _ § auto destruct in H; try injection H as -> end.
           * exfalso. destruct f. apply (wordCharacters _ ltac:(eassumption)).
           * exfalso. destruct f. apply (wordCharacters _ ltac:(eassumption)).
@@ -118,7 +118,7 @@ Module Compile.
         + boolean_simplifier. spec_reflector Nat.eqb_spec. contradiction.
         + destruct (groupSpecifiersThatMatch (AtomEsc (AtomEscape.GroupEsc id)) ctx id) eqn:Eq_gstm; try discriminate.
           destruct p. apply EarlyErrors.groupSpecifiersThatMatch_head_is_group in Eq_gstm as [ ? [ ? -> ] ].
-          unfold NonNegInt.to_positive in *. focus § _ [] _ § auto destruct in AutoDest_2.
+          apply NonNegInt.failure in AutoDest_2.
           apply List.Unique.head in AutoDest_1. subst. cbn in *. lia.
         + boolean_simplifier. spec_reflector Nat.eqb_spec.
           apply List.Unique.failure_bounds in AutoDest_1. contradiction.

@@ -1,3 +1,7 @@
+{
+open Parser
+}
+
 let digit = ['1'-'9']
 let syntaxcharacter = ['^' '$' '\\' '.' '*' '+' '?' '(' ')' '[' ']' '{' '}' '|']
 let patterncharacter = _#syntaxcharacter

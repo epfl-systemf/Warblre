@@ -1,3 +1,7 @@
+%{
+    open Warblre.Extracted.Patterns
+%}
+
 %token <char> CHAR
 %token <char> NZDIGIT
 %token ALT
@@ -12,26 +16,26 @@
 %token ZERO
 %token EOF
 
-%start <Warblre.Extracted.Patterns.coq_Regex> main
+%start <coq_Regex> main
 %type  <char> decimaldigit
 %type  <string> decimaldigits_
 %type  <int> decimaldigits
 %type  <char> patterncharacter
 %type  <char> syntaxcharacter
-%type  <Warblre.Extracted.Patterns.coq_Regex> pattern
-%type  <Warblre.Extracted.Patterns.coq_Regex> disjunction
-%type  <Warblre.Extracted.Patterns.coq_Regex> alternative
-%type  <Warblre.Extracted.Patterns.coq_Regex> term
-%type  <Warblre.Extracted.Patterns.coq_Regex> assertion
-%type  <Warblre.Extracted.Patterns.coq_Regex> atom
-%type  <Warblre.Extracted.Patterns.coq_Regex> atomescape
-%type  <Warblre.Extracted.Patterns.coq_Quantifier> quantifier
+%type  <coq_Regex> pattern
+%type  <coq_Regex> disjunction
+%type  <coq_Regex> alternative
+%type  <coq_Regex> term
+%type  <coq_Regex> assertion
+%type  <coq_Regex> atom
+%type  <coq_Regex> atomescape
+%type  <coq_Quantifier> quantifier
 %type  <Charclasses.char_group> characterclassescape
 %type  <char> characterescape
 %type  <char> controlescape
 %type  <char> identityescape
 %type  <string> decimalescape
-%type  <Warblre.Extracted.Patterns.character> characterclass
+%type  <character> characterclass
 %type  <Charclasses.char_class> classcontents
 %type  <Charclasses.char_class> nonemptyclassranges
 %type  <Charclasses.char_class> nonemptyclassrangesnodash
@@ -41,6 +45,7 @@
 %type  <Charclasses.char_class_elt> classescape
 
 %%
+
 
 decimaldigit:
   | nz=NZDIGIT { nz }
@@ -62,52 +67,52 @@ pattern:
 
 disjunction:
   | a=alternative { a }
-  | a=alternative ALT d=disjunction { Warblre.Extracted.Patterns.Disjunction(a,d) }
+  | a=alternative ALT d=disjunction { Disjunction(a,d) }
 
 alternative:
-  | a=alternative t=term { Warblre.Extracted.Patterns.Seq(a,t) }
+  | a=alternative t=term { Seq(a,t) }
   | t=term { t } /* differs from the spec here */
-  | { Warblre.Extracted.Patterns.Empty }
+  | { Empty }
 
 term:
   | a=assertion { a }
   | a=atom { a }
-  | a=atom q=quantifier { Warblre.Extracted.Patterns.Quantified(a,q) }
-/* separation between usual quantifier and counted ones since they are separate in the OCaml engine AST. Could be changed if needed */
+  | a=atom q=quantifier { Quantified(a,q) }
+
 
 assertion:
 //   | HAT { Raw_anchor(BeginInput) }
 //   | DOLLAR { Raw_anchor(EndInput) }
 //   | BACKSL LOWB { Raw_anchor(WordBoundary) }
 //   | BACKSL UPB { Raw_anchor(NonWordBoundary) }
-  | LPAR QMARK EQUAL d=disjunction RPAR { Warblre.Extracted.Patterns.Lookahead(d) }
-  | LPAR QMARK EXCL d=disjunction RPAR { Warblre.Extracted.Patterns.NegativeLookahead(d) }
-  | LPAR QMARK LESS EQUAL d=disjunction RPAR { Warblre.Extracted.Patterns.Lookbehind(d) }
-  | LPAR QMARK LESS EXCL d=disjunction RPAR { Warblre.Extracted.Patterns.NegativeLookbehind(d) }
+  | LPAR QMARK EQUAL d=disjunction RPAR { Lookahead(d) }
+  | LPAR QMARK EXCL d=disjunction RPAR { NegativeLookahead(d) }
+  | LPAR QMARK LESS EQUAL d=disjunction RPAR { Lookbehind(d) }
+  | LPAR QMARK LESS EXCL d=disjunction RPAR { NegativeLookbehind(d) }
 
 quantifier:
-  | STAR { Warblre.Extracted.Patterns.Greedy(Warblre.Extracted.Patterns.Star) }
-  | STAR QMARK { Warblre.Extracted.Patterns.Lazy(Warblre.Extracted.Patterns.Star) }
-  | PLUS { Warblre.Extracted.Patterns.Greedy(Warblre.Extracted.Patterns.Plus) }
-  | PLUS QMARK { Warblre.Extracted.Patterns.Lazy(Warblre.Extracted.Patterns.Plus) }
-  | QMARK { Warblre.Extracted.Patterns.Greedy(Warblre.Extracted.Patterns.Question) }
-  | QMARK QMARK { Warblre.Extracted.Patterns.Lazy(Warblre.Extracted.Patterns.Question) }
-  | LBRAC d=decimaldigits RBRAC { Warblre.Extracted.Patterns.Greedy(Warblre.Extracted.Patterns.RepExact(d)) }
-  | LBRAC d=decimaldigits RBRAC QMARK{ Warblre.Extracted.Patterns.Lazy(Warblre.Extracted.Patterns.RepExact(d)) }
-  | LBRAC d=decimaldigits COMMA RBRAC { Warblre.Extracted.Patterns.Greedy(Warblre.Extracted.Patterns.RepPartialRange(d)) }
-  | LBRAC d=decimaldigits COMMA RBRAC QMARK { Warblre.Extracted.Patterns.Lazy(Warblre.Extracted.Patterns.RepPartialRange(d)) }
-  | LBRAC dmin=decimaldigits COMMA dmax=decimaldigits RBRAC { Warblre.Extracted.Patterns.Greedy(Warblre.Extracted.Patterns.RepRange(dmin,dmax)) }
-  | LBRAC dmin=decimaldigits COMMA dmax=decimaldigits RBRAC QMARK { Warblre.Extracted.Patterns.Lazy(Warblre.Extracted.Patterns.RepRange(dmin,dmax)) }
+  | STAR { Greedy(Star) }
+  | STAR QMARK { Lazy(Star) }
+  | PLUS { Greedy(Plus) }
+  | PLUS QMARK { Lazy(Plus) }
+  | QMARK { Greedy(Question) }
+  | QMARK QMARK { Lazy(Question) }
+  | LBRAC d=decimaldigits RBRAC { Greedy(RepExact(d)) }
+  | LBRAC d=decimaldigits RBRAC QMARK{ Lazy(RepExact(d)) }
+  | LBRAC d=decimaldigits COMMA RBRAC { Greedy(RepPartialRange(d)) }
+  | LBRAC d=decimaldigits COMMA RBRAC QMARK { Lazy(RepPartialRange(d)) }
+  | LBRAC dmin=decimaldigits COMMA dmax=decimaldigits RBRAC { Greedy(RepRange(dmin,dmax)) }
+  | LBRAC dmin=decimaldigits COMMA dmax=decimaldigits RBRAC QMARK { Lazy(RepRange(dmin,dmax)) }
 
 atom:
-  | c=patterncharacter { Warblre.Extracted.Patterns.Char(c) }  
+  | c=patterncharacter { Char(c) }  
 /* TODO: { for instance can be parsed as single char. But not (. I'm not sure where this is in the spec. Also I'm not sure why, if I add a similar rule for LBRAC, it does not work */
-  | DOT { Warblre.Extracted.Patterns.Dot }
+  | DOT { Dot }
 //   | BACKSL a=atomescape { a }
 //   | c=characterclass { Raw_character c }
-//   | LPAR d=disjunction RPAR { Raw_capture d }
+  | LPAR d=disjunction RPAR { Group (None,d) }
 /* TODO: fail if there is a group specifier */
-//   | LPAR QMARK COLONS d=disjunction RPAR { d }
+  | LPAR QMARK COLONS d=disjunction RPAR { d }
 
 syntaxcharacter:
   | HAT { '^' }
@@ -162,17 +167,17 @@ patterncharacter:
 
 
 atomescape:
-  | d=decimalescape { raise Warblre.Extracted.Patterns.Unsupported_backref }
+  | d=decimalescape { raise Unsupported_backref }
   | c=characterclassescape { Raw_character(Group c) }
   | c=characterescape { Raw_character(Char c) }
-  | LOWK { raise Warblre.Extracted.Patterns.Unsupported_named_groups }
+  | LOWK { raise Unsupported_named_groups }
 
 characterescape:
   | c=controlescape { c }
   | ZERO { char_of_int 0 }
 /* TODO: actually before raising the exception, it depends if there is a hexdigit sequence after the x, otherwise should be read as character x */
-  | LOWX { raise Warblre.Extracted.Patterns.Unsupported_hex }
-  | LOWU { raise Warblre.Extracted.Patterns.Unsupported_unicode }
+  | LOWX { raise Unsupported_hex }
+  | LOWU { raise Unsupported_unicode }
   | i=identityescape { i }
 
 controlescape:
@@ -205,8 +210,8 @@ characterclassescape:
   | UPS { NonSpace }
   | LOWW { Word }
   | UPW { NonWord }
-  | LOWP { raise Warblre.Extracted.Patterns.Unsupported_prop }
-  | UPP { raise Warblre.Extracted.Patterns.Unsupported_prop }
+  | LOWP { raise Unsupported_prop }
+  | UPP { raise Unsupported_prop }
 
 characterclass:
   | LBRACK HAT c=classcontents RBRACK { NegClass c }
@@ -286,7 +291,7 @@ classescape:
   | LOWB { CChar (char_of_int 8) }	/* basckspace ascii character */
   | c=characterclassescape { CGroup c }
   | c=characterescape  { CChar c }
-  | d=decimalescape { raise Warblre.Extracted.Patterns.Unsupported_octal }
+  | d=decimalescape { raise Unsupported_octal }
 
 
 %%

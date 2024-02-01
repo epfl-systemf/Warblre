@@ -174,7 +174,10 @@ Module Patterns.
   | Quantified (r: Regex) (q: Quantifier)
   | Seq (r1 r2: Regex)
   | Group (name: option GroupName) (r: Regex)
-  (*+ Assertions: ^ $ \b \B *)
+  | InputStart (*+ ^ *)
+  | InputEnd (*+ $ *)
+  | WordBoundary (*+ \b *)
+  | NotWordBoundary (*+ \B *)
   | Lookahead (r: Regex)
   | NegativeLookahead (r: Regex)
   | Lookbehind (r: Regex)
@@ -353,6 +356,10 @@ Module Patterns.
         | Quantified r0 q => walk r0 (Quantified_inner q :: ctx)
         | Seq r1 r2 => walk r1 (Seq_left r2 :: ctx) ++ walk r2 (Seq_right r1 :: ctx)
         | Group name r0 => walk r0 (Group_inner name :: ctx)
+        | InputStart => nil
+        | InputEnd => nil
+        | WordBoundary => nil
+        | NotWordBoundary => nil
         | Lookahead r0 => walk r0 (Lookahead_inner :: ctx)
         | NegativeLookahead r0 => walk r0 (NegativeLookahead_inner :: ctx)
         | Lookbehind r0 => walk r0 (Lookbehind_inner :: ctx)
@@ -407,6 +414,10 @@ Module Patterns.
           + symmetry in Eq_indexed. specialize (IHr1 _ _ _ Eq_indexed). apply Relation_Operators.rt_trans with (1 := IHr1). apply Relation_Operators.rt_step. constructor.
           + symmetry in Eq_indexed. specialize (IHr2 _ _ _ Eq_indexed). apply Relation_Operators.rt_trans with (1 := IHr2). apply Relation_Operators.rt_step. constructor.
         - specialize (IHr _ _ _ Eq_indexed). apply Relation_Operators.rt_trans with (1 := IHr). apply Relation_Operators.rt_step. constructor.
+        - rewrite -> List.Indexing.Nat.nil in Eq_indexed. Result.assertion_failed_helper.
+        - rewrite -> List.Indexing.Nat.nil in Eq_indexed. Result.assertion_failed_helper.
+        - rewrite -> List.Indexing.Nat.nil in Eq_indexed. Result.assertion_failed_helper.
+        - rewrite -> List.Indexing.Nat.nil in Eq_indexed. Result.assertion_failed_helper.
         - specialize (IHr _ _ _ Eq_indexed). apply Relation_Operators.rt_trans with (1 := IHr). apply Relation_Operators.rt_step. constructor.
         - specialize (IHr _ _ _ Eq_indexed). apply Relation_Operators.rt_trans with (1 := IHr). apply Relation_Operators.rt_step. constructor.
         - specialize (IHr _ _ _ Eq_indexed). apply Relation_Operators.rt_trans with (1 := IHr). apply Relation_Operators.rt_step. constructor.

@@ -1,5 +1,5 @@
 From Coq Require Import PeanoNat ZArith Bool Lia Program.Equality List.
-From Warblre Require Import List Tactics Specialize Focus Result Base Patterns StaticSemantics Notation Semantics Definitions EarlyErrors.
+From Warblre Require Import List Tactics Specialize Focus Result Base Patterns StaticSemantics Notation Semantics Definitions EarlyErrors Compile.
 
 Import Result.Notations.
 Import Semantics.
@@ -441,6 +441,14 @@ Module Correctness.
         MatchState.normalize.
         refine (List.Update.Nat.One.prop_preservation _ _ _ _ _ VCF_captures_y _ AutoDest_1).
         focus § _ [] _ § auto destruct in AutoDest_0; injection AutoDest_0 as <-; Zhelper; MatchState.normalize; lia.
+      - injection Eq_m as Eq_m. subst. intros Vx Eq_m.
+        focus § _ [] _ § auto destruct in Eq_m. search.
+      - injection Eq_m as Eq_m. subst. intros Vx Eq_m.
+        focus § _ [] _ § auto destruct in Eq_m. search.
+      - injection Eq_m as Eq_m. subst. intros Vx Eq_m.
+        focus § _ [] _ § auto destruct in Eq_m. search.
+      - injection Eq_m as Eq_m. subst. intros Vx Eq_m.
+        focus § _ [] _ § auto destruct in Eq_m. search.
       - intros Vx Eq_z.
         unfold HonoresContinuation in IHr.
         focus § _ [] _ § auto destruct in Eq_m; injection Eq_m as <-.
@@ -721,6 +729,30 @@ Module Correctness.
             dependent destruction P_x_y0.
             dependent destruction H0. cbn in *.
             lia.
+      - injection Eq_m as Eq_m. subst. intros x c V_x Eq_af.
+        focus § _ [] _ § auto destruct in Eq_af; [search | injection Eq_af as <-].
+        focus § _ [] _ § auto destruct in AutoDest_.
+        + match goal with | [ H: List.Indexing.Int.indexing _ _ = Failure _ |- _ ] => apply List.Indexing.Int.failure_bounds in H; MatchState.solve_with lia end.
+        + destruct (RegExp.multiline rer); discriminate.
+      - injection Eq_m as Eq_m. subst. intros x c V_x Eq_af.
+        focus § _ [] _ § auto destruct in Eq_af; [search | injection Eq_af as <-].
+        focus § _ [] _ § auto destruct in AutoDest_.
+        + match goal with | [ H: List.Indexing.Int.indexing _ _ = Failure _ |- _ ] => apply List.Indexing.Int.failure_bounds in H; MatchState.solve_with lia end.
+        + destruct (RegExp.multiline rer); discriminate.
+      - injection Eq_m as Eq_m. subst. intros x c V_x Eq_af.
+        focus § _ [] _ § auto destruct in Eq_af; try search.
+        all: lazymatch goal with | [ H: isWordChar _ _ _ = Failure _ |- _ ] =>  unfold isWordChar in H; focus § _ [] _ § auto destruct in H; clear_result; subst end.
+        all: try lazymatch goal with
+            | [ H: wordCharacters _ = Failure _ |- _ ] => exfalso; apply (Compile.Safety.wordCharacters _ _ H)
+            | [ H: _ [_] = Failure _ |- _ ] => apply List.Indexing.Int.failure_bounds in H; MatchState.solve_with lia
+            end.
+      - injection Eq_m as Eq_m. subst. intros x c V_x Eq_af.
+        focus § _ [] _ § auto destruct in Eq_af; try search.
+        all: lazymatch goal with | [ H: isWordChar _ _ _ = Failure _ |- _ ] =>  unfold isWordChar in H; focus § _ [] _ § auto destruct in H; clear_result; subst end.
+        all: try lazymatch goal with
+            | [ H: wordCharacters _ = Failure _ |- _ ] => exfalso; apply (Compile.Safety.wordCharacters _ _ H)
+            | [ H: _ [_] = Failure _ |- _ ] => apply List.Indexing.Int.failure_bounds in H; MatchState.solve_with lia
+            end.
       - focus § _ [] _ § auto destruct in Eq_m; injection Eq_m as <-.
         apply positiveLookaroundMatcher with (dir' := forward).
         + apply IntermediateValue.compileSubPattern with (1 := AutoDest_).
@@ -1035,6 +1067,30 @@ Module Correctness.
         + focus § _ [] _ § auto destruct in AutoDest_0.
           * injection AutoDest_0 as <-. discriminate.
           * injection AutoDest_0 as <-. discriminate.
+      - clear_result. subst. intros x c Vx H.
+        focus § _ [] _ § auto destruct in H; try search.
+        focus § _ [] _ § auto destruct in AutoDest_. clear_result. subst.
+        + match goal with | [ H: List.Indexing.Int.indexing _ _ = Failure _ |- _ ] => apply List.Indexing.Int.failure_bounds in H; MatchState.solve_with lia end.
+        + destruct (RegExp.multiline rer); discriminate.
+      - clear_result. subst. intros x c Vx H.
+        focus § _ [] _ § auto destruct in H; [search| ].
+        focus § _ [] _ § auto destruct in AutoDest_. clear_result. subst.
+        + match goal with | [ H: List.Indexing.Int.indexing _ _ = Failure _ |- _ ] => apply List.Indexing.Int.failure_bounds in H; MatchState.solve_with lia end.
+        + destruct (RegExp.multiline rer); discriminate.
+      - clear_result. subst. intros x c Vx H.
+        focus § _ [] _ § auto destruct in H; try search.
+        all: lazymatch goal with | [ H: isWordChar _ _ _ = Failure _ |- _ ] =>  unfold isWordChar in H; focus § _ [] _ § auto destruct in H; clear_result; subst end.
+        all: try lazymatch goal with
+            | [ H: wordCharacters _ = Failure _ |- _ ] => exfalso; apply (Compile.Safety.wordCharacters _ _ H)
+            | [ H: _ [_] = Failure _ |- _ ] => apply List.Indexing.Int.failure_bounds in H; MatchState.solve_with lia
+            end.
+      - clear_result. subst. intros x c Vx H.
+        focus § _ [] _ § auto destruct in H; try search.
+        all: lazymatch goal with | [ H: isWordChar _ _ _ = Failure _ |- _ ] =>  unfold isWordChar in H; focus § _ [] _ § auto destruct in H; clear_result; subst end.
+        all: try lazymatch goal with
+            | [ H: wordCharacters _ = Failure _ |- _ ] => exfalso; apply (Compile.Safety.wordCharacters _ _ H)
+            | [ H: _ [_] = Failure _ |- _ ] => apply List.Indexing.Int.failure_bounds in H; MatchState.solve_with lia
+            end.
       - focus § _ [] _ § auto destruct in Eq_m; injection Eq_m as <-.
         apply positiveLookaroundMatcher with (dir' := forward).
         + apply IntermediateValue.compileSubPattern with (1 := AutoDest_).
@@ -1106,4 +1162,33 @@ Module Correctness.
       - admit.
     Abort.*)
   End Termination.
+
+  (* For all matcher m *)
+  Definition matcher_invariant (str: list Character) (rer: RegExp) (m: Matcher) (dir: direction) :=
+      (* State x and continuation c *)
+      forall x c,
+      (* such that x is valid *)
+      MatchState.Valid str rer x ->
+      (* Then either *)
+        (* The match fails *)
+        (m x c = failure) \/
+        (* or *)
+        (* m did some work, yielding a new state y, which was passed to the continuation *)
+        (exists y, MatchState.Valid str rer y /\ progress dir x (Success (Some y)) /\ c y = m x c).
+
+  Theorem compiledSubPattern_matcher_invariant: forall root r ctx rer dir str m,
+      countLeftCapturingParensWithin root nil = RegExp.capturingGroupsCount rer ->
+      Root root r ctx ->
+      EarlyErrors.Pass.Regex root nil ->
+      compileSubPattern r ctx rer dir = Success m ->
+      matcher_invariant str rer m dir.
+  Proof.
+    intros root r ctx rer dir str m.
+    intros Eq_rer R_r P_root Eq_m x c V_x.
+    destruct (m x c) as [ [ | ] | [ | ] ] eqn:Eq_match.
+    - right. apply (IntermediateValue.compileSubPattern _ _ _ _ _ _ Eq_m _ _ _ V_x Eq_match).
+    - left. reflexivity.
+    - right. apply (Termination.compileSubPattern _ _ _ _ _ _ Eq_m _ _ V_x Eq_match).
+    - right. apply (Safety.compileSubPattern _ _ _ _ _ _ _ Eq_rer R_r P_root Eq_m _ _ V_x Eq_match).
+  Qed.
 End Correctness.

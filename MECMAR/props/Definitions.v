@@ -10,6 +10,11 @@ Notation "s '[@' n '$' c ']'" := (match_state s n c) (at level 50, left associat
 (* Notation for the "tiny step" done in a character class matcher *)
 Notation "'step{' dir '}' e " := (if Direction.eqb dir forward then (e + 1)%Z else (e - 1)%Z) (at level 51, right associativity).
 
+Ltac clear_result := autounfold with result_wrappers in *; repeat match goal with
+| [ E: Success _ = Success _ |- _ ] => injection E as E
+| [ E: Failure _ = Failure _ |- _ ] => injection E as E
+end.
+
 Module Definitions.
   Definition characterClass_successful_state input endIndex captures (dir: direction) := input [@ step{dir} endIndex $ captures ].
 

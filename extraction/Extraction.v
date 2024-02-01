@@ -25,9 +25,9 @@ Extract Constant GroupName.eqb => "Int.equal".
 
 Extract Constant CharSet.all => "Interop.all_chars".
 Extract Constant CharSet.line_terminators => "Interop.line_terminators".
-Extract Constant CharSet.white_spaces => "Interop.line_terminators".
-Extract Constant CharSet.digits => "Interop.line_terminators".
-Extract Constant CharSet.ascii_word_characters => "Interop.line_terminators".
+Extract Constant CharSet.white_spaces => "Interop.white_spaces".
+Extract Constant CharSet.digits => "Interop.digits".
+Extract Constant CharSet.ascii_word_characters => "Interop.ascii_word_characters".
 
 Extract Constant Patterns.GroupName.type => "string".
 Extract Constant Patterns.GroupName.eqs => "String.equal".

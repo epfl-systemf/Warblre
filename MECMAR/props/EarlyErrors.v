@@ -62,10 +62,10 @@ Module EarlyErrors.
     | Quantified: forall r q ctx, Regex r (Quantified_inner q :: ctx) -> Quantifier q -> Regex (Patterns.Quantified r q) ctx
     | Seq: forall r1 r2 ctx, Regex r1 (Seq_left r2 :: ctx) -> Regex r2 (Seq_right r1 :: ctx) -> Regex (Patterns.Seq r1 r2) ctx
     | Group: forall name r ctx, Regex r (Group_inner name :: ctx) -> Regex (Patterns.Group name r) ctx
-    | AssertInputStart: forall ctx, Regex Patterns.AssertInputStart ctx
-    | AssertInputEnd: forall ctx, Regex Patterns.AssertInputEnd ctx
-    | AssertWordBoundary: forall ctx, Regex Patterns.AssertWordBoundary ctx
-    | AssertNotWordBoundary: forall ctx, Regex Patterns.AssertNotWordBoundary ctx
+    | InputStart: forall ctx, Regex Patterns.InputStart ctx
+    | InputEnd: forall ctx, Regex Patterns.InputEnd ctx
+    | WordBoundary: forall ctx, Regex Patterns.WordBoundary ctx
+    | NotWordBoundary: forall ctx, Regex Patterns.NotWordBoundary ctx
     | Lookahead: forall r ctx, Regex r (Lookahead_inner :: ctx) -> Regex (Patterns.Lookahead r) ctx
     | NegativeLookahead: forall r ctx, Regex r (NegativeLookahead_inner :: ctx) -> Regex (Patterns.NegativeLookahead r) ctx
     | Lookbehind: forall r ctx, Regex r (Lookbehind_inner :: ctx) -> Regex (Patterns.Lookbehind r) ctx

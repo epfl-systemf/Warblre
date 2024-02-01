@@ -544,7 +544,7 @@ Module Semantics.
   (* 1. Return CompileAssertion of Assertion with argument rer. *)
     (** 22.2.2.4 Runtime Semantics: CompileAssertion *)
     (** Assertion :: ^ *)
-    | AssertInputStart =>
+    | InputStart =>
         (* 1. Return a new Matcher with parameters (x, c) that captures rer and performs the following steps when called: *)
         (fun (x: MatchState) (c: MatcherContinuation) =>
           (* a. Assert: x is a MatchState. *)
@@ -562,7 +562,7 @@ Module Semantics.
           failure): Matcher
 
     (** Assertion :: $ *)
-    | AssertInputEnd =>
+    | InputEnd =>
         (* 1. Return a new Matcher with parameters (x, c) that captures rer and performs the following steps when called: *)
         (fun (x: MatchState) (c: MatcherContinuation) =>
           (* a. Assert: x is a MatchState. *)
@@ -582,7 +582,7 @@ Module Semantics.
           failure): Matcher
 
     (** Assertion :: \b *)
-    | AssertWordBoundary =>
+    | WordBoundary =>
         (* 1. Return a new Matcher with parameters (x, c) that captures rer and performs the following steps when called: *)
         (fun (x: MatchState) (c: MatcherContinuation) =>
           (* a. Assert: x is a MatchState. *)
@@ -603,7 +603,7 @@ Module Semantics.
           failure): Matcher
 
     (** Assertion :: \B *)
-    | AssertNotWordBoundary =>
+    | NotWordBoundary =>
         (* 1. Return a new Matcher with parameters (x, c) that captures rer and performs the following steps when called: *)
         (fun (x: MatchState) (c: MatcherContinuation) =>
           (* a. Assert: x is a MatchState. *)

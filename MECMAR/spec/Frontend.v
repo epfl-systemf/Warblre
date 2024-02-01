@@ -49,6 +49,7 @@ Module Frontend.
     | AtomEsc _ => false
     | Dot => false
     | CharacterClass _ => false
+    | InputStart | InputEnd | WordBoundary | NotWordBoundary => false
     end.
              
   
@@ -203,6 +204,7 @@ A Match Record is a Record value used to encapsulate the start and end indices o
     | Dot => SearchFrom i
     | AtomEsc _ => SearchFrom i
     | CharacterClass _ => SearchFrom i
+    | InputStart | InputEnd | WordBoundary | NotWordBoundary => SearchFrom i
     end.
 
   Definition find_nth_group_name (r:Regex) (n:nat) : Result.Result (option GroupName) MatchError :=

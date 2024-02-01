@@ -174,10 +174,10 @@ Module Patterns.
   | Quantified (r: Regex) (q: Quantifier)
   | Seq (r1 r2: Regex)
   | Group (name: option GroupName) (r: Regex)
-  | AssertInputStart (*+ ^ *)
-  | AssertInputEnd (*+ $ *)
-  | AssertWordBoundary (*+ \b *)
-  | AssertNotWordBoundary (*+ \B *)
+  | InputStart (*+ ^ *)
+  | InputEnd (*+ $ *)
+  | WordBoundary (*+ \b *)
+  | NotWordBoundary (*+ \B *)
   | Lookahead (r: Regex)
   | NegativeLookahead (r: Regex)
   | Lookbehind (r: Regex)
@@ -356,10 +356,10 @@ Module Patterns.
         | Quantified r0 q => walk r0 (Quantified_inner q :: ctx)
         | Seq r1 r2 => walk r1 (Seq_left r2 :: ctx) ++ walk r2 (Seq_right r1 :: ctx)
         | Group name r0 => walk r0 (Group_inner name :: ctx)
-        | AssertInputStart => nil
-        | AssertInputEnd => nil
-        | AssertWordBoundary => nil
-        | AssertNotWordBoundary => nil
+        | InputStart => nil
+        | InputEnd => nil
+        | WordBoundary => nil
+        | NotWordBoundary => nil
         | Lookahead r0 => walk r0 (Lookahead_inner :: ctx)
         | NegativeLookahead r0 => walk r0 (NegativeLookahead_inner :: ctx)
         | Lookbehind r0 => walk r0 (Lookbehind_inner :: ctx)

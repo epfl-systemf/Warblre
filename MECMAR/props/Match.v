@@ -1162,4 +1162,33 @@ Module Correctness.
       - admit.
     Abort.*)
   End Termination.
+
+  (* For all matcher m *)
+  Definition matcher_invariant (str: list Character) (rer: RegExp) (m: Matcher) (dir: direction) :=
+      (* State x and continuation c *)
+      forall x c,
+      (* such that x is valid *)
+      MatchState.Valid str rer x ->
+      (* Then either *)
+        (* The match fails *)
+        (m x c = failure) \/
+        (* or *)
+        (* m did some work, yielding a new state y, which was passed to the continuation *)
+        (exists y, MatchState.Valid str rer y /\ progress dir x (Success (Some y)) /\ c y = m x c).
+
+  Theorem compiledSubPattern_matcher_invariant: forall root r ctx rer dir str m,
+      countLeftCapturingParensWithin root nil = RegExp.capturingGroupsCount rer ->
+      Root root r ctx ->
+      EarlyErrors.Pass.Regex root nil ->
+      compileSubPattern r ctx rer dir = Success m ->
+      matcher_invariant str rer m dir.
+  Proof.
+    intros root r ctx rer dir str m.
+    intros Eq_rer R_r P_root Eq_m x c V_x.
+    destruct (m x c) as [ [ | ] | [ | ] ] eqn:Eq_match.
+    - right. apply (IntermediateValue.compileSubPattern _ _ _ _ _ _ Eq_m _ _ _ V_x Eq_match).
+    - left. reflexivity.
+    - right. apply (Termination.compileSubPattern _ _ _ _ _ _ Eq_m _ _ V_x Eq_match).
+    - right. apply (Safety.compileSubPattern _ _ _ _ _ _ _ Eq_rer R_r P_root Eq_m _ _ V_x Eq_match).
+  Qed.
 End Correctness.

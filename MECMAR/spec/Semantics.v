@@ -440,6 +440,7 @@ Module Semantics.
     (* 3. Let cap be a copy of x's captures List. *)
     let cap := MatchState.captures x in
     (* 4. For each integer k in the inclusive interval from parenIndex + 1 to parenIndex + parenCount, set cap[k] to undefined. *)
+    (*+ The additional +1 is normal: the range operator --- is non-inclusive on the right *)
     set cap[(parenIndex + 1) --- (parenIndex + parenCount + 1) ] := undefined in
     (* 5. Let Input be x's input. *)
     let input := MatchState.input x in
@@ -552,7 +553,7 @@ Module Semantics.
           let input := MatchState.input x in
           (* d. Let e be x's endIndex. *)
           let e := MatchState.endIndex x in
-          (* e. If e = 0, or if rer.[[Multiline]] is true and the character Input[ e ] is matched by LineTerminator, then *)
+          (* e. If e = 0, or if rer.[[Multiline]] is true and the character Input[e - 1] is matched by LineTerminator, then *)
           if! (e =? 0)%Z ||! ((RegExp.multiline rer is true) &&! (let! c =<< input[(e-1)%Z] in CharSet.contains CharSet.line_terminators c)) then
             (* i. Return c(x). *)
             c x
@@ -572,7 +573,7 @@ Module Semantics.
           let e := MatchState.endIndex x in
           (* e. Let InputLength be the number of elements in Input. *)
           let inputLength := List.length input in
-          (* f. If e = InputLength, or if rer.[[Multiline]] is true and the character Input[ e ] is matched by LineTerminator, then *)
+          (* f. If e = InputLength, or if rer.[[Multiline]] is true and the character Input[e] is matched by LineTerminator, then *)
           if! (e =? inputLength)%Z ||! ((RegExp.multiline rer is true) &&! (let! c =<< input[e] in CharSet.contains CharSet.line_terminators c)) then
             (* i. Return c(x). *)
             c x
@@ -765,9 +766,9 @@ Module Semantics.
         (* 2. Return CharacterSetMatcher(rer, cc.[[CharSet]], cc.[[Invert]], direction). *)
         characterSetMatcher rer (CompiledCharacterClass.charSet cc) (CompiledCharacterClass.invert cc) direction
 
+    (**  Atom :: ( GroupSpecifier_opt Disjunction ) *)
     | Group id r =>
-        (**  Atom :: ( GroupSpecifier_opt Disjunction ) *)
-        (* 1.  *)
+        (* 1. Let m be CompileSubpattern of Disjunction with arguments rer and direction. *)
         let! m =<< compileSubPattern r (Group_inner id :: ctx) rer direction in
         (* 2. Let parenIndex be CountLeftCapturingParensBefore(Atom). *)
         let parenIndex := countLeftCapturingParensBefore self ctx in
@@ -892,6 +893,7 @@ Module Semantics.
         y
       in
       (* d. Let cap be a List of rer.[[CapturingGroupsCount]] undefined values, indexed 1 through rer.[[CapturingGroupsCount]]. *)
+      (*+ The fact that the array starts at 1 is handled by the nat indexer *)
       let cap := List.repeat undefined (RegExp.capturingGroupsCount rer) in
       (* e. Let x be the MatchState (Input, index, cap). *)
       let x := match_state input (Z.of_nat index) cap in

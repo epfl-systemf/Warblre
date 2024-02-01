@@ -1,7 +1,9 @@
 From Coq Require Import ZArith.
 From Warblre Require Import Result Numeric Characters Patterns Notation.
-
 Set Warnings "-uniform-inheritance".
+
+Create HintDb result_wrappers.
+
 Module Coercions.
 
   (** These ones are used implicitly by the specification *)
@@ -32,3 +34,6 @@ Module Coercions.
   Coercion wrap_Matcher := fun (F: Type) (m: Matcher) => @Success _ F m.
   Coercion wrap_CharSet := fun (F: Type) (s: CharSet) => @Success _ F s.
 End Coercions.
+
+#[export]
+Hint Unfold Coercions.wrap_bool Coercions.wrap_Character Coercions.wrap_option Coercions.wrap_Result Coercions.wrap_Matcher Coercions.wrap_CharSet: result_wrappers.

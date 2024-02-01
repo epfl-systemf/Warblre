@@ -78,6 +78,10 @@ let rec regex_to_string (r:coq_Regex) : string =
   | Quantified (r1, q) -> noncap(regex_to_string r1) ^ quantifier_to_string q
   | Seq (r1, r2) -> noncap(regex_to_string r1) ^ noncap(regex_to_string r2)
   | Group (_,r1) -> "("^ regex_to_string r1 ^")" (* ignoring the name for now *)
+  | AssertInputStart -> "^"
+  | AssertInputEnd -> "$"
+  | AssertWordBoundary -> "\\b"
+  | AssertNotWordBoundary -> "\\B"
   | Lookahead (r1) -> "(?="^ regex_to_string r1 ^")"
   | NegativeLookahead (r1) -> "(?!"^ regex_to_string r1 ^")"
   | Lookbehind (r1) -> "(?<="^ regex_to_string r1 ^ ")"
@@ -443,6 +447,7 @@ let rec fill_backref (r:coq_Regex) (maxgroup:int) : coq_Regex =
   | Quantified (r1,quant) -> Quantified (fill_backref r1 maxgroup, quant)
   | Seq (r1,r2) -> Seq (fill_backref r1 maxgroup, fill_backref r2 maxgroup)
   | Group (nameop, r1) -> Group (nameop, fill_backref r1 maxgroup)
+  | AssertInputStart | AssertInputEnd | AssertWordBoundary | AssertNotWordBoundary -> r
   | Lookahead (r1) -> Lookahead (fill_backref r1 maxgroup)
   | NegativeLookahead (r1) -> NegativeLookahead (fill_backref r1 maxgroup)
   | Lookbehind (r1) -> Lookbehind (fill_backref r1 maxgroup)

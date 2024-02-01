@@ -71,6 +71,10 @@ let rec print_regex (r:coq_Regex) : string =
   | NegativeLookahead (r1) -> "NegativeLookahead(" ^ print_regex r1 ^ ")"
   | Lookbehind (r1) -> "Lookbehind(" ^ print_regex r1 ^ ")"
   | NegativeLookbehind (r1) -> "NegativeLookbehind(" ^ print_regex r1 ^ ")"
+  | InputStart -> "InputStart"
+  | InputEnd -> "InputEnd"
+  | WordBoundary -> "WordBoundary"
+  | NotWordBoundary -> "NotWordBoundary"
 
 
 (** * Calling the Parser  *)

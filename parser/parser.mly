@@ -81,10 +81,10 @@ term:
 
 
 assertion:
-//   | HAT { Raw_anchor(BeginInput) }
-//   | DOLLAR { Raw_anchor(EndInput) }
-//   | BACKSL LOWB { Raw_anchor(WordBoundary) }
-//   | BACKSL UPB { Raw_anchor(NonWordBoundary) }
+  | HAT { InputStart }
+  | DOLLAR { InputEnd }
+  | BACKSL LOWB { WordBoundary }
+  | BACKSL UPB { NotWordBoundary }
   | LPAR QMARK EQUAL d=disjunction RPAR { Lookahead(d) }
   | LPAR QMARK EXCL d=disjunction RPAR { NegativeLookahead(d) }
   | LPAR QMARK LESS EQUAL d=disjunction RPAR { Lookbehind(d) }

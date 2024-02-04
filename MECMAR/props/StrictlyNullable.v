@@ -105,20 +105,36 @@ Lemma strictly_nullable_repeatmatcher':
     (RER_ADEQUACY: countLeftCapturingParensWithin root nil = RegExp.capturingGroupsCount rer)
     (ROOT: Root root r ctx)
     (EARLY_ERRORS: EarlyErrors.Pass.Regex root nil),
-  forall (x:MatchState) (c:MatcherContinuation),
+  forall (x:MatchState) (c:MatcherContinuation)
+    (VALID: Valid (input x) rer x),
     repeatMatcher' m O%nat NoI.Inf true x c (countLeftCapturingParensBefore r ctx) (countLeftCapturingParensWithin r ctx) (repeatMatcherFuel O%nat x) = c x.
 Proof.
-  intros r root ctx rer dir m STRICTLY_NULLABLE COMPILE RER_ADEQUACY ROOT EARLY_ERRORS x c.
+  intros r root ctx rer dir m STRICTLY_NULLABLE COMPILE RER_ADEQUACY ROOT EARLY_ERRORS x c VALID.
   apply strictly_nullable_analysis_correct with (ctx:=ctx) (rer:=rer) (dir:=dir) (m:=m) in STRICTLY_NULLABLE; auto.
   (* we know that we have enouh fuel to do a single iteration *)
   destruct (repeatMatcherFuel 0 x) eqn:FUEL; try solve[unfold repeatMatcherFuel in FUEL; lia].
   simpl. repeat rewrite PeanoNat.Nat.add_sub.
+  (* capture validity *)
+  assert (CAP_VALID: Match.Correctness.Captures.Valid rer (countLeftCapturingParensBefore r ctx)
+                       (countLeftCapturingParensWithin r ctx)).
+  { intros i v Eq_indexed.
+    pose proof (List.Indexing.Nat.success_bounds _ _ _ Eq_indexed). rewrite -> List.Range.Nat.Bounds.length in *.
+    apply List.Range.Nat.Bounds.indexing in Eq_indexed.
+    pose proof (EarlyErrors.countLeftCapturingParensBefore_contextualized _ _ _ ROOT EARLY_ERRORS).
+    unfold countLeftCapturingParensBefore,countLeftCapturingParensWithin in *. cbn in *. lia. }
   destruct (List.Update.Nat.Batch.update None (captures x) (List.Range.Nat.Bounds.range (countLeftCapturingParensBefore r ctx) (countLeftCapturingParensBefore r ctx + countLeftCapturingParensWithin r ctx))) as [xupd|] eqn:UPD.
   (* The update for clearing internal registers cannot fail *)
-  2: { admit. }
+  2: { apply List.Update.Nat.Batch.failure_bounds in UPD.
+       unfold Match.Correctness.Captures.Valid in CAP_VALID.
+       destruct VALID as [ _ [ _ [ VCL_x _ ]]]. rewrite -> VCL_x in *. contradiction. }
   (* we are valid after the update *)
   assert (UPDVALID: Valid (input x) rer (match_state (input x) (endIndex x) xupd)).
-  { admit. }
+  { apply change_captures with (cap:=captures x); auto.
+    - apply List.Update.Nat.Batch.success_length in UPD. rewrite <- UPD.
+      destruct VALID as [_ [_ [LENGTH _]]]. auto.
+    - destruct VALID as [_ [_ [_ FORALL]]].
+      eapply List.Update.Nat.Batch.prop_preservation; eauto.
+      apply Correctness.CaptureRange.vCrUndefined. }
   unfold strictly_nullable_matcher in STRICTLY_NULLABLE.
   specialize (STRICTLY_NULLABLE (match_state (input x) (endIndex x) xupd)
               (fun y : MatchState =>
@@ -129,44 +145,8 @@ Proof.
                               (countLeftCapturingParensWithin r ctx) n) UPDVALID).
   destruct STRICTLY_NULLABLE as [MISMATCH | [y [VALIDy [SAMEIDX EQUAL]]]].
   - rewrite MISMATCH. simpl. auto.
-  - rewrite <- EQUAL. simpl in SAMEIDX. rewrite SAMEIDX. rewrite Z.eqb_refl.
-    simpl. auto.
-Admitted.
-(* we have to prove that the update goes well and preserves validity, but I expect this to be feasible *)
-
-
-
-
-(** * Transformation Correctness -- DEPRECATED *)
-(* I'm keeping this version around to remember how I reasoned about updates and validity *)
-(* Correctness of the transformation that replaces the star of a strictly nullable regex with epsilon *)
-
-(* The repeatMatcher', whether it compiles r* or empty when r is strictly nullable, *)
-(* returns matchers equal matchers *)
-(* this requires that rer is correct with regards to the root regex being compiled *)
-Lemma strictly_nullable_repeatmatcher_deprecated:
-  forall (r:Regex) (root:Regex) (ctx:RegexContext) (rer:RegExp) (dir:direction) (m:Matcher)
-    (STRICTLY_NULLABLE: strictly_nullable r = true)
-    (COMPILE: compileSubPattern r ctx rer dir = Success m)
-    (RER_ADEQUACY: countLeftCapturingParensWithin root nil = RegExp.capturingGroupsCount rer)
-    (ROOT: Root root r ctx)
-    (EARLY_ERRORS: EarlyErrors.Pass.Regex root nil),
-  forall (x:MatchState) (c:MatcherContinuation),
-    repeatMatcher' m O%nat NoI.Inf true x c (countLeftCapturingParensBefore r ctx) (countLeftCapturingParensWithin r ctx) (repeatMatcherFuel O%nat x) = c x.
-Proof.
-  intros r. induction r; intros root ctx rer dir m STRICTLY_NULLABLE COMPILE RER_ADEQUACY ROOT EARLY_ERRORS x c; simpl;
-    try solve [inversion STRICTLY_NULLABLE];
-    destruct (repeatMatcherFuel 0 x) eqn:FUEL; try solve[unfold repeatMatcherFuel in FUEL; lia].
-  (* Empty *)
-  - simpl in COMPILE. inversion COMPILE as [COMPILED]. clear COMPILE COMPILED.
-    simpl. repeat rewrite PeanoNat.Nat.add_sub. rewrite Nat.add_0_r.
-    rewrite nil_range. rewrite update_nil.
-    rewrite Z.eqb_refl. simpl. auto.
-  (* disjunction *)
-  -
-    (* I realize that induction over r is not a good idea. *)
-    (* (r1|r2)* is not r1*|r2* so how do I use my Induction Hypothesis? *)      
-      Admitted.
+  - rewrite <- EQUAL. simpl in SAMEIDX. rewrite SAMEIDX. rewrite Z.eqb_refl. auto.
+Qed.
 
 
 (** * Transformation correctness: Switching a strictly nullable regex starred for a n empty is correct  *)
@@ -179,10 +159,10 @@ Theorem strictly_nullable_same_matcher:
     (RER_ADEQUACY: countLeftCapturingParensWithin root nil = RegExp.capturingGroupsCount rer)
     (ROOT: Root root r (Quantified_inner (Greedy Star) :: ctx))
     (EARLY_ERRORS: EarlyErrors.Pass.Regex root nil),
-  forall (x:MatchState) (c:MatcherContinuation),
+  forall (x:MatchState) (c:MatcherContinuation) (VALID: Valid (input x) rer x),
     mstar x c = mempty x c.
 Proof.
-  intros r root ctx rer dir mstar mempty STRICTLY_NULLABLE COMPILESTAR COMPILEEMPTY RER_ADEQUACY ROOT EARLY_ERRORS x c.
+  intros r root ctx rer dir mstar mempty STRICTLY_NULLABLE COMPILESTAR COMPILEEMPTY RER_ADEQUACY ROOT EARLY_ERRORS x c VALID.
   simpl in COMPILEEMPTY. unfold Coercions.wrap_Matcher in COMPILEEMPTY. inversion COMPILEEMPTY. clear COMPILEEMPTY H0 mempty.
   simpl in COMPILESTAR. destruct (compileSubPattern r (Quantified_inner (Greedy Star) :: ctx) rer dir) as [m|] eqn:SUBSTAR.
   2: { inversion COMPILESTAR. }
@@ -192,6 +172,7 @@ Proof.
   2: { apply RER_ADEQUACY. }
   2: { apply ROOT. }
   2: { apply EARLY_ERRORS. }
+  2: { apply VALID. }
   simpl in SUBSTAR. rewrite PeanoNat.Nat.add_0_r in SUBSTAR.
   unfold repeatMatcher. rewrite SUBSTAR. auto.
 Qed.                              

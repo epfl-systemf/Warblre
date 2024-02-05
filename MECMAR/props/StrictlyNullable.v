@@ -8,6 +8,7 @@ Import Semantics.
 Import MatchState.
 Import Match.
 Import Correctness.MatchState.
+Import Correctness.
 
 Local Open Scope result_flow.
 
@@ -32,52 +33,13 @@ Fixpoint strictly_nullable (r:Regex) : bool :=
 
 (** * Strictly Nullable Matchers  *)
 
-Definition strictly_nullable_matcher (m:Matcher)(rer:RegExp) : Prop :=
+Definition strictly_nullable_matcher (m:Matcher) (rer:RegExp) : Prop :=
   (* for any valid state x and continuation c and string str *)
   forall x c (VALID: Valid (input x) rer x),
     (* Then either the match fails *)
     (m x c = failure) \/
       (* or called its continuation c on some state that has he same index as x *)
       (exists y, Valid (input x) rer y /\ endIndex x = endIndex y /\ c y = m x c).
-
-
-(** * Analysis Correctness  *)
-
-Theorem strictly_nullable_analysis_correct:
-  forall (r:Regex) (ctx:RegexContext) (rer:RegExp) (dir:direction) (m:Matcher)
-    (STRICTLY_NULLABLE: strictly_nullable r = true)
-    (COMPILE: compileSubPattern r ctx rer dir = Success m),
-    strictly_nullable_matcher m rer.
-Proof.
-  intros r. induction r; intros ctx rer dir m STRICTLY_NULLABLE COMPILE;
-    try solve[inversion STRICTLY_NULLABLE]; unfold strictly_nullable_matcher; intros x c VALID.
-  - simpl in COMPILE. inversion COMPILE as [H]. clear H COMPILE.
-    destruct (c x) eqn:CONT; auto.
-    + destruct s; auto. right.
-      exists x. split; auto.
-    + right. exists x. split; auto.
-  - simpl in COMPILE.
-    inversion STRICTLY_NULLABLE as [SN12]. rewrite andb_true_iff in SN12. destruct SN12 as [SN1 SN2].
-    clear STRICTLY_NULLABLE.
-    destruct (compileSubPattern r1 (Disjunction_left r2 :: ctx) rer dir) as [m1|] eqn:SNM1; try solve[inversion COMPILE].
-    apply IHr1 in SNM1; auto. clear IHr1 SN1.
-    destruct (compileSubPattern r2 (Disjunction_right r1 :: ctx) rer dir) as [m2|] eqn:SNM2; try solve[inversion COMPILE].
-    apply IHr2 in SNM2; auto. clear IHr2 SN2.
-    inversion COMPILE as [M]. clear COMPILE M.
-    (* first, excecute m1 *)
-    unfold strictly_nullable_matcher in SNM1.
-    specialize (SNM1 x c VALID). destruct SNM1 as [TRYRIGHT | [y [VALIDy [SAMEIDX EQUAL]]]].
-    +                           (* Matcher 1 failed, try matcher 2 *)
-      rewrite TRYRIGHT. simpl. apply SNM2; auto.
-    +                           (* Matcher 1 succeeded *)
-      rewrite <- EQUAL.
-      destruct (c y) as [res|] eqn:CONT.
-      * destruct res as [res|]; auto. right.
-        exists y. split; auto.
-      * right. exists y. split; auto.
-
-        (* This theorem seems provable by induction this time *)
-Admitted.
 
 
 (** * Intermediate lemmas  *)
@@ -96,8 +58,252 @@ Proof.
   intros T t l. unfold List.Update.Nat.Batch.update. simpl. auto.
 Qed.
 
+Lemma isWordsuccess :
+  forall x rer (VALID: Valid (input x) rer x),
+  exists res, isWordChar rer (input x) (endIndex x) = Success res.
+Proof.
+  intros x rer VALID. unfold isWordChar.
+  destruct VALID as [_ [ITER _]]. unfold IteratorOn in ITER.
+  destruct (endIndex x =? -1)%Z eqn:POS; try lia. simpl.
+  destruct (endIndex x =? length (input x))%Z eqn:END; eauto.
+  assert (NOFAILURE: (0 <= endIndex x < length (input x))%Z) by lia.
+  destruct (List.Indexing.Int.indexing (input x) (endIndex x)) eqn:INDEX.    
+  2: { rewrite <- List.Indexing.Int.success_bounds0 in NOFAILURE. rewrite INDEX in NOFAILURE. destruct NOFAILURE. inversion H. }
+  destruct (wordCharacters rer) eqn:WORD.
+  - destruct (CharSet.contains s0 s); eauto.
+  - exfalso. eapply Compile.Compile.Safety.wordCharacters. eauto.
+Qed.
 
-(** * Repeating a strictly nullable matcher  *)
+Lemma isWordsuccess_minusone :
+  forall x rer (VALID: Valid (input x) rer x),
+  exists res, isWordChar rer (input x) (endIndex x - 1)%Z = Success res.
+Proof.
+  intros x rer VALID. unfold isWordChar.
+  destruct VALID as [_ [ITER _]]. unfold IteratorOn in ITER.
+  destruct (endIndex x - 1 =? -1)%Z eqn:POS; simpl; eauto.
+  destruct (endIndex x - 1 =? length (input x))%Z eqn:END; simpl; eauto.
+  assert (NOFAILURE: (0 <= endIndex x - 1 < length (input x))%Z) by lia.
+  destruct (List.Indexing.Int.indexing (input x) (endIndex x - 1)) eqn:INDEX.    
+  2: { rewrite <- List.Indexing.Int.success_bounds0 in NOFAILURE. rewrite INDEX in NOFAILURE. destruct NOFAILURE. inversion H. }
+  destruct (wordCharacters rer) eqn:WORD.
+  - destruct (CharSet.contains s0 s); eauto.
+  - exfalso. eapply Compile.Compile.Safety.wordCharacters. eauto.
+Qed.
+
+(* Capture Reset lemmas *)
+Lemma capture_reset_validity:
+  forall (r:Regex) (root:Regex) (ctx:RegexContext) (rer:RegExp)
+    (RER_ADEQUACY: countLeftCapturingParensWithin root nil = RegExp.capturingGroupsCount rer)
+    (ROOT: Root root r ctx)
+    (EARLY_ERRORS: EarlyErrors.Pass.Regex root nil),
+    Captures.Valid rer (countLeftCapturingParensBefore r ctx) (countLeftCapturingParensWithin r ctx).
+Proof.
+  intros r root ctx rer RER_ADEQUACY ROOT EARLY_ERRORS.
+  intros i v Eq_indexed.
+  pose proof (List.Indexing.Nat.success_bounds _ _ _ Eq_indexed). rewrite -> List.Range.Nat.Bounds.length in *.
+  apply List.Range.Nat.Bounds.indexing in Eq_indexed.
+  pose proof (EarlyErrors.countLeftCapturingParensBefore_contextualized _ _ _ ROOT EARLY_ERRORS).
+  unfold countLeftCapturingParensBefore,countLeftCapturingParensWithin in *. lia.
+Qed.
+
+Lemma capture_reset_success:
+  forall (r:Regex) (ctx:RegexContext) (rer:RegExp)
+    (x:MatchState) (VALID: Valid (input x) rer x)
+    (CAP_VALID: Captures.Valid rer (countLeftCapturingParensBefore r ctx) (countLeftCapturingParensWithin r ctx)),
+  exists capupd, List.Update.Nat.Batch.update None (captures x) (List.Range.Nat.Bounds.range (countLeftCapturingParensBefore r ctx) (countLeftCapturingParensBefore r ctx + countLeftCapturingParensWithin r ctx)) = Success capupd.
+Proof.
+  intros r ctx rer x VALID CAP_VALID.
+  destruct (List.Update.Nat.Batch.update None (captures x) (List.Range.Nat.Bounds.range (countLeftCapturingParensBefore r ctx) (countLeftCapturingParensBefore r ctx + countLeftCapturingParensWithin r ctx))) as [xupd|] eqn:UPD; eauto.
+  apply List.Update.Nat.Batch.failure_bounds in UPD.
+  unfold Captures.Valid in CAP_VALID.
+  destruct VALID as [ _ [ _ [ VCL_x _ ]]]. rewrite -> VCL_x in *. contradiction. 
+Qed.
+
+Lemma capture_reset_preserve_validity:
+  forall (r:Regex) (ctx:RegexContext) (rer:RegExp)
+    (x:MatchState) (VALID: Valid (input x) rer x)
+    (xupd: list (option CaptureRange))
+    (UPD: List.Update.Nat.Batch.update None (captures x) (List.Range.Nat.Bounds.range (countLeftCapturingParensBefore r ctx) (countLeftCapturingParensBefore r ctx + countLeftCapturingParensWithin r ctx)) = Success xupd),
+    Valid (input x) rer (match_state (input x) (endIndex x) xupd).
+Proof.
+  intros r ctx rer x VALID xupd UPD. 
+  apply change_captures with (cap:=captures x); auto.
+    - apply List.Update.Nat.Batch.success_length in UPD. rewrite <- UPD.
+      destruct VALID as [_ [_ [LENGTH _]]]. auto.
+    - destruct VALID as [_ [_ [_ FORALL]]].
+      eapply List.Update.Nat.Batch.prop_preservation; eauto.
+      apply Correctness.CaptureRange.vCrUndefined.
+Qed.
+    
+
+(** * Analysis Correctness  *)
+
+Theorem strictly_nullable_analysis_correct:
+  forall (r:Regex) (root:Regex) (ctx:RegexContext) (rer:RegExp) (dir:direction) (m:Matcher)
+    (STRICTLY_NULLABLE: strictly_nullable r = true)
+    (COMPILE: compileSubPattern r ctx rer dir = Success m)
+    (RER_ADEQUACY: countLeftCapturingParensWithin root nil = RegExp.capturingGroupsCount rer)
+    (ROOT: Root root r ctx)
+    (EARLY_ERRORS: EarlyErrors.Pass.Regex root nil),
+    strictly_nullable_matcher m rer.
+Proof.
+  intros r. induction r; intros root ctx rer dir m STRICTLY_NULLABLE COMPILE RER_ADEQUACY ROOT EARLY_ERRORS;
+    try solve[inversion STRICTLY_NULLABLE]; unfold strictly_nullable_matcher; intros x c VALID;
+    (* eapply compiledSubPattern_matcher_invariant with (str:=input x) in COMPILE as MATCHER_INV; eauto; *)
+    simpl in COMPILE.
+  (* empty *)
+  - inversion COMPILE as [H]. clear H COMPILE.
+    destruct (c x) eqn:CONT; auto.
+    + destruct s; auto. right.
+      exists x. split; auto.
+    + right. exists x. split; auto.
+  (* disjunction *)
+  - simpl in COMPILE.
+    inversion STRICTLY_NULLABLE as [SN12]. rewrite andb_true_iff in SN12. destruct SN12 as [SN1 SN2].
+    clear STRICTLY_NULLABLE.
+    destruct (compileSubPattern r1 (Disjunction_left r2 :: ctx) rer dir) as [m1|] eqn:SNM1; try solve[inversion COMPILE].
+    apply IHr1 with (root:=root) in SNM1; auto. clear IHr1 SN1.
+    destruct (compileSubPattern r2 (Disjunction_right r1 :: ctx) rer dir) as [m2|] eqn:SNM2; try solve[inversion COMPILE].
+    apply IHr2 with (root:=root) in SNM2; auto. clear IHr2 SN2.
+    inversion COMPILE as [M]. clear COMPILE M m.
+    (* first, excecute m1 *)
+    unfold strictly_nullable_matcher in SNM1.
+    specialize (SNM1 x c VALID). destruct SNM1 as [TRYRIGHT | [y [VALIDy [SAMEIDX EQUAL]]]].
+    +                           (* Matcher 1 failed, try matcher 2 *)
+      rewrite TRYRIGHT. simpl. apply SNM2; auto.
+    +                           (* Matcher 1 succeeded *)
+      rewrite <- EQUAL.
+      destruct (c y) as [res|] eqn:CONT.
+      * destruct res as [res|]; auto. right.
+        exists y. split; auto.
+      * right. exists y. split; auto.
+  (* quantifier *)
+  - inversion STRICTLY_NULLABLE as [SN]. clear STRICTLY_NULLABLE.
+    destruct (compileSubPattern r (Quantified_inner q :: ctx) rer dir) eqn:SNM; try solve[inversion COMPILE].
+    apply IHr with (root:=root) in SNM; auto. clear IHr SN.
+    inversion COMPILE as [M]. clear COMPILE M m.
+    unfold repeatMatcher.
+    destruct (repeatMatcherFuel (CompiledQuantifier.min (compileQuantifier q)) x) eqn:FUEL.
+    (* there is enough fuel for a first iteration *)
+    { unfold repeatMatcherFuel in FUEL. lia. }
+    simpl. specialize (SNM x c VALID).
+    (* max=0, the continuation is called directly *)
+    destruct (CompiledQuantifier.max (compileQuantifier q) =? 0)%NoI eqn:MAX.
+    { right. exists x. auto. }
+    repeat rewrite PeanoNat.Nat.add_sub.
+    admit.
+  (* concatenation *)
+  - inversion STRICTLY_NULLABLE as [SN12]. rewrite andb_true_iff in SN12. destruct SN12 as [SN1 SN2].
+    clear STRICTLY_NULLABLE.
+    destruct (compileSubPattern r1 (Seq_left r2 :: ctx) rer dir) as [m1|] eqn:SNM1; try solve[inversion COMPILE].
+    apply IHr1 with (root:=root) in SNM1; auto. clear IHr1 SN1.
+    destruct (compileSubPattern r2 (Seq_right r1 :: ctx) rer dir) as [m2|] eqn:SNM2; try solve[inversion COMPILE].
+    apply IHr2 with (root:=root) in SNM2; auto. clear IHr2 SN2.
+    destruct dir eqn:DIR; inversion COMPILE as [M]. clear COMPILE M m.
+    (* forward *)
+    + specialize (SNM1 x (fun s => m2 s c) VALID). destruct SNM1 as [NONE | [y [VALIDy [SAMEIDX EQUAL]]]].
+      * rewrite NONE. auto.
+      * rewrite <- EQUAL.
+        assert (SAMEINPUT: input x = input y).
+        { destruct VALIDy as [Hy _]. unfold OnInput in Hy. auto. }
+        rewrite SAMEINPUT. rewrite SAMEIDX. apply SNM2. rewrite <- SAMEINPUT. auto.
+    (* backward *)
+    + specialize (SNM2 x (fun s => m1 s c) VALID). destruct SNM2 as [NONE | [y [VALIDy [SAMEIDX EQUAL]]]].
+      * rewrite NONE. auto.
+      * rewrite <- EQUAL.
+        assert (SAMEINPUT: input x = input y).
+        { destruct VALIDy as [Hy _]. unfold OnInput in Hy. auto. }
+        rewrite SAMEINPUT. rewrite SAMEIDX. apply SNM1. rewrite <- SAMEINPUT. auto.
+  (* capture group *)
+  - inversion STRICTLY_NULLABLE as [SN]. clear STRICTLY_NULLABLE.
+    destruct (compileSubPattern r (Group_inner name :: ctx) rer dir) eqn:SNM; try solve[inversion COMPILE].
+    apply IHr with (root:=root) in SNM; auto. clear IHr SN.
+    inversion COMPILE as [M]. clear COMPILE M m.
+    match goal with
+    | [ x:MatchState |- context[?s x ?c = _]] => specialize (SNM x c)
+    end.
+    destruct SNM as [NONE | [y [VALIDy [SAMEIDX EQUAL]]]]. auto.
+    + rewrite <- NONE. auto.
+    + rewrite <- EQUAL. clear EQUAL. rewrite SAMEIDX. rewrite Z.leb_refl. simpl.
+      assert (NOFAIL: countLeftCapturingParensBefore (Group name r) ctx + 1 =? O = false).
+      { admit. }
+      rewrite NOFAIL. rewrite Nat.add_sub.
+      destruct dir eqn:DIR.
+      (* forward *)
+      * simpl. destruct (List.Update.Nat.One.update (CaptureRange_or_undefined (CaptureRange.make (endIndex y) (endIndex y))) (captures y) (countLeftCapturingParensBefore (Group name r) ctx)) eqn:UPD.
+        ** right. exists (match_state (input x) (endIndex y) s0). split; auto.
+           admit.
+        ** admit.
+      (* backward *)
+      * admit.
+  (* I wonder: can we reuse the matcher invariant? -> I've added it to the context using Match.Correctness proofs. TODO: use it *)
+  (* InputStart *)
+  - inversion COMPILE as [M]. clear COMPILE M.
+    destruct (endIndex x =? 0)%Z eqn:START.
+    (* start of line *)
+    { right. exists x. auto. }
+    destruct (RegExp.multiline rer) eqn:MULTI.
+    (* not multi line *)
+    2: { left. auto. }
+    (* accessing the string cannot fail *)
+    simpl. assert (NOFAILURE: (0 <= (endIndex x - 1) < length (input x))%Z).
+    { destruct VALID as [_ [ITER _]]. unfold IteratorOn in ITER. split; lia. }
+    destruct (List.Indexing.Int.indexing (input x) (endIndex x - 1)) eqn:INDEX.    
+    2: { rewrite <- List.Indexing.Int.success_bounds0 in NOFAILURE. rewrite INDEX in NOFAILURE. destruct NOFAILURE. inversion H. }
+    simpl. destruct (CharSet.contains CharSet.line_terminators s) eqn:TERMINATOR.
+    + right. exists x. auto.
+    + left. auto.
+  (* InputEnd *)
+  - inversion COMPILE as [M]. clear COMPILE M.
+    destruct (endIndex x =? (length (input x)))%Z eqn:END.
+    (* end of line *)
+    { right. exists x. auto. }
+    destruct (RegExp.multiline rer) eqn:MULTI.
+    (* not multi line *)
+    2: { left. auto. }
+    (* accessing the string cannot fail *)
+    simpl. assert (NOFAILURE: (0 <= (endIndex x) < length (input x))%Z).
+    { destruct VALID as [_ [ITER _]]. unfold IteratorOn in ITER. split; lia. }
+    destruct (List.Indexing.Int.indexing (input x) (endIndex x)) eqn:INDEX.    
+    2: { rewrite <- List.Indexing.Int.success_bounds0 in NOFAILURE. rewrite INDEX in NOFAILURE. destruct NOFAILURE. inversion H. }
+    simpl. destruct (CharSet.contains CharSet.line_terminators s) eqn:TERMINATOR.
+    + right. exists x. auto.
+    + left. auto.
+  (* WordBoundary *)
+  - inversion COMPILE as [M]. clear COMPILE M.
+    apply isWordsuccess in VALID as H. destruct H as [v1 WORD1]. rewrite WORD1.
+    apply isWordsuccess_minusone in VALID as H. destruct H as [v2 WORD2]. rewrite WORD2.
+    destruct v1; destruct v2; eauto.
+  (* NotWordBoundary *)
+  - inversion COMPILE as [M]. clear COMPILE M.
+    apply isWordsuccess in VALID as H. destruct H as [v1 WORD1]. rewrite WORD1.
+    apply isWordsuccess_minusone in VALID as H. destruct H as [v2 WORD2]. rewrite WORD2.
+    destruct v1; destruct v2; eauto.
+  (* Lookahead *)
+  - destruct (compileSubPattern r (Lookahead_inner :: ctx) rer forward) eqn:SNM; try solve[inversion COMPILE].
+    inversion COMPILE as [M]. clear COMPILE M m.
+    destruct (s x (fun y => y)) eqn:LOOKMATCH.
+    (* I have to prove that the lookahead matcher cannot fail *)
+    2: { admit. }
+    destruct s0; auto.
+    right. exists (match_state (input x) (endIndex x) (captures t)). split; auto.
+    apply change_captures with (cap:=captures x).
+    + admit.                  (* do we have a proof that matchers preserve the capturinggroupscount? *)
+    + admit.
+    + apply VALID.
+  (* NegativeLookahead *)
+  - admit.
+  (* Lookbehind *)
+  - admit.
+    (* NegativeLookbehind *)
+  - admit.
+Admitted.
+
+
+
+
+(** * Repeating a strictly nullable matcher does nothing *)
+
 Lemma strictly_nullable_repeatmatcher':
   forall (r:Regex) (root:Regex) (ctx:RegexContext) (rer:RegExp) (dir:direction) (m:Matcher)
     (STRICTLY_NULLABLE: strictly_nullable r = true)
@@ -110,31 +316,14 @@ Lemma strictly_nullable_repeatmatcher':
     repeatMatcher' m O%nat NoI.Inf true x c (countLeftCapturingParensBefore r ctx) (countLeftCapturingParensWithin r ctx) (repeatMatcherFuel O%nat x) = c x.
 Proof.
   intros r root ctx rer dir m STRICTLY_NULLABLE COMPILE RER_ADEQUACY ROOT EARLY_ERRORS x c VALID.
-  apply strictly_nullable_analysis_correct with (ctx:=ctx) (rer:=rer) (dir:=dir) (m:=m) in STRICTLY_NULLABLE; auto.
+  apply strictly_nullable_analysis_correct with (ctx:=ctx) (rer:=rer) (dir:=dir) (m:=m) (root:=root) in STRICTLY_NULLABLE; auto.
   (* we know that we have enouh fuel to do a single iteration *)
   destruct (repeatMatcherFuel 0 x) eqn:FUEL; try solve[unfold repeatMatcherFuel in FUEL; lia].
   simpl. repeat rewrite PeanoNat.Nat.add_sub.
-  (* capture validity *)
-  assert (CAP_VALID: Match.Correctness.Captures.Valid rer (countLeftCapturingParensBefore r ctx)
-                       (countLeftCapturingParensWithin r ctx)).
-  { intros i v Eq_indexed.
-    pose proof (List.Indexing.Nat.success_bounds _ _ _ Eq_indexed). rewrite -> List.Range.Nat.Bounds.length in *.
-    apply List.Range.Nat.Bounds.indexing in Eq_indexed.
-    pose proof (EarlyErrors.countLeftCapturingParensBefore_contextualized _ _ _ ROOT EARLY_ERRORS).
-    unfold countLeftCapturingParensBefore,countLeftCapturingParensWithin in *. cbn in *. lia. }
-  destruct (List.Update.Nat.Batch.update None (captures x) (List.Range.Nat.Bounds.range (countLeftCapturingParensBefore r ctx) (countLeftCapturingParensBefore r ctx + countLeftCapturingParensWithin r ctx))) as [xupd|] eqn:UPD.
-  (* The update for clearing internal registers cannot fail *)
-  2: { apply List.Update.Nat.Batch.failure_bounds in UPD.
-       unfold Match.Correctness.Captures.Valid in CAP_VALID.
-       destruct VALID as [ _ [ _ [ VCL_x _ ]]]. rewrite -> VCL_x in *. contradiction. }
-  (* we are valid after the update *)
-  assert (UPDVALID: Valid (input x) rer (match_state (input x) (endIndex x) xupd)).
-  { apply change_captures with (cap:=captures x); auto.
-    - apply List.Update.Nat.Batch.success_length in UPD. rewrite <- UPD.
-      destruct VALID as [_ [_ [LENGTH _]]]. auto.
-    - destruct VALID as [_ [_ [_ FORALL]]].
-      eapply List.Update.Nat.Batch.prop_preservation; eauto.
-      apply Correctness.CaptureRange.vCrUndefined. }
+  (* capture reset cannot fail and preserves validity *)
+  pose proof (capture_reset_validity r root ctx rer RER_ADEQUACY ROOT EARLY_ERRORS) as CAP_VALID.
+  pose proof (capture_reset_success r ctx rer x VALID CAP_VALID) as [xupd UPD]. rewrite UPD.
+  pose proof (capture_reset_preserve_validity r ctx rer x VALID xupd UPD) as UPDVALID.
   unfold strictly_nullable_matcher in STRICTLY_NULLABLE.
   specialize (STRICTLY_NULLABLE (match_state (input x) (endIndex x) xupd)
               (fun y : MatchState =>
@@ -144,7 +333,7 @@ Proof.
         repeatMatcher' m 0 +∞ true y c (countLeftCapturingParensBefore r ctx)
                               (countLeftCapturingParensWithin r ctx) n) UPDVALID).
   destruct STRICTLY_NULLABLE as [MISMATCH | [y [VALIDy [SAMEIDX EQUAL]]]].
-  - rewrite MISMATCH. simpl. auto.
+  - rewrite MISMATCH. auto.
   - rewrite <- EQUAL. simpl in SAMEIDX. rewrite SAMEIDX. rewrite Z.eqb_refl. auto.
 Qed.
 
@@ -167,12 +356,7 @@ Proof.
   simpl in COMPILESTAR. destruct (compileSubPattern r (Quantified_inner (Greedy Star) :: ctx) rer dir) as [m|] eqn:SUBSTAR.
   2: { inversion COMPILESTAR. }
   unfold Coercions.wrap_Matcher in COMPILESTAR. inversion COMPILESTAR as [STAR]. clear COMPILESTAR.
-  apply strictly_nullable_repeatmatcher' with (x:=x) (c:=c) (root:=root) in SUBSTAR. 
-  2: { apply STRICTLY_NULLABLE. }
-  2: { apply RER_ADEQUACY. }
-  2: { apply ROOT. }
-  2: { apply EARLY_ERRORS. }
-  2: { apply VALID. }
+  apply strictly_nullable_repeatmatcher' with (x:=x) (c:=c) (root:=root) in SUBSTAR; auto.
   simpl in SUBSTAR. rewrite PeanoNat.Nat.add_0_r in SUBSTAR.
   unfold repeatMatcher. rewrite SUBSTAR. auto.
 Qed.                              

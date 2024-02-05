@@ -90,6 +90,18 @@ Proof.
   - exfalso. eapply Compile.Compile.Safety.wordCharacters. eauto.
 Qed.
 
+Lemma valid_trans:
+  forall (x y:MatchState) (rer:RegExp)
+    (VALIDx: Valid (input x) rer x)
+    (VALIDy: Valid (input x) rer y),
+    Valid (input x) rer (match_state (input x) (endIndex x) (captures y)).
+Proof.
+  intros x y rer VALIDx VALIDy.
+  destruct VALIDx as [ONx [ITERx [LENx FORALLx]]]. destruct VALIDy as [ONy [ITERy [LENy FORALLy]]].
+  unfold Valid. split; auto.
+Qed.
+
+
 (* Capture Reset lemmas *)
 Lemma capture_reset_validity:
   forall (r:Regex) (root:Regex) (ctx:RegexContext) (rer:RegExp)
@@ -281,22 +293,38 @@ Proof.
     destruct v1; destruct v2; eauto.
   (* Lookahead *)
   - destruct (compileSubPattern r (Lookahead_inner :: ctx) rer forward) eqn:SNM; try solve[inversion COMPILE].
+    eapply compiledSubPattern_matcher_invariant with (str:=input x) in SNM as LOOK_INV; eauto.
     inversion COMPILE as [M]. clear COMPILE M m.
-    destruct (s x (fun y => y)) eqn:LOOKMATCH.
-    (* I have to prove that the lookahead matcher cannot fail *)
-    2: { admit. }
-    destruct s0; auto.
-    right. exists (match_state (input x) (endIndex x) (captures t)). split; auto.
-    apply change_captures with (cap:=captures x).
-    + admit.                  (* do we have a proof that matchers preserve the capturinggroupscount? *)
-    + admit.
-    + apply VALID.
+    specialize (LOOK_INV x (fun y => y) VALID). destruct LOOK_INV as [NONE | [y [VALIDy [PROGRESS EQUAL]]]].
+    { rewrite NONE. auto. }
+    rewrite <- EQUAL. simpl.
+    right. exists (match_state (input x) (endIndex x) (captures y)). split; auto.
+    apply valid_trans with (x:=x) (y:=y); auto.
   (* NegativeLookahead *)
-  - admit.
+  - destruct (compileSubPattern r (NegativeLookahead_inner :: ctx) rer forward) eqn:SNM; try solve[inversion COMPILE].
+    eapply compiledSubPattern_matcher_invariant with (str:=input x) in SNM as LOOK_INV; eauto.
+    inversion COMPILE as [M]. clear COMPILE M m.
+    specialize (LOOK_INV x (fun y => y) VALID). destruct LOOK_INV as [NONE | [y [VALIDy [PROGRESS EQUAL]]]].
+    2: { rewrite <- EQUAL. auto. }
+    rewrite NONE. simpl.
+    right. exists x. split; auto.
   (* Lookbehind *)
-  - admit.
+  - destruct (compileSubPattern r (Lookbehind_inner :: ctx) rer backward) eqn:SNM; try solve[inversion COMPILE].
+    eapply compiledSubPattern_matcher_invariant with (str:=input x) in SNM as LOOK_INV; eauto.
+    inversion COMPILE as [M]. clear COMPILE M m.
+    specialize (LOOK_INV x (fun y => y) VALID). destruct LOOK_INV as [NONE | [y [VALIDy [PROGRESS EQUAL]]]].
+    { rewrite NONE. auto. }
+    rewrite <- EQUAL. simpl.
+    right. exists (match_state (input x) (endIndex x) (captures y)). split; auto.
+    apply valid_trans with (x:=x) (y:=y); auto.
     (* NegativeLookbehind *)
-  - admit.
+  - destruct (compileSubPattern r (NegativeLookbehind_inner :: ctx) rer backward) eqn:SNM; try solve[inversion COMPILE].
+    eapply compiledSubPattern_matcher_invariant with (str:=input x) in SNM as LOOK_INV; eauto.
+    inversion COMPILE as [M]. clear COMPILE M m.
+    specialize (LOOK_INV x (fun y => y) VALID). destruct LOOK_INV as [NONE | [y [VALIDy [PROGRESS EQUAL]]]].
+    2: { rewrite <- EQUAL. auto. }
+    rewrite NONE. simpl.
+    right. exists x. split; auto.
 Admitted.
 
 

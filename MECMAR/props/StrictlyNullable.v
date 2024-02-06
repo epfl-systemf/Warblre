@@ -146,6 +146,7 @@ Proof.
       eapply List.Update.Nat.Batch.prop_preservation; eauto.
       apply Correctness.CaptureRange.vCrUndefined.
 Qed.
+
     
 
 (** * Analysis Correctness  *)
@@ -235,20 +236,30 @@ Proof.
     | [ x:MatchState |- context[?s x ?c = _]] => specialize (SNM x c)
     end.
     destruct SNM as [NONE | [y [VALIDy [SAMEIDX EQUAL]]]]. auto.
-    + rewrite <- NONE. auto.
-    + rewrite <- EQUAL. clear EQUAL. rewrite SAMEIDX. rewrite Z.leb_refl. simpl.
-      assert (NOFAIL: countLeftCapturingParensBefore (Group name r) ctx + 1 =? O = false).
-      { admit. }
-      rewrite NOFAIL. rewrite Nat.add_sub.
-      destruct dir eqn:DIR.
-      (* forward *)
-      * simpl. destruct (List.Update.Nat.One.update (CaptureRange_or_undefined (CaptureRange.make (endIndex y) (endIndex y))) (captures y) (countLeftCapturingParensBefore (Group name r) ctx)) eqn:UPD.
-        ** right. exists (match_state (input x) (endIndex y) s0). split; auto.
-           admit.
-        ** admit.
-      (* backward *)
-      * admit.
-  (* I wonder: can we reuse the matcher invariant? -> I've added it to the context using Match.Correctness proofs. TODO: use it *)
+    (* Mismatch inside the group *)
+    { rewrite <- NONE. auto. }
+    (* a match is found, and the captures are updated *)
+    rewrite <- EQUAL. clear EQUAL. rewrite SAMEIDX. rewrite Z.leb_refl. simpl.
+    assert (NOFAIL: countLeftCapturingParensBefore (Group name r) ctx + 1 =? O = false).
+    { rewrite Nat.eqb_neq. lia. }
+    rewrite NOFAIL. rewrite Nat.add_sub.
+    (* the update is independent of the direction *)
+    match goal with
+    | [ dir:direction |- context[(if ?c then ?i else ?e)]] => replace (if c then i else e) with e
+    end.
+    2: { destruct dir; auto. } simpl.
+    destruct (List.Update.Nat.One.update (CaptureRange_or_undefined (CaptureRange.make (endIndex y) (endIndex y))) (captures y) (countLeftCapturingParensBefore (Group name r) ctx)) eqn:UPD.
+    + right. exists (match_state (input x) (endIndex y) s0). split; auto.
+      rewrite <- SAMEIDX. apply change_captures with (cap:=captures x); auto.
+      * apply List.Update.Nat.One.success_length in UPD. rewrite <- UPD.
+        destruct VALIDy as [_ [_ [LEN _]]]. auto.
+      * destruct VALIDy as [ON [ITER [LEN FORALL]]].
+        eapply List.Update.Nat.One.prop_preservation; eauto.
+        apply CaptureRange.vCrDefined; auto. lia.
+    (* the capture update cannot fail *)
+    + apply List.Update.Nat.One.failure_bounds in UPD.
+      pose proof (EarlyErrors.countLeftCapturingParensBefore_contextualized _ _ _ ROOT EARLY_ERRORS) as PLUSLE.
+      unfold countLeftCapturingParensBefore,countLeftCapturingParensWithin in *. cbn in *. MatchState.solve_with lia.
   (* InputStart *)
   - inversion COMPILE as [M]. clear COMPILE M.
     destruct (endIndex x =? 0)%Z eqn:START.

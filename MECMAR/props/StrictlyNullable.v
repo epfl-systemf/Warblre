@@ -38,7 +38,7 @@ Definition strictly_nullable_matcher (m:Matcher) (rer:RegExp) : Prop :=
   forall x c (VALID: Valid (input x) rer x),
     (* Then either the match fails *)
     (m x c = failure) \/
-      (* or called its continuation c on some state that has he same index as x *)
+      (* or called its continuation c on some state that has the same index as x *)
       (exists y, Valid (input x) rer y /\ endIndex x = endIndex y /\ c y = m x c).
 
 

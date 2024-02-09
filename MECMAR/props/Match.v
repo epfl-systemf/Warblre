@@ -149,6 +149,9 @@ Module Correctness.
       unfold Valid. split_conjs; try assumption.
     Qed.
 
+    Lemma self_input: forall str rer x, Valid str rer x -> Valid (MatchState.input x) rer x.
+    Proof. intros ? ? ? (<-&?&?&?). unfold Valid; split_conjs; try assumption. reflexivity. Qed.
+
     (*  Normalizes all MatchStates by doing the following:
         - Destructing them into their components
         - Then, if the MatchState is known to be on a particular string, eliminate the string introduced at the previous step. *)
@@ -179,17 +182,15 @@ Module Correctness.
           let endIndex := fresh "endIndex_" x in
           let captures := fresh "captures_" x in
           destruct x as [ input endIndex captures ]
-        | [ H: OnInput ?str (match_state ?input _ _) |- _ ] =>
-          unfold OnInput in H; cbn in H;
-          try rewrite -> H in *; clear H; clear input
+        | [ H: MatchState.OnInput ?str (match_state ?input _ _) |- _ ] =>
+          unfold MatchState.OnInput in H; cbn in H;
+          try rewrite <- H in *(*; clear H; clear input*)
         | [ H: MatchState.Valid ?str _ (match_state ?input ?endIndex ?captures) |- _ ] =>
           let OI := fresh "Eq_" input in
           let Iterx := fresh "Iter_" endIndex in
           let VCL := fresh "VCL_" captures in
           let VCF := fresh "VCF_" captures in
-          let Tmp := fresh "TMP" in
-          destruct H as [ OI [ Iterx [ VCL VCF ]]];
-          try rewrite -> Tmp in *
+          destruct H as [ OI [ Iterx [ VCL VCF ]]]
         | [ |- MatchState.Valid _ _ _ ] =>
           unfold Valid; split_conjs
 
@@ -310,13 +311,13 @@ Module Correctness.
   (** Intermediate value: We say that Matcher _honores its continuation_ if 
       its continuation must succeed on an input the matcher called it with in order for the matcher to itself succeed. *)
   Module IntermediateValue.
-    Definition HonoresContinuation (str: list Character) (rer: RegExp) (m: Matcher) (dir: direction) := forall x c z,
+    Definition HonoresContinuation (m: Matcher) (dir: direction) (rer: RegExp) := forall x c z,
       (* For any valid state *)
-      MatchState.Valid str rer x ->
+      MatchState.Valid (MatchState.input x) rer x ->
       (* If the overall computation succeeded *)
       m x c = Success (Some z) ->
       (* There is an intermediate value y that was produced by m and then passed to c which then succeeded. *)
-      exists y, MatchState.Valid str rer y /\ progress dir x (Success (Some y)) /\ c y = Success (Some z).
+      exists y, MatchState.Valid (MatchState.input x) rer y /\ progress dir x (Success (Some y)) /\ c y = Success (Some z).
     #[export]
     Hint Unfold HonoresContinuation : Warblre.
 
@@ -332,24 +333,24 @@ Module Correctness.
       | apply H ]
     end.
 
-    Lemma repeatMatcher: forall str rer fuel dir m min max greedy parenIndex parenCount,
-          HonoresContinuation str rer m dir ->
-          HonoresContinuation str rer (fun x c => repeatMatcher' m min max greedy x c parenIndex parenCount fuel) dir.
+    Lemma repeatMatcher: forall fuel dir rer m min max greedy parenIndex parenCount,
+          HonoresContinuation m dir rer ->
+          HonoresContinuation (fun x c => repeatMatcher' m min max greedy x c parenIndex parenCount fuel) dir rer.
     Proof.
       (* The 'recursive' case (i.e. when min is not zero or the endIndex is different from last iteration) *)
-      assert (forall x z s c str rer fuel dir m min max greedy parenIndex parenCount,
-        MatchState.Valid str rer x ->
+      assert (forall x z rer s c fuel dir m min max greedy parenIndex parenCount,
+        MatchState.Valid (MatchState.input x) rer x ->
         List.Update.Nat.Batch.update None (MatchState.captures x) (List.Range.Nat.Bounds.range parenIndex (parenIndex + parenCount)) = Success s ->
-        HonoresContinuation str rer m dir ->
-        (forall dir m min max greedy parenIndex parenCount,
-          HonoresContinuation str rer m dir ->
-          HonoresContinuation str rer (Definitions.RepeatMatcher.matcher m min max greedy parenIndex parenCount fuel) dir) ->
+        HonoresContinuation m dir rer ->
+        (forall dir rer m min max greedy parenIndex parenCount,
+          HonoresContinuation m dir rer ->
+          HonoresContinuation (Definitions.RepeatMatcher.matcher m min max greedy parenIndex parenCount fuel) dir rer) ->
         (m (match_state (MatchState.input x) (MatchState.endIndex x) s)
           (Definitions.RepeatMatcher.continuation x c m min max greedy parenIndex parenCount fuel) = Success (Some z)) ->
         exists y : MatchState,
-          MatchState.Valid str rer y /\ progress dir x (Success (Some y)) /\ c y = Success (Some z)
+          MatchState.Valid (MatchState.input x) rer y /\ progress dir x (Success (Some y)) /\ c y = Success (Some z)
       ) as Rec. {
-        intros x z s c str rer fuel dir m min max greedy parenIndex parenCount Vx Ex_s HCm IH Eq_rec.
+        intros x z rer s c fuel dir m min max greedy parenIndex parenCount Vx Ex_s HCm IH Eq_rec.
         unfold HonoresContinuation in HCm, IH.
         specialize IH with (1 := HCm).
         focus § _ (_ _ []) _ § remember as d in Eq_rec.
@@ -357,13 +358,12 @@ Module Correctness.
         specialize (HCm ltac:(MatchState.solve)) as [ y0 [ Vy0 [ Pxy0 Eq_dy0 ]]].
         rewrite -> Heqd in Eq_dy0. unfold Definitions.RepeatMatcher.continuation in Eq_dy0.
         focus § _ [] _ § auto destruct in Eq_dy0.
-        specialize IH with (2 := Eq_dy0).
-        specialize IH with (1 := Vy0) as [ y1 [ Vy1 [ Py0y1 Eq_cy1 ]]].
+        specialize IH with (1 := (MatchState.self_input _ _ _ Vy0)) (2 := Eq_dy0) as [ y1 [ Vy1 [ Py0y1 Eq_cy1 ]]].
         search.
       }
 
       induction fuel; [ discriminate | ].
-      cbn. intros dir m min max greedy parenIndex parenCount HCm x c z Vx H.
+      cbn. intros dir rer m min max greedy parenIndex parenCount HCm x c z Vx H.
       repeat rewrite Nat.add_sub in *.
       focus § _ [] _ § auto destruct in H.
       - search.
@@ -375,10 +375,10 @@ Module Correctness.
       - search.
     Qed.
 
-    Lemma characterSetMatcher: forall str rer A invert dir,
-          HonoresContinuation str rer (characterSetMatcher rer A invert dir) dir.
+    Lemma characterSetMatcher: forall rer A invert dir,
+          HonoresContinuation (characterSetMatcher rer A invert dir) dir rer.
     Proof.
-      intros str rer A invert dir x c z Vx Eq_z.
+      intros rer A invert dir x c z Vx Eq_z.
       unfold characterSetMatcher in Eq_z. focus § _ [] _ § auto destruct in Eq_z.
       boolean_simplifier.
       search.
@@ -386,10 +386,10 @@ Module Correctness.
       - apply Progress.step. lia.
     Qed.
 
-    Lemma backreferenceMatcher: forall str rer n dir,
-          HonoresContinuation str rer (backreferenceMatcher rer n dir) dir.
+    Lemma backreferenceMatcher: forall rer n dir,
+          HonoresContinuation (backreferenceMatcher rer n dir) dir rer.
     Proof.
-      unfold HonoresContinuation. intros str rer n dir x c z Vx Eq_z.
+      unfold HonoresContinuation. intros rer n dir x c z Vx Eq_z.
       unfold backreferenceMatcher in Eq_z. focus § _ [] _ § auto destruct in Eq_z.
       - search.
       - search.
@@ -397,11 +397,11 @@ Module Correctness.
         + apply Progress.step. MatchState.normalize. cbn in *. lia.
     Qed.
 
-    Lemma compileSubPattern: forall r ctx str rer dir m,
+    Lemma compileSubPattern: forall r ctx rer dir m,
       compileSubPattern r ctx rer dir = Success m ->
-      HonoresContinuation str rer m dir.
+      HonoresContinuation m dir rer.
     Proof.
-      induction r; intros ctx str rer dir m Eq_m x c z; cbn in Eq_m |- *;
+      induction r; intros ctx rer dir m Eq_m x c z; cbn in Eq_m |- *;
       focus § _ [] _ -> _ § auto destruct.
       - injection Eq_m as <-. intros; search.
       - injection Eq_m as <-. apply characterSetMatcher.
@@ -426,15 +426,15 @@ Module Correctness.
         unfold HonoresContinuation in IHr1,IHr2.
         focus § _ [] _ § auto destruct in Eq_m; injection Eq_m as <-.
         + specialize IHr1 with (1 := AutoDest_) (2 := Vx) (3 := Eq_z) as [y0 [Vy0 [Pxy0 Eq_y0]]].
-          specialize IHr2 with (1 := AutoDest_0) (2 := Vy0) (3 := Eq_y0) as [y1 [Vy1 [Pxy1 Eq_y1]]].
+          specialize IHr2 with (1 := AutoDest_0) (2 := (MatchState.self_input _ _ _ Vy0)) (3 := Eq_y0) as [y1 [Vy1 [Pxy1 Eq_y1]]].
           search.
         + specialize IHr2 with (1 := AutoDest_0) (2 := Vx) (3 := Eq_z) as [y0 [Vy0 [Pxy0 Eq_y0]]].
-          specialize IHr1 with (1 := AutoDest_) (2 := Vy0) (3 := Eq_y0) as [y1 [Vy1 [Pxy1 Eq_y1]]].
+          specialize IHr1 with (1 := AutoDest_) (2 := (MatchState.self_input _ _ _ Vy0)) (3 := Eq_y0) as [y1 [Vy1 [Pxy1 Eq_y1]]].
           search.
       - intros Vx Eq_z.
         unfold HonoresContinuation in IHr.
         focus § _ [] _ § auto destruct in Eq_m; injection Eq_m as <-.
-        specialize IHr with (str := str) (1 := AutoDest_) (2 := Vx) (3 := Eq_z) as [y [Vy [Pxy Eq_y]]].
+        specialize IHr with (1 := AutoDest_) (2 := Vx) (3 := Eq_z) as [y [Vy [Pxy Eq_y]]].
         focus § _ [] _ § auto destruct in Eq_y.
         focus § _ [] _ § auto destruct in AutoDest_1. rewrite -> Nat.add_sub in AutoDest_1.
         search.
@@ -497,7 +497,7 @@ Module Correctness.
         (* Eval program; most cases are trivial since they fail *)
         (focus § _ _ _ [] § do (fun t => destruct t as [ [ z | ] | ] eqn:Eq_z)); try solve[ constructor ].
         (* Use the intermediate value lemma to conclude *)
-        pose proof (IntermediateValue.compileSubPattern _ _ _ _ _ _ AutoDest_ _ _ _ V_x Eq_z) as [y [V_y [ P_xy <- ]]].
+        pose proof (IntermediateValue.compileSubPattern _ _ _ _ _ AutoDest_ _ _ _ V_x Eq_z) as [y [V_y [ P_xy <- ]]].
         constructor.
         + MatchState.solve.
         + dependent destruction P_xy. assumption.
@@ -505,13 +505,13 @@ Module Correctness.
   End Monotony.
 
   Module Safety.
-    Definition SafeMatcher (str: list Character) (rer: RegExp) (m: Matcher) (dir: direction) := forall x c,
+    Definition SafeMatcher (m: Matcher) (dir: direction) (rer: RegExp) := forall x c,
       (* For any valid state *)
-      MatchState.Valid str rer x ->
+      MatchState.Valid (MatchState.input x) rer x ->
       (* If the overall computation runs out of fuel *)
       m x c = match_assertion_failed ->
       (* There is an intermediate value y that was produced by m and then passed to c which then ran out of fuel. *)
-      exists y, MatchState.Valid str rer y /\ progress dir x (Success (Some y)) /\ c y = match_assertion_failed.
+      exists y, MatchState.Valid (MatchState.input x) rer y /\ progress dir x (Success (Some y)) /\ c y = match_assertion_failed.
 
     Ltac search := lazymatch goal with
     | [ H: Failure _ = match_assertion_failed |- _ ] => try rewrite -> H in *; clear H; search
@@ -522,46 +522,46 @@ Module Correctness.
       | apply H ]
     end.
 
-    Lemma repeatMatcher: forall dir m min max greedy parenIndex parenCount rer str,
+    Lemma repeatMatcher: forall dir m min max greedy parenIndex parenCount rer,
       Captures.Valid rer parenIndex parenCount ->
-      SafeMatcher str rer m dir ->
-      SafeMatcher str rer (fun x c => repeatMatcher m min max greedy x c parenIndex parenCount) dir.
+      SafeMatcher m dir rer ->
+      SafeMatcher (fun x c => repeatMatcher m min max greedy x c parenIndex parenCount) dir rer.
     Proof.
-      assert (Ind: forall fuel dir m min max greedy parenIndex parenCount rer str,
+      assert (Ind: forall fuel dir m min max greedy parenIndex parenCount rer,
         Captures.Valid rer parenIndex parenCount ->
-        SafeMatcher str rer m dir ->
-        SafeMatcher str rer (fun x c => repeatMatcher' m min max greedy x c parenIndex parenCount fuel) dir). {
-          induction fuel; intros dir m min max greedy parenIndex parenCount rer str V_captures S_m x c V_x Eq_af; cbn in Eq_af; try easy.
+        SafeMatcher m dir rer ->
+        SafeMatcher (fun x c => repeatMatcher' m min max greedy x c parenIndex parenCount fuel) dir rer). {
+          induction fuel; intros dir m min max greedy parenIndex parenCount rer V_captures S_m x c V_x Eq_af; cbn in Eq_af; try easy.
           focus § _ [] _ § auto destruct in Eq_af.
           - search.
           - apply S_m in Eq_af as [ y0 [ V_y0 [ P_x_y0 Eq_af ]]]; try MatchState.solve.
             + focus § _ [] _ § auto destruct in Eq_af.
-              apply (IHfuel _ _ _ _ greedy parenIndex parenCount _ str V_captures S_m _ c V_y0) in Eq_af as [ y1 [ V_y1 [ P_y0_y1 Eq_af ]]].
+              apply (IHfuel _ _ _ _ greedy parenIndex parenCount _ V_captures S_m _ c (MatchState.self_input _ _ _ V_y0)) in Eq_af as [ y1 [ V_y1 [ P_y0_y1 Eq_af ]]].
               search.
           - apply S_m in Eq_af as [ y0 [ V_y0 [ P_x_y0 Eq_af ]]]; try MatchState.solve.
             focus § _ [] _ § auto destruct in Eq_af.
-            apply (IHfuel _ _ _ _ greedy parenIndex parenCount _ str V_captures S_m _ c V_y0) in Eq_af as [ y1 [ V_y1 [ P_y0_y1 Eq_af ]]].
+            apply (IHfuel _ _ _ _ greedy parenIndex parenCount _ V_captures S_m _ c (MatchState.self_input _ _ _ V_y0)) in Eq_af as [ y1 [ V_y1 [ P_y0_y1 Eq_af ]]].
             search.
           - rewrite <- Eq_af. search.
           - search.
           - injection Eq_af as ->.
             apply S_m in AutoDest_3 as [ y0 [ V_y0 [ P_x_y0 Eq_af ]]]; try MatchState.solve.
             focus § _ [] _ § auto destruct in Eq_af.
-            apply (IHfuel _ _ _ _ greedy parenIndex parenCount _ str V_captures S_m _ c V_y0) in Eq_af as [ y1 [ V_y1 [ P_y0_y1 Eq_af ]]].
+            apply (IHfuel _ _ _ _ greedy parenIndex parenCount _ V_captures S_m _ c (MatchState.self_input _ _ _ V_y0)) in Eq_af as [ y1 [ V_y1 [ P_y0_y1 Eq_af ]]].
             search.
           - injection Eq_af as ->.
             apply List.Update.Nat.Batch.failure_bounds in AutoDest_0. unfold Captures.Valid in V_captures.
             destruct V_x as [ _ [ _ [ VCL_x _ ]]]. rewrite -> VCL_x in *. repeat rewrite Nat.add_sub in *. contradiction.
       }
-      intros dir m min max greedy parenIndex parenCount rer str H H0 x c H1 H2. specialize Ind with (1 := H) (2 := H0).
+      intros dir m min max greedy parenIndex parenCount rer H H0 x c H1 H2. specialize Ind with (1 := H) (2 := H0).
       unfold repeatMatcher. unfold SafeMatcher in Ind.
       apply Ind with (1 := H1) (2 := H2).
     Qed.
 
-    Lemma characterSetMatcher: forall str rer A invert dir,
-      SafeMatcher str rer (characterSetMatcher rer A invert dir) dir.
+    Lemma characterSetMatcher: forall rer A invert dir,
+      SafeMatcher (characterSetMatcher rer A invert dir) dir rer.
     Proof.
-      intros str rer A invert dir x c Vx Eq_oof.
+      intros rer A invert dir x c Vx Eq_oof.
       unfold characterSetMatcher in Eq_oof. focus § _ [] _ § auto destruct in Eq_oof; hypotheses_reflector.
       - search.
         + Zhelper. MatchState.solve_with lia.
@@ -577,16 +577,15 @@ Module Correctness.
           apply List.Indexing.Int.failure_bounds in AutoDest_0 as [ ? | ? ]; lia.
         + assert (Z.min (MatchState.endIndex x) (MatchState.endIndex x - 1) = MatchState.endIndex x - 1)%Z as Tmp by lia.
           rewrite -> Tmp in *; clear Tmp.
-          rewrite -> Eq_str in *.
           apply List.Indexing.Int.failure_bounds in AutoDest_0 as [ ? | ? ]; try lia.
     Qed.
 
-    Lemma positiveLookaroundMatcher: forall m str rer dir dir',
-      IntermediateValue.HonoresContinuation str rer m dir' ->
-      SafeMatcher str rer m dir' ->
-      SafeMatcher str rer (Definitions.PositiveLookaround.matcher m) dir.
+    Lemma positiveLookaroundMatcher: forall m rer dir dir',
+      IntermediateValue.HonoresContinuation m dir' rer ->
+      SafeMatcher m dir' rer ->
+      SafeMatcher (Definitions.PositiveLookaround.matcher m) dir rer.
     Proof.
-      intros m str rer dir dir' HC_m S_m. intros x c V_x Eq_af.
+      intros m rer dir dir' HC_m S_m. intros x c V_x Eq_af.
       unfold Definitions.PositiveLookaround.matcher in *.
       focus § _ [] _ § auto destruct in Eq_af.
       + specialize (HC_m _ _ _ V_x AutoDest_) as [ y0 [ V_y0 [ P_x_y0 Eq_y0 ]]].
@@ -596,11 +595,11 @@ Module Correctness.
         discriminate.
     Qed.
 
-    Lemma negativeLookaroundMatcher: forall m str rer dir dir',
-      SafeMatcher str rer m dir' ->
-      SafeMatcher str rer (Definitions.NegativeLookaround.matcher m) dir.
+    Lemma negativeLookaroundMatcher: forall m rer dir dir',
+      SafeMatcher m dir' rer ->
+      SafeMatcher (Definitions.NegativeLookaround.matcher m) dir rer.
     Proof.
-      intros m str rer dir dir' S_m. intros x c V_x Eq_af.
+      intros m rer dir dir' S_m. intros x c V_x Eq_af.
       unfold Definitions.NegativeLookaround.matcher in *.
       focus § _ [] _ § auto destruct in Eq_af.
       + search.
@@ -609,11 +608,11 @@ Module Correctness.
         discriminate.
     Qed.
 
-    Lemma backreferenceMatcher: forall str rer n dir,
+    Lemma backreferenceMatcher: forall rer n dir,
       (positive_to_non_neg n) <= RegExp.capturingGroupsCount rer ->
-      SafeMatcher str rer (backreferenceMatcher rer n dir) dir.
+      SafeMatcher (backreferenceMatcher rer n dir) dir rer.
     Proof.
-      intros str rer n dir Bound_n x c Vx Eq_af.
+      intros rer n dir Bound_n x c Vx Eq_af.
       unfold backreferenceMatcher in Eq_af. focus § _ [] _ § auto destruct in Eq_af.
       - search.
       - search.
@@ -645,15 +644,15 @@ Module Correctness.
         pose proof (NonNegInt.pos n). lia.
     Qed.
 
-    Lemma compileSubPattern: forall rer root r ctx dir str m,
+    Lemma compileSubPattern: forall rer root r ctx dir m,
       countLeftCapturingParensWithin root nil = RegExp.capturingGroupsCount rer ->
       Root root r ctx ->
       EarlyErrors.Pass.Regex root nil ->
       compileSubPattern r ctx rer dir = Success m ->
-      SafeMatcher str rer m dir.
+      SafeMatcher m dir rer.
     Proof.
       intros rer root.
-      induction r; cbn; intros ctx dir str m Eq_rer R_r GR_root Eq_m.
+      induction r; cbn; intros ctx dir m Eq_rer R_r GR_root Eq_m.
       - focus § _ [] _ § auto destruct in Eq_m; injection Eq_m as <-.
         intros x c Vx Sc. search.
       - focus § _ [] _ § auto destruct in Eq_m; injection Eq_m as <-.
@@ -684,10 +683,10 @@ Module Correctness.
       - intros x c Vx Sc.
         focus § _ [] _ § auto destruct in Eq_m; injection Eq_m as <-.
         focus § _ [] _ § auto destruct in Sc.
-        + specialize (IHr2 (Disjunction_right r1 :: ctx) _ str _ ltac:(eassumption) ltac:(eassumption) ltac:(eassumption) ltac:(eassumption) x c ltac:(eassumption) ltac:(eassumption)) as [ ? [ ? [ ? ? ]]].
+        + specialize (IHr2 (Disjunction_right r1 :: ctx) _ _ ltac:(eassumption) ltac:(eassumption) ltac:(eassumption) ltac:(eassumption) x c ltac:(eassumption) ltac:(eassumption)) as [ ? [ ? [ ? ? ]]].
           search.
         + injection Sc as ->.
-          specialize (IHr1 (Disjunction_left r2 :: ctx) _ str _ ltac:(eassumption) ltac:(eassumption) ltac:(eassumption) ltac:(eassumption) x c ltac:(eassumption) ltac:(eassumption)) as [ ? [ ? [ ? ? ]]].
+          specialize (IHr1 (Disjunction_left r2 :: ctx) _ _ ltac:(eassumption) ltac:(eassumption) ltac:(eassumption) ltac:(eassumption) x c ltac:(eassumption) ltac:(eassumption)) as [ ? [ ? [ ? ? ]]].
           search.
       - focus § _ [] _ § auto destruct in Eq_m; injection Eq_m as <-.
         apply repeatMatcher.
@@ -696,18 +695,18 @@ Module Correctness.
           apply List.Range.Nat.Bounds.indexing in Eq_indexed.
           pose proof (EarlyErrors.countLeftCapturingParensBefore_contextualized _ _ _ R_r GR_root).
           unfold countLeftCapturingParensBefore,countLeftCapturingParensWithin in *. cbn in *. lia.
-        + apply (IHr (Quantified_inner q :: ctx) _ _ _ ltac:(eassumption) ltac:(eassumption) ltac:(eassumption) ltac:(eassumption)).
+        + apply (IHr (Quantified_inner q :: ctx) _ _ ltac:(eassumption) ltac:(eassumption) ltac:(eassumption) ltac:(eassumption)).
       - intros x c V_x S_c.
         focus § _ [] _ § auto destruct in Eq_m; injection Eq_m as <-.
-        + specialize (IHr1 _ _ _ _ ltac:(eassumption) ltac:(eapply Zip.Down.same_root_down0; [ constructor | eassumption]) ltac:(eassumption) ltac:(eassumption) _ _ V_x S_c) as [ y0 [ V_y0 [ P_x_y0 Eq_y0 ]]].
-          specialize (IHr2 _ _ _ _ ltac:(eassumption) ltac:(eapply Zip.Down.same_root_down0; [ constructor | eassumption]) ltac:(eassumption) ltac:(eassumption) _ _ V_y0 Eq_y0) as [ y1 [ V_y1 [ P_x_y1 Eq_y1 ]]].
+        + specialize (IHr1 _ _ _ ltac:(eassumption) ltac:(eapply Zip.Down.same_root_down0; [ constructor | eassumption]) ltac:(eassumption) ltac:(eassumption) _ _ V_x S_c) as [ y0 [ V_y0 [ P_x_y0 Eq_y0 ]]].
+          specialize (IHr2 _ _ _ ltac:(eassumption) ltac:(eapply Zip.Down.same_root_down0; [ constructor | eassumption]) ltac:(eassumption) ltac:(eassumption) _ _ (MatchState.self_input _ _ _ V_y0) Eq_y0) as [ y1 [ V_y1 [ P_x_y1 Eq_y1 ]]].
           search.
-        + specialize (IHr2 _ _ _ _ ltac:(eassumption) ltac:(eapply Zip.Down.same_root_down0; [ constructor | eassumption]) ltac:(eassumption) ltac:(eassumption) _ _ V_x S_c) as [ y0 [ V_y0 [ P_x_y0 Eq_y0 ]]].
-          specialize (IHr1 _ _ _ _ ltac:(eassumption) ltac:(eapply Zip.Down.same_root_down0; [ constructor | eassumption]) ltac:(eassumption) ltac:(eassumption) _ _ V_y0 Eq_y0) as [ y1 [ V_y1 [ P_x_y1 Eq_y1 ]]].
+        + specialize (IHr2 _ _ _ ltac:(eassumption) ltac:(eapply Zip.Down.same_root_down0; [ constructor | eassumption]) ltac:(eassumption) ltac:(eassumption) _ _ V_x S_c) as [ y0 [ V_y0 [ P_x_y0 Eq_y0 ]]].
+          specialize (IHr1 _ _ _ ltac:(eassumption) ltac:(eapply Zip.Down.same_root_down0; [ constructor | eassumption]) ltac:(eassumption) ltac:(eassumption) _ _ (MatchState.self_input _ _ _ V_y0) Eq_y0) as [ y1 [ V_y1 [ P_x_y1 Eq_y1 ]]].
           search.
       - intros x c V_x Eq_af.
         focus § _ [] _ § auto destruct in Eq_m; injection Eq_m as <-.
-        specialize (IHr _ _ _ _ ltac:(eassumption) ltac:(eapply Zip.Down.same_root_down0; [ constructor | eassumption]) ltac:(eassumption) ltac:(eassumption) _ _ V_x Eq_af) as [ y0 [ V_y0 [ P_x_y0 Eq_y0 ]]].
+        specialize (IHr _ _ _ ltac:(eassumption) ltac:(eapply Zip.Down.same_root_down0; [ constructor | eassumption]) ltac:(eassumption) ltac:(eassumption) _ _ V_x Eq_af) as [ y0 [ V_y0 [ P_x_y0 Eq_y0 ]]].
         focus § _ [] _ § auto destruct in Eq_y0.
         + focus § _ [] _ § auto destruct in AutoDest_0; focus § _ [] _ § auto destruct in AutoDest_1; rewrite -> Nat.add_sub in AutoDest_1.
           * search. MatchState.solve_with lia.
@@ -756,17 +755,17 @@ Module Correctness.
       - focus § _ [] _ § auto destruct in Eq_m; injection Eq_m as <-.
         apply positiveLookaroundMatcher with (dir' := forward).
         + apply IntermediateValue.compileSubPattern with (1 := AutoDest_).
-        + apply (IHr (Lookahead_inner :: ctx) _ _ _ ltac:(eassumption) ltac:(eassumption) ltac:(eassumption) ltac:(eassumption)).
+        + apply (IHr (Lookahead_inner :: ctx) _ _ ltac:(eassumption) ltac:(eassumption) ltac:(eassumption) ltac:(eassumption)).
       - focus § _ [] _ § auto destruct in Eq_m; injection Eq_m as <-.
         apply negativeLookaroundMatcher with (dir' := forward).
-        apply (IHr (NegativeLookahead_inner :: ctx) _ _ _ ltac:(eassumption) ltac:(eassumption) ltac:(eassumption) ltac:(eassumption)).
+        apply (IHr (NegativeLookahead_inner :: ctx) _ _ ltac:(eassumption) ltac:(eassumption) ltac:(eassumption) ltac:(eassumption)).
       - focus § _ [] _ § auto destruct in Eq_m; injection Eq_m as <-.
         apply positiveLookaroundMatcher with (dir' := backward).
         + apply IntermediateValue.compileSubPattern with (1 := AutoDest_).
-        + apply (IHr (Lookbehind_inner :: ctx) _ _ _ ltac:(eassumption) ltac:(eassumption) ltac:(eassumption) ltac:(eassumption)).
+        + apply (IHr (Lookbehind_inner :: ctx) _ _ ltac:(eassumption) ltac:(eassumption) ltac:(eassumption) ltac:(eassumption)).
       - focus § _ [] _ § auto destruct in Eq_m; injection Eq_m as <-.
         apply negativeLookaroundMatcher with (dir' := backward).
-        eapply (IHr (NegativeLookbehind_inner :: ctx) _ _ _ ltac:(eassumption) ltac:(eassumption) ltac:(eassumption) ltac:(eassumption)).
+        eapply (IHr (NegativeLookbehind_inner :: ctx) _ _ ltac:(eassumption) ltac:(eassumption) ltac:(eassumption) ltac:(eassumption)).
     Qed.
 
     Theorem compilePattern: forall r rer input i m,
@@ -781,8 +780,8 @@ Module Correctness.
       focus § _ (_ [] _) § auto destruct.
       - hypotheses_reflector. spec_reflector Nat.leb_spec0. contradiction.
       - remember (match_state input i (List.repeat None (RegExp.capturingGroupsCount rer))) as x eqn:Eq_x.
-        pose proof (Safety.compileSubPattern _ _ _ nil forward input _ Eq_rer (Root.id _) GR AutoDest_ x (fun y => y)) as Falsum.
-        assert (MatchState.Valid input rer x) as V_x. {
+        pose proof (Safety.compileSubPattern _ _ _ nil forward _ Eq_rer (Root.id _) GR AutoDest_ x (fun y => y)) as Falsum.
+        assert (MatchState.Valid (MatchState.input x) rer x) as V_x. {
           subst x. apply MatchState.valid_init. lia.
         }
         focus § _ (_ [] _) § do (fun t => destruct t as [ | f ]; try easy; destruct f; try easy).
@@ -792,13 +791,13 @@ Module Correctness.
   End Safety.
 
   Module Termination.
-    Definition TerminatingMatcher (str: list Character) (rer: RegExp) (m: Matcher) (dir: direction) := forall x c,
+    Definition TerminatingMatcher (m: Matcher) (dir: direction) (rer: RegExp) := forall x c,
       (* For any valid state *)
-      MatchState.Valid str rer x ->
+      MatchState.Valid (MatchState.input x) rer x ->
       (* If the overall computation runs out of fuel *)
       m x c = out_of_fuel ->
       (* There is an intermediate value y that was produced by m and then passed to c which then ran out of fuel. *)
-      exists y, MatchState.Valid str rer y /\ progress dir x (Success (Some y)) /\ c y = out_of_fuel.
+      exists y, MatchState.Valid (MatchState.input x) rer y /\ progress dir x (Success (Some y)) /\ c y = out_of_fuel.
 
     Definition remainingChars (x: MatchState) (dir: direction): nat := match dir with
     | forward => length (MatchState.input x) - Z.to_nat (MatchState.endIndex x)
@@ -806,8 +805,8 @@ Module Correctness.
     end.
     Definition fuelBound (min: non_neg_integer) (x: MatchState) (dir: direction) := min + (remainingChars x dir)  + 1.
 
-    Lemma repeatMatcherFuel_satisfies_bound: forall min x str rer dir, MatchState.Valid str rer x -> fuelBound min x dir <= repeatMatcherFuel min x.
-    Proof. intros. unfold fuelBound,repeatMatcherFuel in *. destruct H as [ <- [ [ Bounds_Ei_x_low Bounds_Ei_x_high ] VC_x ] ]. destruct dir; cbn; lia. Qed.
+    Lemma repeatMatcherFuel_satisfies_bound: forall min x rer dir, MatchState.Valid (MatchState.input x) rer x -> fuelBound min x dir <= repeatMatcherFuel min x.
+    Proof. intros. unfold fuelBound,repeatMatcherFuel in *. destruct H as [ ? [ [ Bounds_Ei_x_low Bounds_Ei_x_high ] VC_x ] ]. destruct dir; cbn; lia. Qed.
 
     Lemma fuelDecreases_min: forall dir min min' x x' b,
       min' < min -> progress dir x (Success (Some x')) -> fuelBound min x dir <= S b -> fuelBound min' x' dir <= b.
@@ -817,15 +816,15 @@ Module Correctness.
       - lia.
     Qed.
 
-    Lemma fuelDecreases_progress: forall dir str rer min x x' b,
+    Lemma fuelDecreases_progress: forall dir rer min x x' b,
       progress dir x (Success (Some x')) ->
       ((MatchState.endIndex x) =? (MatchState.endIndex x'))%Z = false ->
-      MatchState.Valid str rer x ->
-      MatchState.Valid str rer x' ->
+      MatchState.Valid (MatchState.input x) rer x ->
+      MatchState.Valid (MatchState.input x) rer x' ->
       fuelBound min x dir <= S b ->
       fuelBound min x' dir <= b.
     Proof.
-      intros dir str rer min x x' b P_x_x' Neq_Eis [ <- [ [ Bei_x_l Bei_x_h ] VC_x ] ] [ <- [ [ B_Ei_x'_l B_Ei_x'_h ] VC_x' ] ] Ineq_fuel.
+      intros dir rer min x x' b P_x_x' Neq_Eis [ ? [ [ Bei_x_l Bei_x_h ] VC_x ] ] [ ? [ [ B_Ei_x'_l B_Ei_x'_h ] VC_x' ] ] Ineq_fuel.
       dependent destruction P_x_x'. rename H into Eq_inp_x_x', H0 into Dp_x_x'.
       unfold fuelBound, remainingChars in *.
       rewrite <- Eq_inp_x_x' in *.
@@ -842,13 +841,13 @@ Module Correctness.
       | apply H ]
     end.
 
-    Lemma repeatMatcher': forall fuel m min max greedy parenIndex parenCount x c dir str rer,
+    Lemma repeatMatcher': forall fuel m min max greedy parenIndex parenCount x c dir rer,
       fuelBound min x dir <= fuel ->
-      MatchState.Valid str rer x ->
-      TerminatingMatcher str rer m dir ->
+      MatchState.Valid (MatchState.input x) rer x ->
+      TerminatingMatcher m dir rer ->
       repeatMatcher' m min max greedy x c parenIndex parenCount fuel = out_of_fuel ->
       exists y,
-        MatchState.Valid str rer y /\ progress dir x (Success (Some y)) /\ c y = out_of_fuel.
+        MatchState.Valid (MatchState.input x) rer y /\ progress dir x (Success (Some y)) /\ c y = out_of_fuel.
     Proof.
       (* The 'recursive' case (i.e. when min is not zero or the endIndex is different from last iteration) *)
   (*     assert (forall x s c str fuel dir m min max greedy groups,
@@ -893,7 +892,7 @@ Module Correctness.
         search.*)
       } *)
     
-      induction fuel; intros m min max greedy parenIndex parenCount x c dir str rer Ineq_fuel Vx Tm Falsum.
+      induction fuel; intros m min max greedy parenIndex parenCount x c dir rer Ineq_fuel Vx Tm Falsum.
       - clear -Ineq_fuel. unfold fuelBound, remainingChars in *. lia.
       - cbn in Falsum.
         (focus § _ [] _ § auto destruct in Falsum).
@@ -904,17 +903,17 @@ Module Correctness.
             apply fuelDecreases_min with (min := min) (x := x); try Progress.solve.
             spec_reflector Nat.eqb_spec. lia.
           }
-          specialize IHfuel with (1 := FD) (2 := Vy) (3 := Tm) (4 := Falsum). clear Falsum.
+          specialize IHfuel with (1 := FD) (2 := (MatchState.self_input _ _ _ Vy)) (3 := Tm) (4 := Falsum). clear Falsum.
           destruct IHfuel as [ z [ Vz [ Pyz Falsum ] ] ].
           search.
         + apply Tm in Falsum; try Progress.solve. destruct Falsum as [ y [ Vy [ Pxy Falsum ] ] ].
           (focus § _ [] _ § auto destruct in Falsum).
           boolean_simplifier. spec_reflector Nat.eqb_spec. subst.
           assert(FD: fuelBound 0 y dir <= fuel). {
-            (focus § _ [] _ § do (fun t => apply fuelDecreases_progress with (str := str) (rer := rer) (x := t)) in Pxy); try Progress.solve.
+            (focus § _ [] _ § do (fun t => apply fuelDecreases_progress with (rer := rer) (x := t)) in Pxy); try Progress.solve.
             MatchState.normalize. spec_reflector Z.eqb_spec. congruence.
           }
-          specialize IHfuel with (1 := FD) (2 := Vy) (3 := Tm) (4 := Falsum). clear Falsum.
+          specialize IHfuel with (1 := FD) (2 := (MatchState.self_input _ _ _ Vy)) (3 := Tm) (4 := Falsum). clear Falsum.
           destruct IHfuel as [ z [ Vz [ Pyz Falsum ] ] ].
           search.
         + search.
@@ -923,10 +922,10 @@ Module Correctness.
           (focus § _ [] _ § auto destruct in Falsum).
           boolean_simplifier. spec_reflector Nat.eqb_spec. subst.
           assert(FD: fuelBound 0 y dir <= fuel). {
-            (focus § _ [] _ § do (fun t => apply fuelDecreases_progress with (str := str) (rer := rer) (x := t)) in Pxy); try Progress.solve.
+            (focus § _ [] _ § do (fun t => apply fuelDecreases_progress with (rer := rer) (x := t)) in Pxy); try Progress.solve.
             MatchState.normalize. spec_reflector Z.eqb_spec. congruence.
           }
-          specialize IHfuel with (1 := FD) (2 := Vy) (3 := Tm) (4 := Falsum). clear Falsum.
+          specialize IHfuel with (1 := FD) (2 := (MatchState.self_input _ _ _ Vy)) (3 := Tm) (4 := Falsum). clear Falsum.
           destruct IHfuel as [ z [ Vz [ Pyz Falsum ] ] ].
           search.
         + injection Falsum as ->.
@@ -934,20 +933,20 @@ Module Correctness.
           discriminate.
     Qed.
 
-    Lemma repeatMatcher: forall m min max greedy parenIndex parenCount str rer dir,
-      TerminatingMatcher str rer m dir ->
-      TerminatingMatcher str rer (fun x c => repeatMatcher m min max greedy x c parenIndex parenCount) dir.
+    Lemma repeatMatcher: forall m min max greedy parenIndex parenCount rer dir,
+      TerminatingMatcher m dir rer ->
+      TerminatingMatcher (fun x c => repeatMatcher m min max greedy x c parenIndex parenCount) dir rer.
     Proof.
-      unfold Semantics.repeatMatcher, TerminatingMatcher. intros m min max greedy parenIndex parenCount str rer dir Tm x c V_x Eq_oof.
+      unfold Semantics.repeatMatcher, TerminatingMatcher. intros m min max greedy parenIndex parenCount rer dir Tm x c V_x Eq_oof.
       apply repeatMatcher' with (4 := Eq_oof); try easy.
-      apply repeatMatcherFuel_satisfies_bound with (str := str) (rer := rer).
+      apply repeatMatcherFuel_satisfies_bound with (rer := rer).
       assumption.
     Qed.
 
-    Lemma characterSetMatcher: forall str rer A invert dir,
-      TerminatingMatcher str rer (characterSetMatcher rer A invert dir) dir.
+    Lemma characterSetMatcher: forall rer A invert dir,
+      TerminatingMatcher (characterSetMatcher rer A invert dir) dir rer.
     Proof.
-      intros str rer A invert dir x c Vx Eq_oof.
+      intros rer A invert dir x c Vx Eq_oof.
       unfold characterSetMatcher in Eq_oof. focus § _ [] _ § auto destruct in Eq_oof.
       - search.
         + Zhelper. MatchState.solve_with lia.
@@ -961,12 +960,12 @@ Module Correctness.
         cbn in *. congruence.
     Qed.
 
-    Lemma positiveLookaroundMatcher: forall m str rer dir dir',
-      IntermediateValue.HonoresContinuation str rer m dir' ->
-      TerminatingMatcher str rer m dir' ->
-      TerminatingMatcher str rer (Definitions.PositiveLookaround.matcher m) dir.
+    Lemma positiveLookaroundMatcher: forall m rer dir dir',
+      IntermediateValue.HonoresContinuation m dir' rer ->
+      TerminatingMatcher m dir' rer ->
+      TerminatingMatcher (Definitions.PositiveLookaround.matcher m) dir rer.
     Proof.
-      intros m str rer dir dir' HC_m S_m. intros x c V_x Eq_oof.
+      intros m rer dir dir' HC_m S_m. intros x c V_x Eq_oof.
       unfold Definitions.PositiveLookaround.matcher in *.
       focus § _ [] _ § auto destruct in Eq_oof.
       + specialize (HC_m _ _ _ V_x AutoDest_) as [ y0 [ V_y0 [ P_x_y0 Eq_y0 ]]].
@@ -976,11 +975,11 @@ Module Correctness.
         discriminate.
     Qed.
 
-    Lemma negativeLookaroundMatcher: forall m str rer dir dir',
-      TerminatingMatcher str rer m dir' ->
-      TerminatingMatcher str rer (Definitions.NegativeLookaround.matcher m) dir.
+    Lemma negativeLookaroundMatcher: forall m rer dir dir',
+      TerminatingMatcher m dir' rer ->
+      TerminatingMatcher (Definitions.NegativeLookaround.matcher m) dir rer.
     Proof.
-      intros m str rer dir dir' S_m. intros x c V_x Eq_oof.
+      intros m rer dir dir' S_m. intros x c V_x Eq_oof.
       unfold Definitions.NegativeLookaround.matcher in *.
       focus § _ [] _ § auto destruct in Eq_oof.
       + search.
@@ -989,10 +988,10 @@ Module Correctness.
         discriminate.
     Qed.
 
-    Lemma backreferenceMatcher: forall str rer n dir,
-      TerminatingMatcher str rer (backreferenceMatcher rer n dir) dir.
+    Lemma backreferenceMatcher: forall rer n dir,
+      TerminatingMatcher (backreferenceMatcher rer n dir) dir rer.
     Proof.
-      unfold TerminatingMatcher. intros str rer n dir x c Vx Eq_oof.
+      unfold TerminatingMatcher. intros rer n dir x c Vx Eq_oof.
       unfold backreferenceMatcher in Eq_oof. focus § _ [] _ § auto destruct in Eq_oof.
       - search.
       - search.
@@ -1015,11 +1014,11 @@ Module Correctness.
         cbn in *. congruence.
     Qed.
 
-    Lemma compileSubPattern: forall r ctx rer dir str m,
+    Lemma compileSubPattern: forall r ctx rer dir m,
       compileSubPattern r ctx rer dir = Success m ->
-      TerminatingMatcher str rer m dir.
+      TerminatingMatcher m dir rer.
     Proof.
-      induction r; intros ctx rer dir str m Eq_m; cbn -[Semantics.repeatMatcher] in Eq_m;
+      induction r; intros ctx rer dir m Eq_m; cbn -[Semantics.repeatMatcher] in Eq_m;
       focus § _ [] _ § auto destruct.
       - focus § _ [] _ § auto destruct in Eq_m; injection Eq_m as <-.
         intros x c Vx H. search.
@@ -1046,14 +1045,14 @@ Module Correctness.
       - intros x c Vx H. unfold TerminatingMatcher in IHr1,IHr2.
         focus § _ [] _ § auto destruct in Eq_m; injection Eq_m as <-.
         + specialize IHr1 with (1 := AutoDest_) (2 := Vx) (3 := H) as [ y0 [ Vy0 [ P_x_y0 Eq_oof0 ]]].
-          specialize IHr2 with (1 := AutoDest_0) (2 := Vy0) (3 := Eq_oof0) as [ y1 [ Vy1 [ P_x_y1 Eq_oof1 ]]].
+          specialize IHr2 with (1 := AutoDest_0) (2 := (MatchState.self_input _ _ _ Vy0)) (3 := Eq_oof0) as [ y1 [ Vy1 [ P_x_y1 Eq_oof1 ]]].
           search.
         + specialize IHr2 with (1 := AutoDest_0) (2 := Vx) (3 := H) as [ y0 [ Vy0 [ P_x_y0 Eq_oof0 ]]].
-          specialize IHr1 with (1 := AutoDest_) (2 := Vy0) (3 := Eq_oof0) as [ y1 [ Vy1 [ P_x_y1 Eq_oof1 ]]].
+          specialize IHr1 with (1 := AutoDest_) (2 := (MatchState.self_input _ _ _ Vy0)) (3 := Eq_oof0) as [ y1 [ Vy1 [ P_x_y1 Eq_oof1 ]]].
           search.
       - intros x c Vx H. unfold TerminatingMatcher in IHr.
         focus § _ [] _ § auto destruct in Eq_m; injection Eq_m as <-.
-        specialize IHr with (str := str) (1 := AutoDest_) (2 := Vx) (3 := H) as [ y [ Vy [ P_x_y Eq_oof ]]].
+        specialize IHr with (1 := AutoDest_) (2 := Vx) (3 := H) as [ y [ Vy [ P_x_y Eq_oof ]]].
         focus § _ [] _ § auto destruct in Eq_oof.
         + search.
           focus § _ [] _ § auto destruct in AutoDest_1.
@@ -1113,8 +1112,8 @@ Module Correctness.
       focus § _ [] _ § auto destruct in Eq_m. injection Eq_m as <-.
       focus § _ (_ [] _) § auto destruct. boolean_simplifier. spec_reflector Nat.leb_spec0.
       remember (match_state input i (List.repeat None (RegExp.capturingGroupsCount rer))) as x eqn:Eq_x.
-      pose proof (compileSubPattern _ _ _ forward input _ AutoDest_ x (fun y => y)) as Falsum.
-      assert (MatchState.Valid input rer x) as V_x. {
+      pose proof (compileSubPattern _ _ _ forward _ AutoDest_ x (fun y => y)) as Falsum.
+      assert (MatchState.Valid (MatchState.input x) rer x) as V_x. {
         subst x. apply MatchState.valid_init. lia.
       }
       focus § _ (_ [] _) § do (fun t => destruct t as [ | f ]; try easy; destruct f; try easy).
@@ -1164,31 +1163,31 @@ Module Correctness.
   End Termination.
 
   (* For all matcher m *)
-  Definition matcher_invariant (str: list Character) (rer: RegExp) (m: Matcher) (dir: direction) :=
+  Definition matcher_invariant (m: Matcher) (dir: direction) (rer: RegExp) :=
       (* State x and continuation c *)
       forall x c,
       (* such that x is valid *)
-      MatchState.Valid str rer x ->
+      MatchState.Valid (MatchState.input x) rer x ->
       (* Then either *)
         (* The match fails *)
         (m x c = failure) \/
         (* or *)
         (* m did some work, yielding a new state y, which was passed to the continuation *)
-        (exists y, MatchState.Valid str rer y /\ progress dir x (Success (Some y)) /\ c y = m x c).
+        (exists y, MatchState.Valid (MatchState.input x) rer y /\ progress dir x (Success (Some y)) /\ c y = m x c).
 
-  Theorem compiledSubPattern_matcher_invariant: forall root r ctx rer dir str m,
+  Theorem compiledSubPattern_matcher_invariant: forall root r ctx rer dir m,
       countLeftCapturingParensWithin root nil = RegExp.capturingGroupsCount rer ->
       Root root r ctx ->
       EarlyErrors.Pass.Regex root nil ->
       compileSubPattern r ctx rer dir = Success m ->
-      matcher_invariant str rer m dir.
+      matcher_invariant m dir rer.
   Proof.
-    intros root r ctx rer dir str m.
+    intros root r ctx rer dir m.
     intros Eq_rer R_r P_root Eq_m x c V_x.
     destruct (m x c) as [ [ | ] | [ | ] ] eqn:Eq_match.
-    - right. apply (IntermediateValue.compileSubPattern _ _ _ _ _ _ Eq_m _ _ _ V_x Eq_match).
+    - right. apply (IntermediateValue.compileSubPattern _ _ _ _ _ Eq_m _ _ _ V_x Eq_match).
     - left. reflexivity.
-    - right. apply (Termination.compileSubPattern _ _ _ _ _ _ Eq_m _ _ V_x Eq_match).
-    - right. apply (Safety.compileSubPattern _ _ _ _ _ _ _ Eq_rer R_r P_root Eq_m _ _ V_x Eq_match).
+    - right. apply (Termination.compileSubPattern _ _ _ _ _ Eq_m _ _ V_x Eq_match).
+    - right. apply (Safety.compileSubPattern _ _ _ _ _ _ Eq_rer R_r P_root Eq_m _ _ V_x Eq_match).
   Qed.
 End Correctness.

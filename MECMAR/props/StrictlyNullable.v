@@ -70,7 +70,7 @@ Proof.
   destruct (List.Indexing.Int.indexing (input x) (endIndex x)) eqn:INDEX.    
   2: { rewrite <- List.Indexing.Int.success_bounds0 in NOFAILURE. rewrite INDEX in NOFAILURE. destruct NOFAILURE. inversion H. }
   destruct (wordCharacters rer) eqn:WORD.
-  - destruct (CharSet.contains s0 s); eauto.
+  - cbn. destruct (CharSet.contains s0 s); eauto.
   - exfalso. eapply Compile.Compile.Safety.wordCharacters. eauto.
 Qed.
 
@@ -86,7 +86,7 @@ Proof.
   destruct (List.Indexing.Int.indexing (input x) (endIndex x - 1)) eqn:INDEX.    
   2: { rewrite <- List.Indexing.Int.success_bounds0 in NOFAILURE. rewrite INDEX in NOFAILURE. destruct NOFAILURE. inversion H. }
   destruct (wordCharacters rer) eqn:WORD.
-  - destruct (CharSet.contains s0 s); eauto.
+  - cbn. destruct (CharSet.contains s0 s); eauto.
   - exfalso. eapply Compile.Compile.Safety.wordCharacters. eauto.
 Qed.
 
@@ -187,7 +187,7 @@ Proof.
     +                           (* Matcher 1 succeeded *)
       rewrite <- EQUAL.
       destruct (c y) as [res|] eqn:CONT.
-      * destruct res as [res|]; auto. right.
+      * cbn. destruct res as [res|]; auto. right.
         exists y. split; auto.
       * right. exists y. split; auto.
   (* quantifier *)
@@ -371,7 +371,7 @@ Proof.
        else
         repeatMatcher' m 0 +∞ true y c (countLeftCapturingParensBefore r ctx)
                               (countLeftCapturingParensWithin r ctx) n) UPDVALID).
-  destruct STRICTLY_NULLABLE as [MISMATCH | [y [VALIDy [SAMEIDX EQUAL]]]].
+  cbn. destruct STRICTLY_NULLABLE as [MISMATCH | [y [VALIDy [SAMEIDX EQUAL]]]].
   - rewrite MISMATCH. auto.
   - rewrite <- EQUAL. simpl in SAMEIDX. rewrite SAMEIDX. rewrite Z.eqb_refl. auto.
 Qed.

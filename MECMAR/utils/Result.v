@@ -9,20 +9,22 @@ Module Result.
 
   Class AssertionError (F: Type) := { f: F }.
 
-  Definition from_option {S F: Type} (o: option S) (f: F): Result S F := match o with
-  | Some x => Success x
-  | None => Failure f
-  end.
+  Definition ret {T: Type} (F: Type) (v: T): Result T F := @Success _ F v.
 
-  Definition map { S T F: Type } (r: Result S F) (f: S -> T): Result T F := match r with
-  | Success s => Success (f s)
-  | Failure f => Failure f
-  end.
-
-  Definition flatMap { S T F: Type } (r: Result S F) (f: S -> Result T F): Result T F := match r with
+  Definition bind {S T F: Type} (r: Result S F) (f: S -> Result T F): Result T F := match r with
   | Success s => f s
   | Failure f => Failure f
   end.
+
+  Lemma left_identity {S T F: Type}: forall (v: S) (f: S -> Result T F), bind (ret F v) f = f v.
+  Proof. reflexivity. Qed.
+
+  Lemma right_identity {T F: Type}: forall (m: Result T F), bind m (ret F) = m.
+  Proof. intros [|]; reflexivity. Qed.
+
+  Lemma associativity {S T U F: Type}: forall (m: Result S F) (f: S -> Result T F) (g: T -> Result U F),
+    bind (bind m f) g = bind m (fun s => bind (f s) g).
+  Proof. intros [|] ? ?; reflexivity. Qed.
 
   Definition assertion_failed {S F: Type} {failure: AssertionError F}: Result S F :=
     let (f) := failure in
@@ -32,25 +34,19 @@ Module Result.
   (   unfold Result.assertion_failed in *
   ||  match goal with
       | [ f: AssertionError _ |- _ ] => destruct f as [f]
-      | [ E: {| f := _ |} = {| f := _ |} |- _ ] => revert E; intros [=->]
-      | [ E: Failure _ = Failure _ |- _ ] => revert E; intros [=->]
+      | [ E: {| f := _ |} = {| f := _ |} |- _ ] => injection E as ->
+      | [ E: Failure _ = Failure _ |- _ ] => injection E as ->
       end); try easy.
 
-  Definition from_option_assertion {S F: Type} {failure: AssertionError F} (o: option S): Result S F := match o with
-  | Some x => Success x
-  | None => assertion_failed
-  end.
+  Module Conversions.
+    Definition from_option {S F: Type} {failure: AssertionError F} (o: option S): Result S F := match o with
+    | Some x => Success x
+    | None => assertion_failed
+    end.
+  End Conversions.
 
   Module Notations.
-    Notation "'let!' r '<-' y 'in' z" := (match y with 
-      | Success v => Success ((fun r => z) v)
-      | Failure f => Failure f
-      end)
-      (at level 20, r pattern, y at level 100, z at level 200): result_flow.
-    Notation "'let!' r '=<<' y 'in' z" := (match y with 
-      | Success v => ((fun r => z): _ -> Result _ _) v
-      | Failure f => Failure f
-      end)
+    Notation "'let!' r '=<<' y 'in' z" := (bind y (fun r => z))
       (at level 20, r pattern, y at level 100, z at level 200): result_flow.
 
     Notation "'assert!' b ';' z" := (if (negb b) then assertion_failed else z) (at level 20, b at level 100, z at level 100): result_flow.

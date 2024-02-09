@@ -5,6 +5,7 @@
 (generate_opam_files true)
 
 (using coq 0.8)
+(using menhir 2.1)
 
 (source
  (github username/reponame))

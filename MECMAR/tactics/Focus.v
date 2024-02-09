@@ -1,3 +1,5 @@
+From Warblre Require Import Result.
+
 Inductive focus :=
 | Here
 | AppL (f: focus)
@@ -6,8 +8,7 @@ Inductive focus :=
 | ArrowR (f: focus)
 | IteCond (f: focus)
 | LetBound (f: focus)
-| FunR (f: focus)
-.
+| FunR (f: focus).
 
 Fixpoint focus_insert (f inserted: focus) := match f with
 | Here => inserted
@@ -94,11 +95,16 @@ Ltac focus_replace_hypothesis H With By :=
   [ idtac | By ].
 
 Ltac destruct_or_rewrite t := lazymatch goal with
-| [ H: t = ?v |- _ ] => idtac H; rewrite -> H
+| [ H: t = ?v |- _ ] => rewrite -> H
 | [ |- _ ] => let Eq := fresh "AutoDest_" in destruct t eqn:Eq
 end.
 
 Ltac auto_destruct t := lazymatch t with
+| Result.bind ?c _ => 
+    destruct_or_rewrite c;
+    match goal with
+    | [ _: c = ?v |- _ ] => simpl (Result.bind v _) in *
+    end
 | match ?c with | _ => _ end => destruct_or_rewrite c
 | if ?c then _ else _ => destruct_or_rewrite c
 | ?l _ => auto_destruct l

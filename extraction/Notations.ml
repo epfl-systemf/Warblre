@@ -1,5 +1,6 @@
 open Extracted.Patterns
 
+let epsilon = Empty
 let char c = Char (c)
 
 let group r = Group (None, r)

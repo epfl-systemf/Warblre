@@ -20,6 +20,9 @@ Definition positive_to_non_neg (n: positive_integer): non_neg_integer := Pos.to_
 Definition positive_to_nat (n: positive_integer): nat := Pos.to_nat n.
 
 Module NonNegInt.
+  Definition modulo (i: non_neg_integer) (modulus: non_neg_integer): non_neg_integer := Nat.modulo i modulus.
+  #[global] Opaque modulo.
+
   Lemma pos: forall p, positive_to_non_neg p > 0.
   Proof. intros. pose proof (Pos2Nat.is_pos p). unfold positive_to_non_neg. lia. Qed.
 

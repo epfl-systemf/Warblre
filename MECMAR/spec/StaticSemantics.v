@@ -67,10 +67,24 @@ Module StaticSemantics.
       | ControlEscape.r => Character.numeric_value Character.CARRIAGE_RETURN
       end
 
+  (** CharacterEscape :: c AsciiLetter *)
+  | ClassEsc (ClassEscape.CharacterEsc (CharacterEscape.AsciiControlEsc l)) =>
+      (* 1. Let ch be the code point matched by AsciiLetter. *)
+      let ch := CodePoint.from_ascii_letter l in
+      (* 2. Let i be the numeric value of ch. *)
+      let i := CodePoint.numeric_value ch in
+      (* 3. Return the remainder of dividing i by 32. *)
+      NonNegInt.modulo i 32
+
   (** CharacterEscape :: 0 *)
   | ClassEsc (ClassEscape.CharacterEsc (CharacterEscape.Zero)) =>
       (* 1. Return the MV of HexEscapeSequence. *)
       Character.numeric_value Character.NULL
+
+  (* CharacterEscape :: HexEscapeSequence *)
+  | ClassEsc (ClassEscape.CharacterEsc (CharacterEscape.HexEscape d1 d2)) =>
+      (* 1. Return the MV of HexEscapeSequence. *)
+      HexDigit.to_integer d1 d2
 
   (** CharacterEscape :: IdentityEscape *)
   | ClassEsc (ClassEscape.CharacterEsc (CharacterEscape.IdentityEsc chr)) =>
@@ -79,7 +93,14 @@ Module StaticSemantics.
       (* 2. Return the numeric value of ch. *)
       Character.numeric_value ch
 
-  | _ => Result.assertion_failed
+  | ClassEsc (ClassEscape.CharacterClassEsc esc) => match esc with
+    | CharacterClassEscape.d => Result.assertion_failed
+    | CharacterClassEscape.D => Result.assertion_failed
+    | CharacterClassEscape.s => Result.assertion_failed
+    | CharacterClassEscape.S => Result.assertion_failed
+    | CharacterClassEscape.w => Result.assertion_failed
+    | CharacterClassEscape.W => Result.assertion_failed
+    end
   end.
 
   (** 22.2.1.5 Static Semantics: IsCharacterClass *)

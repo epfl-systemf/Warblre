@@ -27,7 +27,9 @@ let print_controlescape (c:ControlEscape.coq_type) : string =
 let print_charescape (c:CharacterEscape.coq_type) : string =
   match c with
   | ControlEsc (e) -> "ControlEsc(" ^ print_controlescape e ^ ")"
+  | AsciiControlEsc (l) -> "AsciiControlEsc(" ^ (String.make 1 l) ^ ")"
   | Zero -> "Zero"
+  | HexEscape (d1, d2) -> "HexEscape(" ^ (String.make 1 d1) ^ (String.make 1 d2) ^ ")"
   | IdentityEsc (e) -> "IdentityEsc(\'" ^ String.make 1 e ^ "\')"
 
 let print_atomescape (a:AtomEscape.coq_type) : string =

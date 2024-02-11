@@ -69,7 +69,7 @@ Module Compile.
         try injection Eq_r as <-; try reflexivity.
       - focus § _ [] _ § auto destruct in Eq_r.
         focus § _ [] _ § auto destruct in AutoDest_; injection AutoDest_ as <-;
-          rewrite -> Character.numeric_pseudo_bij in Eq_r; subst; dependent destruction H; injection Eq_r as <-; reflexivity.
+          (rewrite -> ?Character.numeric_pseudo_bij in Eq_r; rewrite <- ?CodePoint.numeric_value_from_ascii in Eq_r; subst; dependent destruction H; injection Eq_r as <-; reflexivity).
     Qed.
 
     Lemma compileToCharSet: forall crs rer,

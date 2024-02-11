@@ -8,6 +8,11 @@ From Coq Require extraction.ExtrOcamlString.
 From Coq Require extraction.ExtrOcamlNatInt.
 From Coq Require extraction.ExtrOcamlZInt.
 
+Extract Constant HexDigit.type => "char".
+Extract Constant HexDigit.to_integer => "Interop.parse_hex".
+
+Extract Constant AsciiLetter.type => "char".
+
 Extract Constant Character => "char".
 Extract Constant Character.eqb => "Char.equal".
 Extract Constant Character.eqs => "Char.equal".
@@ -18,7 +23,9 @@ Extract Constant Character.Unicode.case_fold => "Interop.case_fold".
 Extract Constant CodePoint => "char".
 Extract Constant CodePoint.code_points_to_string => "Interop.code_points_to_string".
 Extract Constant CodePoint.to_upper_case => "Interop.to_upper_case".
+Extract Constant CodePoint.from_ascii_letter => "Interop.ascii_letter".
 Extract Constant CodePoint.from_character => "Interop.code_point".
+Extract Constant CodePoint.numeric_value => "Interop.numeric_value".
 
 Extract Constant GroupName => "int".
 Extract Constant GroupName.eqb => "Int.equal".

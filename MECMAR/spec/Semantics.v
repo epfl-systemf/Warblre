@@ -261,17 +261,6 @@ Module Semantics.
     (* 4. Return the union of basicWordChars and extraWordChars. *)
     CharSet.union basicWordChars extraWordChars.
 
-  Inductive compileToCharSet_ClassAtom_rel: ClassAtom -> ClassAtom -> Prop :=
-  | CTCS_d_rel: compileToCharSet_ClassAtom_rel (ClassEsc (ClassEscape.CharacterClassEsc CharacterClassEscape.d)) (ClassEsc (ClassEscape.CharacterClassEsc CharacterClassEscape.D))
-  | CTCS_s_rel: compileToCharSet_ClassAtom_rel (ClassEsc (ClassEscape.CharacterClassEsc CharacterClassEscape.s)) (ClassEsc (ClassEscape.CharacterClassEsc CharacterClassEscape.S))
-  | CTCS_w_rel: compileToCharSet_ClassAtom_rel (ClassEsc (ClassEscape.CharacterClassEsc CharacterClassEscape.w)) (ClassEsc (ClassEscape.CharacterClassEsc CharacterClassEscape.W)).
-  Lemma compileToCharSet_ClassAtom_rel_wf: well_founded compileToCharSet_ClassAtom_rel.
-  Proof.
-    intros [ ? | [ ] ]; constructor; intros ?; unfold MR; cbn; intros H; dependent destruction H.
-    all: constructor; intros ? H; cbn in H; dependent destruction H.
-  Defined.
-
-  (*+ TODO: decide whether to keep this unfolded implementation *)
   Definition compileToCharSet_ClassAtom_0 (self: ClassAtom) (rer: RegExp) : Result CharSet CompileError := match self with
   (** ClassAtom :: SourceCharacter *)
   (*+ Doesn't really follow the spec, as it poorly mimics ClassAtomNoDash :: SourceCharacter but not one of ... *)

@@ -209,3 +209,42 @@ let%expect_test "case_insensitive_0_neg_1" =
     "Bbbb"
     0 ~ignoreCase:true ();
   [%expect {| No match on 'Bbbb' |}]
+
+
+
+let%expect_test "hex_escape_0" =
+  test_regex
+    (AtomEsc (AtomEscape.CharacterEsc (CharacterEscape.HexEscape ('6', '1'))))
+    "a"
+    0 ();
+  [%expect {| Matched 1 characters ([0-1]) in 'a' (length=1) |}]
+
+let%expect_test "hex_escape_1" =
+  test_regex
+    (AtomEsc (AtomEscape.CharacterEsc (CharacterEscape.HexEscape ('7', 'c'))))
+    "|"
+    0 ();
+  [%expect {| Matched 1 characters ([0-1]) in '|' (length=1) |}]
+
+let%expect_test "hex_escape_2" =
+  test_regex
+    (AtomEsc (AtomEscape.CharacterEsc (CharacterEscape.HexEscape ('7', 'c'))))
+    "a"
+    0 ();
+  [%expect {| No match on 'a' |}]
+
+
+
+let%expect_test "c_escape_0" =
+  test_regex
+    (AtomEsc (AtomEscape.CharacterEsc (CharacterEscape.AsciiControlEsc ('i'))))
+    "\t"
+    0 ();
+  [%expect {| Matched 1 characters ([0-1]) in '	' (length=1) |}]
+
+let%expect_test "c_escape_1" =
+  test_regex
+    (AtomEsc (AtomEscape.CharacterEsc (CharacterEscape.AsciiControlEsc ('i'))))
+    "a"
+    0 ();
+  [%expect {| No match on 'a' |}]

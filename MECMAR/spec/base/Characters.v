@@ -1,8 +1,22 @@
 From Coq Require Import List ListSet.
 From Warblre Require Import List Result Numeric.
 
-(* Parameter Character: Type.
-Parameter CodePoint: Type. *)
+Module HexDigit.
+  Parameter type: Type.
+  Parameter eqs: forall (l r: type), {l = r} + {l <> r}.
+
+  Parameter to_integer: type -> type -> non_neg_integer.
+End HexDigit.
+Notation HexDigit := HexDigit.type.
+
+Module AsciiLetter.
+  Parameter type: Type.
+  Parameter eqs: forall (l r: type), {l = r} + {l <> r}.
+
+  Parameter numeric_value: type -> non_neg_integer.
+End AsciiLetter.
+Notation AsciiLetter := AsciiLetter.type.
+
 Module Character.
   Parameter type: Type.
   Parameter eqs: forall (l r: type), {l = r} + {l <> r}.
@@ -11,9 +25,11 @@ Module Character.
 
   Parameter numeric_value: type -> non_neg_integer.
   Parameter from_numeric_value: non_neg_integer -> type.
+  Parameter from_ascii_letter: AsciiLetter -> type.
 
   Axiom numeric_inj: forall c c', Character.numeric_value c = Character.numeric_value c' -> c = c'.
   Axiom numeric_pseudo_bij: forall c, Character.from_numeric_value (Character.numeric_value c) = c.
+  Axiom numeric_pseudo_bij2: forall n, Character.numeric_value (Character.from_numeric_value n) = n.
 
   Module Unicode.
     Parameter case_fold: type -> type.
@@ -36,6 +52,11 @@ Module CodePoint.
   Parameter code_points_to_string: type -> list Character.
 
   Parameter from_character: Character -> type.
+  Parameter from_ascii_letter: AsciiLetter -> type.
+
+  Parameter numeric_value: type -> non_neg_integer.
+
+  Axiom numeric_value_from_ascii: forall l, AsciiLetter.numeric_value l = numeric_value (from_ascii_letter l).
 End CodePoint.
 Notation CodePoint := CodePoint.type.
 

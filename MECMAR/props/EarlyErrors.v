@@ -10,6 +10,8 @@ Module EarlyErrors.
   | Singleton_ctrl_f: SingletonCharacterEscape (CharacterEscape.ControlEsc ControlEscape.f) Character.FORM_FEED
   | Singleton_ctrl_r: SingletonCharacterEscape (CharacterEscape.ControlEsc ControlEscape.r) Character.CARRIAGE_RETURN
   | Singleton_zero: SingletonCharacterEscape CharacterEscape.Zero Character.NULL
+  | Singleton_ascii_control: forall l, SingletonCharacterEscape (CharacterEscape.AsciiControlEsc l) (Character.from_numeric_value (NonNegInt.modulo (AsciiLetter.numeric_value l) 32))
+  | Singleton_hex: forall d1 d2, SingletonCharacterEscape (CharacterEscape.HexEscape d1 d2) (Character.from_numeric_value (HexDigit.to_integer d1 d2))
   | Singleton_id: forall c, SingletonCharacterEscape (CharacterEscape.IdentityEsc c) c.
 
   Inductive SingletonClassAtom: ClassAtom -> Character -> Prop :=
@@ -188,22 +190,37 @@ Module EarlyErrors.
       + eexists. econstructor.
       + eexists. econstructor.
       + destruct esc.
-        * destruct esc; eexists; do 3 econstructor.
-        * eexists; do 2 econstructor.
-        * eexists; do 2 econstructor.
+        1: { destruct esc; eexists; do 3 econstructor. }
+        all: eexists; do 2 econstructor.
   Qed.
 
   Lemma characterValue_singleton {F: Type} {_: Result.AssertionError F}: forall c v, characterValue c = @Success _ F (Character.numeric_value v) <-> SingletonClassAtom c v.
   Proof.
-    intros c v; split; intros H; (repeat match goal with
-      | [ c: ClassAtom |- _] => destruct c
-      | [ c: ClassEscape |- _] => destruct c
-      | [ c: CharacterEscape |- _] => destruct c
-      | [ c: CharacterClassEscape |- _] => destruct c
-      | [ c: ControlEscape |- _] => destruct c
-      | [ S: SingletonClassAtom _ _ |- _ ] => dependent destruction S
-      | [ S: SingletonCharacterEscape _ _ |- _ ] => dependent destruction S
-      end); try solve [ cbn in H; injection H as Eq; apply Character.numeric_inj in Eq as <-; repeat constructor | Result.assertion_failed_helper | reflexivity ].
+    intros c v; split; intros H;
+      repeat (
+        subst ||
+        autounfold with result_wrappers in * ||
+        rewrite -> ?Character.numeric_pseudo_bij,?Character.numeric_pseudo_bij2 in * ||
+        rewrite <- ?CodePoint.numeric_value_from_ascii in * ||
+        cbn ||
+        match goal with
+        | [ c: ClassAtom |- _] => destruct c
+        | [ c: ClassEscape |- _] => destruct c
+        | [ c: CharacterEscape |- _] => destruct c
+        | [ c: CharacterClassEscape |- _] => destruct c
+        | [ c: ControlEscape |- _] => destruct c
+        | [ S: SingletonClassAtom _ _ |- _ ] => dependent destruction S
+        | [ S: SingletonCharacterEscape _ _ |- _ ] => dependent destruction S
+
+        | [ H: Success _ = Success _ |- _ ] => injection H as H
+        | [ H: Character.numeric_value _ = Character.numeric_value _ |- _ ] => apply Character.numeric_inj in H as <-
+        | [ H: _ = Character.numeric_value _ |- _ ] => apply f_equal with (f := Character.from_numeric_value) in H
+        | [ H: _ = _ |- _ ] => cbn in H
+        end);
+      solve [
+        repeat constructor |
+        Result.assertion_failed_helper |
+        reflexivity ].
   Qed.
 
   Module Safety.

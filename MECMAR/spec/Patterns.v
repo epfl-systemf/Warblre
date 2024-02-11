@@ -65,15 +65,17 @@ Module Patterns.
   Module CharacterEscape.
     Inductive type :=
     | ControlEsc (esc: ControlEscape)
-    (*+ TODO: c *)
+    (* c *)
+    | AsciiControlEsc (l: AsciiLetter)
     (* 0 *)
     | Zero
-    (*+ TODO: x *)
+    (* x *)
+    | HexEscape (d1 d2: HexDigit)
     (*+ TODO: u *)
     | IdentityEsc (chr: Character).
 
     Definition eqs (l r: type): {l = r} + {~ l = r}.
-    Proof. decide equality; try apply ControlEscape.eqs; try apply Character.eqs. Defined.
+    Proof. decide equality; first [ apply ControlEscape.eqs | apply Character.eqs | apply AsciiLetter.eqs | apply HexDigit.eqs ]. Defined.
   End CharacterEscape.
   Notation CharacterEscape := CharacterEscape.type.
 

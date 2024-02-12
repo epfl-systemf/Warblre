@@ -92,7 +92,7 @@ Module List.
   Module Indexing.
     Module Nat.
       Definition indexing {T F: Type} {failure: Result.AssertionError F} (ls: list T) (i: nat): Result.Result T F :=
-        Result.from_option_assertion (List.nth_error ls i).
+        Result.Conversions.from_option (List.nth_error ls i).
 
       Lemma success_bounds0 {T F: Type} {_: Result.AssertionError F}: forall (ls: list T) (i: nat),
         (exists v, indexing ls i = Success v) <-> (i < length ls)%nat.
@@ -360,7 +360,7 @@ Module List.
           induction ls; intros i v; split; intros H.
           - cbn. lia.
           - reflexivity.
-          - destruct i. + Result.assertion_failed_helper. + cbn in H. destruct (update v ls i) eqn:Eq; Result.assertion_failed_helper. rewrite -> IHls in Eq. cbn. lia.
+          - destruct i. + Result.assertion_failed_helper. + cbn in H. destruct (update v ls i) eqn:Eq; Result.assertion_failed_helper. injection H as <-. rewrite -> IHls in Eq. cbn. lia.
           - destruct i. + Result.assertion_failed_helper. + cbn in H|-*. apply le_S_n in H. rewrite <- (IHls i v) in H. rewrite -> H. Result.assertion_failed_helper.
         Qed.
 
@@ -427,7 +427,7 @@ Module List.
 
         Lemma step {T F: Type} {_: Result.AssertionError F}: forall (ls: list T) (i: nat) (is: list nat) (v: T),
           update v ls (i :: is) = let! ls' =<< One.update v ls i in update v ls' is.
-        Proof. intros ls i is v. cbn. destruct is; cbn in *. - focus § _ _ [] § auto destruct; reflexivity. - reflexivity. Qed.
+        Proof. intros ls i is v. cbn. destruct (One.update v ls i) eqn:Eq. - reflexivity. - destruct is; reflexivity. Qed.
 
         Lemma failure_is_assertion {T F: Type} {f: Result.AssertionError F}: forall (is: list nat) (ls: list T) (v: T) (f': F),
           update v ls is = Result.Failure f' -> {| Result.f := f' |} = f.
@@ -436,7 +436,7 @@ Module List.
           - discriminate.
           - rewrite -> step in H. destruct (One.update v ls a) eqn:Eq_update.
             + apply IHis with (ls := s) (v := v). assumption.
-            + apply One.failure_is_assertion in Eq_update. congruence.
+            + injection H as <-. apply One.failure_is_assertion in Eq_update. assumption.
         Qed.
 
         Lemma failure_bounds {T F: Type} {f: Result.AssertionError F}: forall (is: list nat) (ls: list T) (v: T) (f': F),

@@ -131,6 +131,20 @@ Proof.
   destruct VALID as [ _ [ _ [ VCL_x _ ]]]. rewrite -> VCL_x in *. contradiction. 
 Qed.
 
+Lemma quant_capture_reset_success:
+  forall (r:Regex) (ctx:RegexContext) (rer:RegExp) (q:Quantifier)
+    (x:MatchState) (VALID: Valid (input x) rer x)
+    (CAP_VALID: Captures.Valid rer (countLeftCapturingParensBefore r ctx) (countLeftCapturingParensWithin r ctx)),
+  exists capupd, List.Update.Nat.Batch.update None (captures x) (List.Range.Nat.Bounds.range (countLeftCapturingParensBefore r ctx) (countLeftCapturingParensBefore r ctx + countLeftCapturingParensWithin r (Quantified_inner q::ctx))) = Success capupd.
+Proof.
+  intros r ctx rer q x VALID CAP_VALID.
+  destruct (List.Update.Nat.Batch.update None (captures x) (List.Range.Nat.Bounds.range (countLeftCapturingParensBefore r ctx) (countLeftCapturingParensBefore r ctx + countLeftCapturingParensWithin r ctx))) as [xupd|] eqn:UPD; eauto.
+  apply List.Update.Nat.Batch.failure_bounds in UPD.
+  unfold Captures.Valid in CAP_VALID.
+  destruct VALID as [ _ [ _ [ VCL_x _ ]]]. rewrite -> VCL_x in *. contradiction. 
+Qed.
+
+
 Lemma capture_reset_preserve_validity:
   forall (r:Regex) (ctx:RegexContext) (rer:RegExp)
     (x:MatchState) (VALID: Valid (input x) rer x)
@@ -139,6 +153,22 @@ Lemma capture_reset_preserve_validity:
     Valid (input x) rer (match_state (input x) (endIndex x) xupd).
 Proof.
   intros r ctx rer x VALID xupd UPD. 
+  apply change_captures with (cap:=captures x); auto.
+    - apply List.Update.Nat.Batch.success_length in UPD. rewrite <- UPD.
+      destruct VALID as [_ [_ [LENGTH _]]]. auto.
+    - destruct VALID as [_ [_ [_ FORALL]]].
+      eapply List.Update.Nat.Batch.prop_preservation; eauto.
+      apply Correctness.CaptureRange.vCrUndefined.
+Qed.
+
+Lemma quant_capture_reset_preserve_validity:
+  forall (r:Regex) (ctx:RegexContext) (rer:RegExp) (q:Quantifier)
+    (x:MatchState) (VALID: Valid (input x) rer x)
+    (xupd: list (option CaptureRange))
+    (UPD: List.Update.Nat.Batch.update None (captures x) (List.Range.Nat.Bounds.range (countLeftCapturingParensBefore r ctx) (countLeftCapturingParensBefore r ctx + countLeftCapturingParensWithin r (Quantified_inner q::ctx))) = Success xupd),
+    Valid (input x) rer (match_state (input x) (endIndex x) xupd).
+Proof.
+  intros r ctx rer q x VALID xupd UPD. 
   apply change_captures with (cap:=captures x); auto.
     - apply List.Update.Nat.Batch.success_length in UPD. rewrite <- UPD.
       destruct VALID as [_ [_ [LENGTH _]]]. auto.
@@ -195,16 +225,58 @@ Proof.
     destruct (compileSubPattern r (Quantified_inner q :: ctx) rer dir) eqn:SNM; try solve[inversion COMPILE].
     apply IHr with (root:=root) in SNM; auto. clear IHr SN.
     inversion COMPILE as [M]. clear COMPILE M m.
-    unfold repeatMatcher.
-    destruct (repeatMatcherFuel (CompiledQuantifier.min (compileQuantifier q)) x) eqn:FUEL.
-    (* there is enough fuel for a first iteration *)
-    { unfold repeatMatcherFuel in FUEL. lia. }
-    simpl. specialize (SNM x c VALID).
-    (* max=0, the continuation is called directly *)
-    destruct (CompiledQuantifier.max (compileQuantifier q) =? 0)%NoI eqn:MAX.
-    { right. exists x. auto. }
-    repeat rewrite PeanoNat.Nat.add_sub.
-    admit.
+    (* capture reset succeeds and preserves validity *)
+    pose proof (capture_reset_validity (Quantified r q) root ctx rer RER_ADEQUACY ROOT EARLY_ERRORS) as CAP_VALID.
+    pose proof (quant_capture_reset_success r ctx rer q x VALID CAP_VALID) as [xupd UPD]. 
+    pose proof (quant_capture_reset_preserve_validity r ctx rer q x VALID xupd UPD) as UPDVALID.
+
+    destruct q as [q|q]; simpl.
+    (* greedy *)
+    + destruct (CompiledQuantifierPrefix.min (compileQuantifierPrefix q)) eqn:MIN.
+      *                         (* min = 0 *)
+        unfold repeatMatcher.
+        destruct (repeatMatcherFuel 0 x) eqn:FUEL.
+        (* there is enough fuel for a first iteration *)
+        { unfold repeatMatcherFuel in FUEL. lia. }
+        simpl. destruct (CompiledQuantifierPrefix.max (compileQuantifierPrefix q) =? 0)%NoI eqn:MAX.
+        (* max = 0 *)
+        { right. exists x. split; auto. }
+        repeat rewrite PeanoNat.Nat.add_sub.
+        rewrite UPD. simpl.
+        match goal with
+        | [ H:_ |- context[s ?x ?c]] => specialize (SNM x c UPDVALID)
+        end.
+        destruct SNM as [NONE | [y [VALIDy [END EQUAL]]]].
+        ** rewrite NONE. simpl. right. exists x. split; auto.
+        ** rewrite <- EQUAL. simpl in END. rewrite END. rewrite Z.eqb_refl. simpl.
+           right. exists x. split; auto.
+      *                         (* min > 0 *)
+        (* this should have enough fuel to call m repeatedly without making progres until min = 0 *)
+        admit.
+    +                           (* lazy *)
+      destruct (CompiledQuantifierPrefix.min (compileQuantifierPrefix q)) eqn:MIN.
+      *                         (* min = 0 *)
+        unfold repeatMatcher.
+        destruct (repeatMatcherFuel 0 x) eqn:FUEL.
+        (* there is enough fuel for a first iteration *)
+        { unfold repeatMatcherFuel in FUEL. lia. }
+        simpl. destruct (CompiledQuantifierPrefix.max (compileQuantifierPrefix q) =? 0)%NoI eqn:MAX.
+        (* max = 0 *)
+        { right. exists x. split; auto. }
+        repeat rewrite PeanoNat.Nat.add_sub.
+        rewrite UPD. simpl.
+        destruct (c x) as [[succeed|]|f] eqn:CONT;
+          try solve[right; exists x; split; auto].
+        (* skipping the quantifier failed and we backtrack *)
+        simpl.
+        match goal with
+        | [ H:_ |- context[s ?x ?c]] => specialize (SNM x c UPDVALID)
+        end.
+        destruct SNM as [NONE | [y [VALIDy [END EQUAL]]]].
+        ** rewrite NONE. auto.
+        ** rewrite <- EQUAL. simpl in END. rewrite END. rewrite Z.eqb_refl. auto.
+      *                         (* min > 0 *)
+      admit.
   (* concatenation *)
   - inversion STRICTLY_NULLABLE as [SN12]. rewrite andb_true_iff in SN12. destruct SN12 as [SN1 SN2].
     clear STRICTLY_NULLABLE.

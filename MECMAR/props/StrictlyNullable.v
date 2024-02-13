@@ -101,6 +101,14 @@ Proof.
   unfold Valid. split; auto.
 Qed.
 
+Lemma valid_input:
+  forall (x y:MatchState) (rer:RegExp)
+    (VALIDy: Valid (input x) rer y),
+    Valid (input y) rer y.
+Proof.
+  intros x y rer VALIDy. destruct VALIDy as [ONy [ITERy [LENy FORALLy]]].
+  unfold OnInput in ONy. rewrite ONy. split; auto.
+Qed.
 
 (* Capture Reset lemmas *)
 Lemma capture_reset_validity:
@@ -181,6 +189,129 @@ Qed.
 
 (** * Analysis Correctness  *)
 
+(* analysis correctness lemmas for the repeat matcher *)
+(* when min=0, we directly get the termination of repeatmatcher since we are repeating a strictly nullable matcher *)
+Lemma repeat_matcher_min_0:
+  forall (r:Regex) (root:Regex) (s:Matcher) (q:Quantifier) (rer:RegExp) (ctx:RegexContext)
+    (x:MatchState) (c:MatcherContinuation) (max:non_neg_integer_or_inf) (fuel:nat)
+    (VALID: Valid (input x) rer x)
+    (RER_ADEQUACY: countLeftCapturingParensWithin root nil = RegExp.capturingGroupsCount rer)
+    (ROOT: Root root (Quantified r q) ctx)
+    (EARLY_ERRORS: EarlyErrors.Pass.Regex root nil)
+    (SN: strictly_nullable_matcher s rer),
+    repeatMatcher' s 0 max
+      (CompiledQuantifier.greedy (compileQuantifier q)) x c (countLeftCapturingParensBefore r ctx)
+      (countLeftCapturingParensWithin r (Quantified_inner q :: ctx)) (S fuel) = None \/
+      (exists y : MatchState,
+          Valid (input x) rer y /\
+            endIndex x = endIndex y /\
+            c y =
+              repeatMatcher' s 0 max
+                (CompiledQuantifier.greedy (compileQuantifier q)) x c (countLeftCapturingParensBefore r ctx)
+                (countLeftCapturingParensWithin r (Quantified_inner q :: ctx)) (S fuel)).
+Proof.
+  intros r root s q rer ctx x c max fuel VALID RER_ADEQUACY ROOT EARLY_ERRORS SN.
+  (* capture reset succeeds and preserves validity *)
+  pose proof (capture_reset_validity (Quantified r q) root ctx rer RER_ADEQUACY ROOT EARLY_ERRORS) as CAP_VALID.
+  pose proof (quant_capture_reset_success r ctx rer q x VALID CAP_VALID) as [xupd UPD]. 
+  pose proof (quant_capture_reset_preserve_validity r ctx rer q x VALID xupd UPD) as UPDVALID.
+  destruct q as [q|q]; simpl.
+    (* greedy *)
+  - 
+    destruct (max =? 0)%NoI eqn:MAX.
+    (* max = 0 *)
+    { right. exists x. split; auto. }
+    repeat rewrite PeanoNat.Nat.add_sub.
+    rewrite UPD. simpl.
+    match goal with
+    | [ H:_ |- context[s ?x ?c]] => specialize (SN x c UPDVALID)
+    end.
+    destruct SN as [NONE | [y [VALIDy [END EQUAL]]]].
+    * rewrite NONE. simpl. right. exists x. split; auto.
+    * rewrite <- EQUAL. simpl in END. rewrite END. rewrite Z.eqb_refl. simpl.
+      right. exists x. split; auto.
+  -                           (* lazy *)
+    destruct (max =? 0)%NoI eqn:MAX.
+    (* max = 0 *)
+    { right. exists x. split; auto. }
+    repeat rewrite PeanoNat.Nat.add_sub.
+    rewrite UPD. simpl.
+    destruct (c x) as [[succeed|]|f] eqn:CONT;
+      try solve[right; exists x; split; auto].
+    (* skipping the quantifier failed and we backtrack *)
+    simpl.
+    match goal with
+    | [ H:_ |- context[s ?x ?c]] => specialize (SN x c UPDVALID)
+    end.
+    destruct SN as [NONE | [y [VALIDy [END EQUAL]]]].
+    * rewrite NONE. auto.
+    * rewrite <- EQUAL. simpl in END. rewrite END. rewrite Z.eqb_refl. auto.
+Qed.
+
+
+(* when min>0, we can proceed by induction on min until we reach min=0, the previous case *)
+(* during all the mandatroy repetitions, we keep being valid and at the same index in the string *)
+Lemma repeat_matcher_sn:
+  forall (r:Regex) (root:Regex) (s:Matcher) (q:Quantifier) (rer:RegExp) (ctx:RegexContext)
+    (min:nat) (max:non_neg_integer_or_inf) (fuel:nat)
+    (x:MatchState) (c:MatcherContinuation)
+    (VALID: Valid (input x) rer x)
+    (RER_ADEQUACY: countLeftCapturingParensWithin root nil = RegExp.capturingGroupsCount rer)
+    (ROOT: Root root (Quantified r q) ctx)
+    (EARLY_ERRORS: EarlyErrors.Pass.Regex root nil)
+    (FUEL: fuel > min)
+    (SN: strictly_nullable_matcher s rer),
+    repeatMatcher' s min max
+      (CompiledQuantifier.greedy (compileQuantifier q)) x c (countLeftCapturingParensBefore r ctx)
+      (countLeftCapturingParensWithin r (Quantified_inner q :: ctx)) fuel = None \/
+      (exists y : MatchState,
+          Valid (input x) rer y /\
+            endIndex x = endIndex y /\
+            c y =
+              repeatMatcher' s min max
+                (CompiledQuantifier.greedy (compileQuantifier q)) x c (countLeftCapturingParensBefore r ctx)
+                (countLeftCapturingParensWithin r (Quantified_inner q :: ctx)) fuel).
+Proof.
+  intros r root s q rer ctx min. 
+  induction min; intros.
+  - destruct fuel; try solve[lia].
+    apply repeat_matcher_min_0 with (root:=root); auto.
+  - destruct fuel; try solve[lia]. (* enough fuel for an iteration *)
+    simpl. destruct (max =? 0)%NoI eqn:MAX.
+    (* for max = 0, directly calls the continuation *)
+    { right. exists x. split; auto. }
+    repeat rewrite PeanoNat.Nat.add_sub.
+    (* capture reset succeeds and preserves validity *)
+    pose proof (capture_reset_validity (Quantified r q) root ctx rer RER_ADEQUACY ROOT EARLY_ERRORS) as CAP_VALID.
+    pose proof (quant_capture_reset_success r ctx rer q x VALID CAP_VALID) as [xupd UPD]. 
+    pose proof (quant_capture_reset_preserve_validity r ctx rer q x VALID xupd UPD) as UPDVALID.
+    rewrite UPD. simpl. rewrite Nat.sub_0_r.
+    (* the s matcher itself is strictly nullable, we use that to go back to the inductive case *)
+    assert (strictly_nullable_matcher s rer) as SNM by auto.
+    match goal with
+    | [ H:_ |- context[s ?x ?c]] => specialize (SN x c UPDVALID)
+    end.
+    destruct SN as [NONE | [y [VALIDy [END EQUAL]]]].
+    { rewrite NONE. left. auto. }
+    rewrite <- EQUAL.
+    (* now we can apply the induction hypothesis since we're calling repeatMatcher' on a smaller min *)
+    simpl in VALIDy. apply valid_input in VALIDy as VALIDyx.
+    assert (FUELREC: fuel > min) by lia.
+    match goal with
+    | [H:_ |- context[repeatMatcher' s min ?max ?g ?y ?c ?lf ?wt ?fuel]] =>
+        specialize (IHmin max fuel y c VALIDyx RER_ADEQUACY ROOT EARLY_ERRORS FUELREC SNM)
+    end.
+    destruct IHmin as [NONE | [z [VALIDz [ENDz EQUALz]]]].
+    { rewrite NONE. auto. }
+    rewrite <- EQUALz. right. exists z. split; auto.
+    + assert (INPUT: input x = input y).
+      { destruct VALIDy as [ONy _]. unfold OnInput in ONy. auto. }
+      rewrite INPUT. auto.
+    + split; auto. simpl in END. rewrite END. apply ENDz.
+Qed.
+
+
+(* main analysis correctness teorem *)
 Theorem strictly_nullable_analysis_correct:
   forall (r:Regex) (root:Regex) (ctx:RegexContext) (rer:RegExp) (dir:direction) (m:Matcher)
     (STRICTLY_NULLABLE: strictly_nullable r = true)
@@ -225,58 +356,8 @@ Proof.
     destruct (compileSubPattern r (Quantified_inner q :: ctx) rer dir) eqn:SNM; try solve[inversion COMPILE].
     apply IHr with (root:=root) in SNM; auto. clear IHr SN.
     inversion COMPILE as [M]. clear COMPILE M m.
-    (* capture reset succeeds and preserves validity *)
-    pose proof (capture_reset_validity (Quantified r q) root ctx rer RER_ADEQUACY ROOT EARLY_ERRORS) as CAP_VALID.
-    pose proof (quant_capture_reset_success r ctx rer q x VALID CAP_VALID) as [xupd UPD]. 
-    pose proof (quant_capture_reset_preserve_validity r ctx rer q x VALID xupd UPD) as UPDVALID.
-
-    destruct q as [q|q]; simpl.
-    (* greedy *)
-    + destruct (CompiledQuantifierPrefix.min (compileQuantifierPrefix q)) eqn:MIN.
-      *                         (* min = 0 *)
-        unfold repeatMatcher.
-        destruct (repeatMatcherFuel 0 x) eqn:FUEL.
-        (* there is enough fuel for a first iteration *)
-        { unfold repeatMatcherFuel in FUEL. lia. }
-        simpl. destruct (CompiledQuantifierPrefix.max (compileQuantifierPrefix q) =? 0)%NoI eqn:MAX.
-        (* max = 0 *)
-        { right. exists x. split; auto. }
-        repeat rewrite PeanoNat.Nat.add_sub.
-        rewrite UPD. simpl.
-        match goal with
-        | [ H:_ |- context[s ?x ?c]] => specialize (SNM x c UPDVALID)
-        end.
-        destruct SNM as [NONE | [y [VALIDy [END EQUAL]]]].
-        ** rewrite NONE. simpl. right. exists x. split; auto.
-        ** rewrite <- EQUAL. simpl in END. rewrite END. rewrite Z.eqb_refl. simpl.
-           right. exists x. split; auto.
-      *                         (* min > 0 *)
-        (* this should have enough fuel to call m repeatedly without making progres until min = 0 *)
-        admit.
-    +                           (* lazy *)
-      destruct (CompiledQuantifierPrefix.min (compileQuantifierPrefix q)) eqn:MIN.
-      *                         (* min = 0 *)
-        unfold repeatMatcher.
-        destruct (repeatMatcherFuel 0 x) eqn:FUEL.
-        (* there is enough fuel for a first iteration *)
-        { unfold repeatMatcherFuel in FUEL. lia. }
-        simpl. destruct (CompiledQuantifierPrefix.max (compileQuantifierPrefix q) =? 0)%NoI eqn:MAX.
-        (* max = 0 *)
-        { right. exists x. split; auto. }
-        repeat rewrite PeanoNat.Nat.add_sub.
-        rewrite UPD. simpl.
-        destruct (c x) as [[succeed|]|f] eqn:CONT;
-          try solve[right; exists x; split; auto].
-        (* skipping the quantifier failed and we backtrack *)
-        simpl.
-        match goal with
-        | [ H:_ |- context[s ?x ?c]] => specialize (SNM x c UPDVALID)
-        end.
-        destruct SNM as [NONE | [y [VALIDy [END EQUAL]]]].
-        ** rewrite NONE. auto.
-        ** rewrite <- EQUAL. simpl in END. rewrite END. rewrite Z.eqb_refl. auto.
-      *                         (* min > 0 *)
-      admit.
+    apply repeat_matcher_sn with (root:=root); auto.
+    unfold repeatMatcherFuel. lia.
   (* concatenation *)
   - inversion STRICTLY_NULLABLE as [SN12]. rewrite andb_true_iff in SN12. destruct SN12 as [SN1 SN2].
     clear STRICTLY_NULLABLE.
@@ -408,9 +489,7 @@ Proof.
     2: { rewrite <- EQUAL. auto. }
     rewrite NONE. simpl.
     right. exists x. split; auto.
-Admitted.
-
-
+Qed.
 
 
 (** * Repeating a strictly nullable matcher does nothing *)

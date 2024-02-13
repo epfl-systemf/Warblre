@@ -457,7 +457,7 @@ Proof.
     destruct v1; destruct v2; eauto.
   (* Lookahead *)
   - destruct (compileSubPattern r (Lookahead_inner :: ctx) rer forward) eqn:SNM; try solve[inversion COMPILE].
-    eapply compiledSubPattern_matcher_invariant with (str:=input x) in SNM as LOOK_INV; eauto.
+    eapply compiledSubPattern_matcher_invariant in SNM as LOOK_INV; eauto.
     inversion COMPILE as [M]. clear COMPILE M m.
     specialize (LOOK_INV x (fun y => y) VALID). destruct LOOK_INV as [NONE | [y [VALIDy [PROGRESS EQUAL]]]].
     { rewrite NONE. auto. }
@@ -466,7 +466,7 @@ Proof.
     apply valid_trans with (x:=x) (y:=y); auto.
   (* NegativeLookahead *)
   - destruct (compileSubPattern r (NegativeLookahead_inner :: ctx) rer forward) eqn:SNM; try solve[inversion COMPILE].
-    eapply compiledSubPattern_matcher_invariant with (str:=input x) in SNM as LOOK_INV; eauto.
+    eapply compiledSubPattern_matcher_invariant in SNM as LOOK_INV; eauto.
     inversion COMPILE as [M]. clear COMPILE M m.
     specialize (LOOK_INV x (fun y => y) VALID). destruct LOOK_INV as [NONE | [y [VALIDy [PROGRESS EQUAL]]]].
     2: { rewrite <- EQUAL. auto. }
@@ -474,7 +474,7 @@ Proof.
     right. exists x. split; auto.
   (* Lookbehind *)
   - destruct (compileSubPattern r (Lookbehind_inner :: ctx) rer backward) eqn:SNM; try solve[inversion COMPILE].
-    eapply compiledSubPattern_matcher_invariant with (str:=input x) in SNM as LOOK_INV; eauto.
+    eapply compiledSubPattern_matcher_invariant in SNM as LOOK_INV; eauto.
     inversion COMPILE as [M]. clear COMPILE M m.
     specialize (LOOK_INV x (fun y => y) VALID). destruct LOOK_INV as [NONE | [y [VALIDy [PROGRESS EQUAL]]]].
     { rewrite NONE. auto. }
@@ -483,7 +483,7 @@ Proof.
     apply valid_trans with (x:=x) (y:=y); auto.
     (* NegativeLookbehind *)
   - destruct (compileSubPattern r (NegativeLookbehind_inner :: ctx) rer backward) eqn:SNM; try solve[inversion COMPILE].
-    eapply compiledSubPattern_matcher_invariant with (str:=input x) in SNM as LOOK_INV; eauto.
+    eapply compiledSubPattern_matcher_invariant in SNM as LOOK_INV; eauto.
     inversion COMPILE as [M]. clear COMPILE M m.
     specialize (LOOK_INV x (fun y => y) VALID). destruct LOOK_INV as [NONE | [y [VALIDy [PROGRESS EQUAL]]]].
     2: { rewrite <- EQUAL. auto. }

@@ -1,5 +1,6 @@
 %{
     open Warblre.Extracted.Patterns
+    open Warblre.Notations
 %}
 
 %token <char> CHAR
@@ -105,7 +106,7 @@ quantifier:
   | LBRAC dmin=decimaldigits COMMA dmax=decimaldigits RBRAC QMARK { Lazy(RepRange(dmin,dmax)) }
 
 atom:
-  | c=patterncharacter { Char(c) }  
+  | c=patterncharacter { achar(c) }  
 /* TODO: { for instance can be parsed as single char. But not (. I'm not sure where this is in the spec. Also I'm not sure why, if I add a similar rule for LBRAC, it does not work */
   | DOT { Dot }
 //   | BACKSL a=atomescape { a }

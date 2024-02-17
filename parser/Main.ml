@@ -30,7 +30,10 @@ let print_charescape (c:CharacterEscape.coq_type) : string =
   | AsciiControlEsc (l) -> "AsciiControlEsc(" ^ (String.make 1 l) ^ ")"
   | Zero -> "Zero"
   | HexEscape (d1, d2) -> "HexEscape(" ^ (String.make 1 d1) ^ (String.make 1 d2) ^ ")"
-  | IdentityEsc (e) -> "IdentityEsc(\'" ^ String.make 1 e ^ "\')"
+  | IdentityEsc (e) -> 
+    let i = Unsigned.UInt16.to_int e in
+    assert (i <= 255);
+    "IdentityEsc(\'" ^ String.make 1 (Char.chr i) ^ "\')"
 
 let print_atomescape (a:AtomEscape.coq_type) : string =
   match a with
@@ -61,7 +64,10 @@ let print_stringop (so:string option) : string =
 let rec print_regex (r:coq_Regex) : string =
   match r with
   | Empty -> "Empty"
-  | Char c -> "Char(\'" ^ String.make 1 c ^ "\')"
+  | Char c ->
+    let i = Unsigned.UInt16.to_int c in
+    assert (i <= 255);
+    "Char(\'" ^ String.make 1 (Char.chr i) ^ "\')"
   | Dot -> "Dot"
   | AtomEsc a -> "AtomEsc(" ^ print_atomescape a ^ ")"
   | CharacterClass _ -> failwith "todo"
@@ -135,7 +141,7 @@ let get_reference_result (regex:coq_Regex) (str:string) : string =
   } in
   match Extracted.Semantics.compilePattern regex rer with
   | Success matcher ->
-    let list_input = List.init (String.length str) (String.get str) in
+    let list_input = Interop.string_to_utf16 str in
     get_first_result matcher list_input str 0
   | Failure Extracted.CompileError.AssertionFailed -> failwith "Compile failure"
 

@@ -1,7 +1,12 @@
 open Extracted.Patterns
 
 let epsilon = Empty
-let char c = Char (c)
+let char c =
+  match Interop.string_to_utf16 c with
+  | h :: [] -> Char h
+  | _ -> failwith (String.cat "Invalid character: " c)
+let achar c = Char (Interop.char_of_int (Char.code c))
+let sc c = SourceCharacter (Interop.char_of_int (Char.code c))
 
 let group r = Group (None, r)
 let ngroup p = Group (Some (fst p), (snd p))

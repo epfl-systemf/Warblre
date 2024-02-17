@@ -3,8 +3,8 @@ open Warblre.Helpers
 open Warblre.Notations
 
 let%expect_test "disjunction_commutativity" =
-  let r1 = (char 'a') in
-  let r2 = ((char 'a') -- (char 'b')) in
+  let r1 = (achar 'a') in
+  let r2 = ((achar 'a') -- (achar 'b')) in
   compare_regexes
     (r1 || r2)
     (r2 || r1)
@@ -30,8 +30,8 @@ let%expect_test "greedy_question_elimination" =
     Group 1: '' ([0-0]) |}]
 
 let%expect_test "lazy_question_elimination" =
-  let r = ?= (group (char 'a')) in
-  let f = (!$ 1) -- (char 'b') in
+  let r = ?= (group (achar 'a')) in
+  let f = (!$ 1) -- (achar 'b') in
   compare_regexes
     ( (!?? r) -- f )
     ( (epsilon || r) -- f )

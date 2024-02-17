@@ -48,8 +48,8 @@ Notation Character := Character.type.
 
 Module CodePoint.
   Parameter type: Type.
-  Parameter to_upper_case: type -> type.
-  Parameter code_points_to_string: type -> list Character.
+  Parameter to_upper_case: type -> list type.
+  Parameter code_points_to_string: list type -> list Character.
 
   Parameter from_character: Character -> type.
   Parameter from_ascii_letter: AsciiLetter -> type.

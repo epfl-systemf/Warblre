@@ -55,12 +55,14 @@ let quantifier_to_string (q:coq_Quantifier) : string =
 let rec regex_to_string (r:coq_Regex) : string =
   match r with
   | Empty -> ""
-  | Char (c) -> String.make 1 c
+  | Char i -> String.make 1 (Char.chr (Interop.char_to_int i))
   | Dot -> String.make 1 '.'
   | CharacterClass cc ->
     let class_atom_to_string ca = match ca with
-      | SourceCharacter '-' -> failwith "Unsupported char '-'"
-      | SourceCharacter c -> String.make 1 c
+      | SourceCharacter i ->
+          let c = Char.chr (Interop.char_to_int i) in 
+          if (Char.equal c '-') then failwith "Unsupported character: '-'"
+          else String.make 1 c
       | ClassEsc _ -> failwith "TODO"
     in
     let rec range_to_string r = match r with
@@ -152,22 +154,23 @@ let print_slice (string_input:string) single_capture : string =
   | Some { CaptureRange.startIndex = s; CaptureRange.endIndex = e } ->
      String.sub string_input s (e-s)
        
-let print_char_list (l:char list): string =
-  List.fold_left (fun acc c -> acc ^ String.make 1 c) "" l
+let print_char_list (l:Interop.character list): string =
+  assert (List.for_all (fun c -> Unsigned.UInt16.to_int c < 255) l);
+  List.fold_left (fun acc c -> acc ^ String.make 1 c) "" (List.map (fun c -> Char.chr (Interop.char_to_int c)) l)
 
-let print_char_list_option (o:char list option) : string =
+let print_char_list_option (o:Interop.character list option) : string =
   match o with
   | None -> "Undefined"
   | Some l ->
      print_char_list l
 
-let rec print_array_indexed (l:char list option list) (index:int) : string =
+let rec print_array_indexed (l:Interop.character list option list) (index:int) : string =
   match l with
   | [] -> ""
   | o::l' -> "#"^string_of_int index^":"^print_char_list_option o^"\n"^
                print_array_indexed l' (index+1)
 
-let print_array (l:char list option list) : string =
+let print_array (l:Interop.character list option list) : string =
   print_array_indexed l 0
 
 let print_groups_map (g:Extracted.Frontend.groups_map) : string =
@@ -274,7 +277,7 @@ let reference_matchall (r:Extracted.Frontend.coq_RegExpInstance) (str): string =
 let get_reference_result (regex:coq_Regex) (flags:Extracted.Frontend.coq_RegExpFlags) (index:int) (str:string) (f:frontend_function) : string option =
   let instance = get_success_compile (Extracted.Frontend.coq_RegExpInitialize regex flags) in
   let instance = Extracted.Frontend.setlastindex instance index in
-  let list_input = List.init (String.length str) (String.get str) in
+  let list_input = Interop.string_to_utf16 str in
   match f with
   | Exec -> Some (reference_exec instance list_input)
   | Search -> Some (reference_search instance list_input)
@@ -339,12 +342,12 @@ let random_char_ranges () : coq_ClassRanges =
   List.fold_left (fun current _ ->
     if Random.bool() then
       let c = random_char() in
-      ClassAtomCR (SourceCharacter c, current)
+      ClassAtomCR (sc c, current)
     else
       let c1 = random_char() in
       let c2 = random_char() in
       let cs = if c1 <= c2 then (c1, c2) else (c2, c1) in
-      RangeCR (SourceCharacter (fst cs), SourceCharacter (snd cs), current)
+      RangeCR (sc (fst cs), sc (snd cs), current)
   ) EmptyCR (List.init (Random.int 3) (fun x -> x))
 
 (* We generate regexes in two steps *)
@@ -360,7 +363,7 @@ let ticketTableNonRec: (int * (unit -> coq_Regex)) list = [
       let cc = if Random.bool() then NoninvertedCC (r) else InvertedCC(r) in
       CharacterClass (cc)
   ); 
-  ( 3, fun _ -> let c = random_char() in Char(c));
+  ( 3, fun _ -> let c = random_char() in achar(c));
   ( 1, fun _ -> AtomEsc (AtomEscape.DecimalEsc 0));
   ( 1, fun _ -> Dot);
 ]

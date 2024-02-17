@@ -4,7 +4,7 @@ open Warblre.Notations
 
 let%expect_test "backref_0_pos" =
   test_regex
-    (group ((char 'a')) -- !$ 1)
+    (group ((achar 'a')) -- !$ 1)
     "aa"
     0 ();
   [%expect {|
@@ -13,21 +13,21 @@ let%expect_test "backref_0_pos" =
 
 let%expect_test "backref_0_neg_0" =
   test_regex
-    (group ((char 'a')) -- !$ 1)
+    (group ((achar 'a')) -- !$ 1)
     "ab"
     0 ();
   [%expect {| No match on 'ab' |}]
 
 let%expect_test "backref_0_neg_1" =
   test_regex
-    (group ((char 'a')) -- !$ 1)
+    (group ((achar 'a')) -- !$ 1)
     "a"
     0 ();
   [%expect {| No match on 'a' |}]
 
 let%expect_test "backref_undefined" =
   test_regex
-    ((group ((char 'a')) || group ((char 'b'))) -- !$ 2)
+    ((group ((achar 'a')) || group ((achar 'b'))) -- !$ 2)
     "aa"
     0 ();
   [%expect {|
@@ -37,7 +37,7 @@ let%expect_test "backref_undefined" =
 
 let%expect_test "backref_multiple" =
   test_regex
-    (group ((char 'a')) -- !$ 1 -- !$ 2 -- group ((char 'b')) -- !$ 1 -- !$ 2)
+    (group ((achar 'a')) -- !$ 1 -- !$ 2 -- group ((achar 'b')) -- !$ 1 -- !$ 2)
     "aabab"
     0 ();
   [%expect {|
@@ -47,7 +47,7 @@ let%expect_test "backref_multiple" =
 
 let%expect_test "backref_long_pos" =
   test_regex
-    (group ((char 'a') -- (char 'b') -- (char 'a')) -- !$ 1)
+    (group ((achar 'a') -- (achar 'b') -- (achar 'a')) -- !$ 1)
     "abaaba"
     0 ();
   [%expect {|
@@ -56,28 +56,28 @@ let%expect_test "backref_long_pos" =
 
 let%expect_test "backref_long_neg_0" =
   test_regex
-    (group ((char 'a') -- (char 'b') -- (char 'a')) -- !$ 1)
+    (group ((achar 'a') -- (achar 'b') -- (achar 'a')) -- !$ 1)
     "abaab"
     0 ();
   [%expect {| No match on 'abaab' |}]
 
 let%expect_test "backref_long_neg_1" =
 test_regex
-  (group ((char 'a') -- (char 'b') -- (char 'a')) -- !$ 1)
+  (group ((achar 'a') -- (achar 'b') -- (achar 'a')) -- !$ 1)
   "abacba"
   0 ();
 [%expect {| No match on 'abacba' |}]
 
 let%expect_test "backref_long_neg_2" =
   test_regex
-    (group ((char 'a') -- (char 'b') -- (char 'a')) -- !$ 1)
+    (group ((achar 'a') -- (achar 'b') -- (achar 'a')) -- !$ 1)
     "abaaca"
     0 ();
   [%expect {| No match on 'abaaca' |}]
 
 let%expect_test "backref_long_neg_3" =
   test_regex
-    (group ((char 'a') -- (char 'b') -- (char 'a')) -- !$ 1)
+    (group ((achar 'a') -- (achar 'b') -- (achar 'a')) -- !$ 1)
     "abaabc"
     0 ();
   [%expect {| No match on 'abaabc' |}]
@@ -87,7 +87,7 @@ let%expect_test "backref_long_neg_3" =
   
 let%expect_test "named_backref_0_0" =
 test_regex
-    (ngroup ("G", (char 'a')) -- !$ 1)
+    (ngroup ("G", (achar 'a')) -- !$ 1)
     "aa"
     0 ();
   [%expect {|
@@ -96,7 +96,7 @@ test_regex
 
 let%expect_test "named_backref_0_1" =
     test_regex
-      (ngroup ("G", (char 'a')) -- !& "G")
+      (ngroup ("G", (achar 'a')) -- !& "G")
       "aa"
       0 ();
     [%expect {|
@@ -106,9 +106,9 @@ let%expect_test "named_backref_0_1" =
 let%expect_test "named_backref_1_0" =
   test_regex
     (
-      ngroup ("G", (char 'a')) -- 
-      ngroup ("H", (char 'b')) -- 
-      ngroup ("I", (char 'c')) -- 
+      ngroup ("G", (achar 'a')) -- 
+      ngroup ("H", (achar 'b')) -- 
+      ngroup ("I", (achar 'c')) -- 
       !& "G"
     )
     "abca"
@@ -122,9 +122,9 @@ let%expect_test "named_backref_1_0" =
 let%expect_test "named_backref_1_1" =
   test_regex
     (
-      ngroup ("G", (char 'a')) -- 
-      ngroup ("H", (char 'b')) -- 
-      ngroup ("I", (char 'c')) -- 
+      ngroup ("G", (achar 'a')) -- 
+      ngroup ("H", (achar 'b')) -- 
+      ngroup ("I", (achar 'c')) -- 
       !& "H"
     )
     "abcb"
@@ -138,9 +138,9 @@ let%expect_test "named_backref_1_1" =
 let%expect_test "named_backref_1_2" =
   test_regex
     (
-      ngroup ("G", (char 'a')) -- 
-      ngroup ("H", (char 'b')) -- 
-      ngroup ("I", (char 'c')) -- 
+      ngroup ("G", (achar 'a')) -- 
+      ngroup ("H", (achar 'b')) -- 
+      ngroup ("I", (achar 'c')) -- 
       !& "I"
     )
     "abcc"
@@ -155,10 +155,10 @@ let%expect_test "named_backref_nested" =
   test_regex
     (
       ngroup ("G", 
-        (char 'a') -- 
+        (achar 'a') -- 
         ngroup ("H", 
-          (char 'b') -- 
-          ngroup ("I", (char 'c')))) -- 
+          (achar 'b') -- 
+          ngroup ("I", (achar 'c')))) -- 
       !& "I" -- !& "H" -- !& "G"
     )
     "abccbcabc"

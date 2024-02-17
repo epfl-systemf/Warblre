@@ -4,7 +4,8 @@
  (theories Warblre))
 
 (library
- (name Warblre))
+ (name Warblre)
+ (libraries integers uucp))
 
 ; Extraction to int generates functions which are not really recursive, so we silence the warning.
 ; > Error (warning 39 [unused-rec-flag]): unused rec flag.
@@ -12,4 +13,4 @@
 (env
  (dev
   (flags
-   (:standard -w -39))))
+   (:standard -w -27 -w -39))))

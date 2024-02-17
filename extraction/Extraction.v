@@ -13,14 +13,14 @@ Extract Constant HexDigit.to_integer => "Interop.parse_hex".
 
 Extract Constant AsciiLetter.type => "char".
 
-Extract Constant Character => "char".
-Extract Constant Character.eqb => "Char.equal".
-Extract Constant Character.eqs => "Char.equal".
-Extract Constant Character.numeric_value => "Char.code".
-Extract Constant Character.from_numeric_value => "Char.chr".
+Extract Constant Character => "Interop.character".
+Extract Constant Character.eqb => "Interop.char_eq".
+Extract Constant Character.eqs => "Interop.char_eq".
+Extract Constant Character.numeric_value => "Interop.char_to_int".
+Extract Constant Character.from_numeric_value => "Interop.char_of_int".
 Extract Constant Character.Unicode.case_fold => "Interop.case_fold".
 
-Extract Constant CodePoint => "char".
+Extract Constant CodePoint => "Interop.codepoint".
 Extract Constant CodePoint.code_points_to_string => "Interop.code_points_to_string".
 Extract Constant CodePoint.to_upper_case => "Interop.to_upper_case".
 Extract Constant CodePoint.from_ascii_letter => "Interop.ascii_letter".

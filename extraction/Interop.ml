@@ -8,10 +8,32 @@ let char_of_int (i: int): character = Unsigned.UInt16.of_int i
 let parse_hex d1 d2 = int_of_string ("0x" ^ (String.make 1 d1) ^ (String.make 1 d2))
 
 let to_character_list (ls: char list): character list = List.map (fun c -> char_of_int (Char.code c)) ls
-let all_chars: character list = to_character_list (List.init 128 (Char.chr))
+let all_chars: character list = (List.init (Unsigned.UInt16.to_int Unsigned.UInt16.max_int) (char_of_int))
 let line_terminators: character list = to_character_list ('\n' :: '\r' :: [])
-(* Missing: ZERO WIDTH NO-BREAK SPACE; unicodes spaces https://en.wikipedia.org/wiki/Whitespace_character  *)
-let white_spaces: character list = to_character_list (List.map (Char.chr) ( 9 :: 11 :: 12 :: 32 :: 133 :: 160 :: []))
+let white_spaces: character list = (List.map (char_of_int) ( 
+  9 :: (* <TAB> *)
+  11 :: (* <VT> *)
+  12 :: (* <FF> *)
+  32 :: 
+  133 :: 
+  160 :: 
+  5760 ::
+  8192 ::
+  8193 ::
+  8194 ::
+  8195 ::
+  8196 ::
+  8197 ::
+  8198 ::
+  8199 ::
+  8200 ::
+  8201 ::
+  8202 ::
+  8203 :: (* <ZWNBSP> *)
+  8239 ::
+  8287 ::
+  12288 ::
+  []))
 let digits: character list = to_character_list ('0' :: '1' :: '2' :: '3' :: '4' :: '5' :: '6' :: '7' :: '8' :: '9' :: [])
 let ascii_word_characters: character list = to_character_list (
   let str = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_" in

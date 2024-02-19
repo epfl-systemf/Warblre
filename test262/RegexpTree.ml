@@ -44,6 +44,13 @@ let json_to_regex (json: (string * Yojson.Safe.t) list) index: Warblre.Extracted
     | `Assoc (("type", `String "Char") :: ("value", `String "\\r") :: ("kind", `String "meta") :: ("symbol", `String _) :: ("codePoint", `Int _) :: []) ->
       ClassEsc (ClassEscape.CharacterEsc (CharacterEscape.ControlEsc (ControlEscape.Coq_r)))
 
+    | `Assoc (("type", `String "Char") :: ("value", `String ctrl) :: ("kind", `String "control") :: []) ->
+      assert(String.length ctrl == 3);
+      ClassEsc (ClassEscape.CharacterEsc (CharacterEscape.AsciiControlEsc (String.get ctrl 2)))
+    | `Assoc (("type", `String "Char") :: ("value", `String hex) :: ("kind", `String "hex") :: ("symbol", `String _) :: ("codePoint", `Int _) :: []) ->
+      assert(String.length hex == 4);
+      ClassEsc (ClassEscape.CharacterEsc (CharacterEscape.HexEscape (String.get hex 2, String.get hex 3)))
+
     | _  -> failwith (String.cat "Unsupported JSON class atom: " (Yojson.Safe.show json)))
     in
 
@@ -143,7 +150,7 @@ let json_to_regex (json: (string * Yojson.Safe.t) list) index: Warblre.Extracted
     | `Assoc (("type", `String "Assertion") :: ("kind", `String "\\B") :: []) -> NotWordBoundary
 
     | `Assoc (("type", `String "Assertion") :: ("kind", `String "Lookahead") :: ("assertion", assertion) :: []) -> Lookahead (iter_r assertion)
-    (* | `Assoc (("type", `String "Assertion") :: ("kind", `String "Lookahead") :: ("assertion", assertion) :: []) -> Lookahead (iter_r assertion) *)
+    | `Assoc (("type", `String "Assertion") :: ("kind", `String "Lookahead") :: ("negative", `Bool true) :: ("assertion", assertion) :: []) -> NegativeLookahead (iter_r assertion)
 
     | _ -> failwith (String.cat "Unsupported JSON regex: " (Yojson.Safe.show json)))
     in

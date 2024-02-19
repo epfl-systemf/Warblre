@@ -1,7 +1,7 @@
 (executable
  (public_name test262)
  (name main)
- (libraries Warblre yojson))
+ (libraries Warblre yojson ANSITerminal))
 
 (env
   (dev

@@ -8,7 +8,9 @@ let char_of_int (i: int): character = Unsigned.UInt16.of_int i
 let parse_hex d1 d2 = int_of_string ("0x" ^ (String.make 1 d1) ^ (String.make 1 d2))
 
 let to_character_list (ls: char list): character list = List.map (fun c -> char_of_int (Char.code c)) ls
-let all_chars: character list = (List.init (Unsigned.UInt16.to_int Unsigned.UInt16.max_int) (char_of_int))
+let all_chars: character list = 
+  List.init (127 (* Unsigned.UInt16.to_int Unsigned.UInt16.max_int *)) (fun i -> i)
+    |> List.filter_map (fun i -> if Uchar.is_valid i then Some (char_of_int i) else None)
 let line_terminators: character list = to_character_list ('\n' :: '\r' :: [])
 let white_spaces: character list = (List.map (char_of_int) ( 
   9 :: (* <TAB> *)
@@ -74,7 +76,7 @@ let utf16_to_string (str: Unsigned.uint16 list) =
         match t1 with
         | [] ->
           (* Printf.printf "Unpaired surrogate: %d\n" hi; *)
-          Buffer.add_utf_8_uchar b (Uchar.of_int hi)
+          Buffer.add_utf_8_uchar b (Uchar.of_int 0xFFFD)
         | l :: t2 ->
           let li = Unsigned.UInt16.to_int l in
           assert ((0xd800 <= hi) && (hi <= 0xdbff));

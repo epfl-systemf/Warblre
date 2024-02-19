@@ -22,15 +22,18 @@ let json_to_regex (json: (string * Yojson.Safe.t) list) index: Warblre.Extracted
       ClassEsc(ClassEscape.Coq_b)
     | `Assoc (("type", `String "Char") :: ("value", `String "\\s") :: ("kind", `String "meta") :: ("codePoint", `Null) :: []) ->
       ClassEsc (ClassEscape.CharacterClassEsc (CharacterClassEscape.Coq_s))
-    | `Assoc (("type", `String "Char") :: ("value", `String "\\S") :: ("kind", `String "meta") :: ("codePoint", `Null) :: []) ->
-      ClassEsc (ClassEscape.CharacterClassEsc (CharacterClassEscape.S))
     | `Assoc (("type", `String "Char") :: ("value", `String "\\d") :: ("kind", `String "meta") :: ("codePoint", `Null) :: []) ->
       ClassEsc (ClassEscape.CharacterClassEsc (CharacterClassEscape.Coq_d))
-    | `Assoc (("type", `String "Char") :: ("value", `String "\\D") :: ("kind", `String "meta") :: ("codePoint", `Null) :: []) ->
-      ClassEsc (ClassEscape.CharacterClassEsc (CharacterClassEscape.D))
     | `Assoc (("type", `String "Char") :: ("value", `String "\\w") :: ("kind", `String "meta") :: ("codePoint", `Null) :: []) ->
       ClassEsc (ClassEscape.CharacterClassEsc (CharacterClassEscape.Coq_w))
+    | `Assoc (("type", `String "Char") :: ("value", `String "\\S") :: ("kind", `String "meta") :: ("codePoint", `Null) :: []) ->
+      (* failwith "Unsupported" *)
+      ClassEsc (ClassEscape.CharacterClassEsc (CharacterClassEscape.S))
+    | `Assoc (("type", `String "Char") :: ("value", `String "\\D") :: ("kind", `String "meta") :: ("codePoint", `Null) :: []) ->
+      (* failwith "Unsupported" *)
+      ClassEsc (ClassEscape.CharacterClassEsc (CharacterClassEscape.D))
     | `Assoc (("type", `String "Char") :: ("value", `String "\\W") :: ("kind", `String "meta") :: ("codePoint", `Null) :: []) ->
+      (* failwith "Unsupported" *)
       ClassEsc (ClassEscape.CharacterClassEsc (CharacterClassEscape.W))
 
     | `Assoc (("type", `String "Char") :: ("value", `String "\\t") :: ("kind", `String "meta") :: ("symbol", `String _) :: ("codePoint", `Int _) :: []) ->
@@ -57,12 +60,6 @@ let json_to_regex (json: (string * Yojson.Safe.t) list) index: Warblre.Extracted
 
     let rec iter_cc (json: Yojson.Safe.t list): coq_ClassRanges = (match json with
     | `Assoc (("type", `String "Char") :: r) :: t -> ClassAtomCR (iter_ca (`Assoc (("type", `String "Char") :: r)), iter_cc t)
-    (* | `Assoc (("type", `String "Char") :: ("value", `String _) :: ("kind", `String "simple") :: ("symbol", `String _) :: ("codePoint", `Int codepoint) :: ("escaped", `Bool true) :: []) :: t ->
-       ClassAtomCR (ClassEsc (ClassEscape.CharacterEsc (CharacterEscape.IdentityEsc (Warblre.Interop.char_of_int codepoint))), iter_cc t)
-    | `Assoc (("type", `String "Char") :: ("value", `String _) :: ("kind", `String "simple") :: ("symbol", `String _) :: ("codePoint", `Int codepoint) :: []) :: t ->
-      ClassAtomCR (SourceCharacter (Warblre.Interop.char_of_int codepoint), iter_cc t)
-    | `Assoc (("type", `String "Char") :: ("value", `String _) :: ("kind", `String "unicode") :: ("symbol", `String _) :: ("codePoint", `Int codepoint) :: []) :: t->
-      ClassAtomCR (SourceCharacter (Warblre.Interop.char_of_int codepoint), iter_cc t) *)
 
     | `Assoc (("type", `String "ClassRange") :: ("from", from) :: ("to", until) :: []) :: t->
       RangeCR (iter_ca from, iter_ca until, iter_cc t)
@@ -98,7 +95,9 @@ let json_to_regex (json: (string * Yojson.Safe.t) list) index: Warblre.Extracted
     | `Assoc (("type", `String "Char") :: ("value", `String _) :: ("kind", `String "unicode") :: ("symbol", `String _) :: ("codePoint", `Int codepoint) :: []) -> Char (Warblre.Interop.char_of_int codepoint)
 
     | `Assoc (("type", `String "Char") :: ("value", `String "\\0") :: ("kind", `String "decimal") :: ("symbol", `String _) :: ("codePoint", `Int 0) :: []) -> AtomEsc (AtomEscape.CharacterEsc CharacterEscape.Zero)
-    | `Assoc (("type", `String "Char") :: ("value", `String ".") :: ("kind", `String "meta") :: ("symbol", `String ".") :: ("codePoint", `Null) :: []) -> Dot
+    | `Assoc (("type", `String "Char") :: ("value", `String ".") :: ("kind", `String "meta") :: ("symbol", `String ".") :: ("codePoint", `Null) :: []) ->
+      (* failwith "Unsupported"  *)
+      Dot
 
     | `Assoc (("type", `String "Char") :: ("value", `String "\\t") :: ("kind", `String "meta") :: ("symbol", `String _) :: ("codePoint", `Int _) :: []) ->
       AtomEsc (AtomEscape.CharacterEsc (CharacterEscape.ControlEsc (ControlEscape.Coq_t)))
@@ -120,19 +119,24 @@ let json_to_regex (json: (string * Yojson.Safe.t) list) index: Warblre.Extracted
 
     | `Assoc (("type", `String "Char") :: ("value", `String "\\s") :: ("kind", `String "meta") :: ("codePoint", `Null) :: []) ->
       AtomEsc (AtomEscape.CharacterClassEsc (CharacterClassEscape.Coq_s))
-    | `Assoc (("type", `String "Char") :: ("value", `String "\\S") :: ("kind", `String "meta") :: ("codePoint", `Null) :: []) ->
-      AtomEsc (AtomEscape.CharacterClassEsc (CharacterClassEscape.S))
     | `Assoc (("type", `String "Char") :: ("value", `String "\\d") :: ("kind", `String "meta") :: ("codePoint", `Null) :: []) ->
       AtomEsc (AtomEscape.CharacterClassEsc (CharacterClassEscape.Coq_d))
-    | `Assoc (("type", `String "Char") :: ("value", `String "\\D") :: ("kind", `String "meta") :: ("codePoint", `Null) :: []) ->
-      AtomEsc (AtomEscape.CharacterClassEsc (CharacterClassEscape.D))
     | `Assoc (("type", `String "Char") :: ("value", `String "\\w") :: ("kind", `String "meta") :: ("codePoint", `Null) :: []) ->
       AtomEsc (AtomEscape.CharacterClassEsc (CharacterClassEscape.Coq_w))
+    | `Assoc (("type", `String "Char") :: ("value", `String "\\S") :: ("kind", `String "meta") :: ("codePoint", `Null) :: []) ->
+      (* failwith "Unsupported" *)
+      AtomEsc (AtomEscape.CharacterClassEsc (CharacterClassEscape.S))
+    | `Assoc (("type", `String "Char") :: ("value", `String "\\D") :: ("kind", `String "meta") :: ("codePoint", `Null) :: []) ->
+      (* failwith "Unsupported" *)
+      AtomEsc (AtomEscape.CharacterClassEsc (CharacterClassEscape.D))
     | `Assoc (("type", `String "Char") :: ("value", `String "\\W") :: ("kind", `String "meta") :: ("codePoint", `Null) :: []) ->
+      (* failwith "Unsupported" *)
       AtomEsc (AtomEscape.CharacterClassEsc (CharacterClassEscape.W))
 
     | `Assoc (("type", `String "CharacterClass") :: ("expressions", `List expressions) :: []) -> CharacterClass (NoninvertedCC (iter_cc expressions))
-    | `Assoc (("type", `String "CharacterClass") :: ("negative", `Bool true) :: ("expressions", `List expressions) :: []) -> CharacterClass (InvertedCC (iter_cc expressions))
+    | `Assoc (("type", `String "CharacterClass") :: ("negative", `Bool true) :: ("expressions", `List expressions) :: []) ->
+      (* failwith "Unsupported" *)
+      CharacterClass (InvertedCC (iter_cc expressions))
 
     | `Assoc (("type", `String "Disjunction") :: ("left", left) :: ("right", right) :: _) -> Disjunction (iter_r left, iter_r right)
     | `Assoc (("type", `String "Alternative") :: ("expressions", `List expressions) :: _) -> expressions |> List.map iter_r |> reduce_left (fun l r -> Seq (l, r))

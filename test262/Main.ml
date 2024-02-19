@@ -1,7 +1,7 @@
 open Warblre.Extracted.Patterns
 
 let input = "dump.json"
-let max_failures_count = 10
+let max_failures_count = 1000
 
 let find_field ls name = let (_, r) = List.find (fun (n, _) -> String.equal n name) ls in r
 
@@ -46,13 +46,23 @@ let warblre_exec regex input: Yojson.Safe.t =
         (("index", `Int a.index) :: ("input", `String (Warblre.Interop.utf16_to_string input)) :: []))
     | Result.Failure f -> Yojson.Safe.from_string "\"FAILURE\"")
 
+let stream_file name: string Seq.t =
+  let ic = open_in name in
+  let try_read () = try Some (input_line ic) with End_of_file -> None in
+  let iter acc = 
+    match try_read () with
+    | Some s -> Some ((s, ()))
+    | None -> close_in ic; None
+  in
+  Seq.unfold iter ()
+
 let () =
+  Printexc.record_backtrace true;
   Yojson.Safe.(
-    match from_file input with
-    | `List json ->
-      let failures_count = ref 0 in
-      json
-        |> List.iteri (fun (i: int) (instance: t) ->
+    let failures_count = ref 0 in
+    (stream_file input)
+      |> Seq.map from_string
+      |> Seq.iteri (fun (i: int) (instance: t) ->
             match instance with
             | `Assoc fields ->
               (match find_field fields "pattern", find_field fields "flags", find_field fields "index", find_field fields "ast", find_field fields "input" with
@@ -61,21 +71,23 @@ let () =
                     | `Int i -> Warblre.Interop.char_of_int i
                     | _ -> failwith (String.cat "Invalid element in input string: " (pretty_to_string e))
                   ) raw_input in
+                  Printf.printf "Running test %d...\r%!" i;
                   (try
                     let node_res = node_exec str_pattern str_flags input index in
                     let regex = (RegexpTree.json_to_regex ast index) in
                     let warblre_res = warblre_exec regex input in
                     if Bool.not (Yojson.Safe.equal node_res warblre_res) then (
                       failures_count := !failures_count + 1;
+                      ANSITerminal.erase Below;
                       Printf.printf "FAILED [%d]: engines do not agree.\n" i;
                       Printf.printf "\tregex     : %s / \"%s\" @ %d\n" (pretty_to_string (`String str_pattern)) str_flags index;
                       Printf.printf "\traw input : [%s]\n" (input_to_string input);
                       Printf.printf "\tinput     : \"%s\"\n" (Warblre.Interop.utf16_to_string input);
                       Printf.printf "\tnode      : %s\n" (pretty_to_string (node_res));
                       Printf.printf "\textracted : %s\n%!" (pretty_to_string (warblre_res)))
-                    else Printf.printf "SUCCESS [%d]: %s / \"%s\" | %s @ %d\n%!" i (Warblre.Interop.utf16_to_string input) (pretty_to_string (`String str_pattern)) str_flags index
                   with Failure msg -> (
                     failures_count := !failures_count + 1;
+                    ANSITerminal.erase Below;
                     Printf.printf "FAILED [%d]: an error occured.\n" i;
                     Printf.printf "\tregex     : %s / %s\n" (pretty_to_string (`String str_pattern)) str_flags;
                     Printf.printf "\traw input : [%s]\n" (input_to_string input));
@@ -83,6 +95,4 @@ let () =
                     Printf.printf "\tmessage   : %s\n%!" msg);
                   if !failures_count >= max_failures_count then failwith "Maximal number of failures reached"
               | _ -> failwith "Level 1 should have fields 'pattern', 'flags', 'index', 'ast' and 'flags'")
-            | _ -> failwith "Level 1 should be an assoc")
-    | _ -> failwith "Level 0 should be a list"
-  )
+            | _ -> failwith "Level 1 should be an assoc"))

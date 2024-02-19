@@ -10,7 +10,8 @@ let parse_hex d1 d2 = int_of_string ("0x" ^ (String.make 1 d1) ^ (String.make 1 
 let to_character_list (ls: char list): character list = List.map (fun c -> char_of_int (Char.code c)) ls
 let all_chars: character list = to_character_list (List.init 128 (Char.chr))
 let line_terminators: character list = to_character_list ('\n' :: '\r' :: [])
-let white_spaces: character list = to_character_list (List.map (Char.chr) ( 11 :: 13 :: 14 :: []))
+(* Missing: ZERO WIDTH NO-BREAK SPACE; unicodes spaces https://en.wikipedia.org/wiki/Whitespace_character  *)
+let white_spaces: character list = to_character_list (List.map (Char.chr) ( 9 :: 11 :: 12 :: 32 :: 133 :: 160 :: []))
 let digits: character list = to_character_list ('0' :: '1' :: '2' :: '3' :: '4' :: '5' :: '6' :: '7' :: '8' :: '9' :: [])
 let ascii_word_characters: character list = to_character_list (
   let str = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_" in
@@ -45,10 +46,13 @@ let utf16_to_string (str: Unsigned.uint16 list) =
     | [] -> ()
     | h :: t1 ->
       let hi = Unsigned.UInt16.to_int h in 
-      if hi >= 0xd800 then (
+      (* Note that the upper bound can be discussed, depending on whether a lone low surrogate should be an error or not *)
+      if hi >= 0xd800 && hi <= 0xdbff then (
         (* Surrogate pair! *)
         match t1 with
-        | [] -> failwith (String.cat "Unpaired surrogate: " (Int.to_string hi))
+        | [] ->
+          (* Printf.printf "Unpaired surrogate: %d\n" hi; *)
+          Buffer.add_utf_8_uchar b (Uchar.of_int hi)
         | l :: t2 ->
           let li = Unsigned.UInt16.to_int l in
           assert ((0xd800 <= hi) && (hi <= 0xdbff));

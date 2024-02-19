@@ -244,6 +244,13 @@ let%expect_test "c_escape_0" =
 
 let%expect_test "c_escape_1" =
   test_regex
+    (AtomEsc (AtomEscape.CharacterEsc (CharacterEscape.AsciiControlEsc ('I'))))
+    "\t"
+    0 ();
+  [%expect {| Matched 1 characters ([0-1]) in '	' (length=1) |}]
+
+let%expect_test "c_escape_2" =
+  test_regex
     (AtomEsc (AtomEscape.CharacterEsc (CharacterEscape.AsciiControlEsc ('i'))))
     "a"
     0 ();

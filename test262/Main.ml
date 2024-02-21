@@ -4,10 +4,12 @@ let find_field ls name = let (_, r) = List.find (fun (n, _) -> String.equal n na
 
 let input_to_string input = String.concat "," (List.map (fun c -> Int.to_string (Warblre.Interop.char_to_int c)) input)
 
+let time _: float = Unix.gettimeofday ()
+
 let timed f =
-  let t0 = Sys.time() in
+  let t0 = time () in
   let r = f () in
-  let t1 = Sys.time() in
+  let t1 = time () in
   (r, t1 -. t0)
 
 let stream_file name: string Seq.t =
@@ -20,15 +22,33 @@ let stream_file name: string Seq.t =
   in
   Seq.unfold iter ()
 
-let node_exec regex flags input index = 
+let read_whole_file filename =
+  let ch = open_in filename in
+  let s = really_input_string ch (in_channel_length ch) in
+  close_in ch;
+  s
+
+let node_exec regex flags input index: Yojson.Safe.t = 
   let js_input = input_to_string input in
   let js = Printf.sprintf {|
+    function replacer(key, value) {
+      if (typeof value === "string") {
+        const input = new Array;
+        for (let i = 0; i < value.length; i++) {
+            let c = value.charCodeAt(i);
+            input.push(c);
+        }
+        return input;
+      }
+      return value;
+    }
+
     const regex = /%s/%s;
     regex.lastIndex = %d;
     const input_array = [%s];
-    var enc = new TextDecoder("utf-16");
-    const input = enc.decode(new Uint16Array(input_array));
-    console.log(JSON.stringify({...regex.exec(input)}));
+    const dec = new TextDecoder("utf-16");
+    const input = dec.decode(new Uint16Array(input_array));
+    console.log(JSON.stringify({...regex.exec(input)}, replacer, 1));
   |} regex flags index js_input in
   let out_file = Filename.temp_file "node_" ".out.json" in
   let command = Filename.quote_command "node" ~stdout:out_file ("-e" :: js :: []) in
@@ -39,10 +59,12 @@ let node_exec regex flags input index =
     Yojson.Safe.from_file out_file
 
 let warblre_exec regex input: Yojson.Safe.t =
+  let string_to_json str = `List (List.map (fun i -> `Int (Warblre.Interop.char_to_int i)) str) in
+
   let format_groups_numbered ls: (string * Yojson.Safe.t) list =
     let rec iter ls i =
       match ls with
-      | (Some str) :: t -> (Int.to_string i, `String (Warblre.Interop.utf16_to_string str)) :: (iter t (i+1))
+      | (Some str) :: t -> (Int.to_string i, string_to_json str) :: (iter t (i+1))
       | None :: t -> iter t (i+1)
       | [] -> []
     in
@@ -51,7 +73,7 @@ let warblre_exec regex input: Yojson.Safe.t =
   let format_groups_named (groups: Warblre.Extracted.Frontend.groups_map): Yojson.Safe.t =
     let rec iter ls =
       match ls with
-      | (name, Some str) :: t -> (name, `String (Warblre.Interop.utf16_to_string str)) :: (iter t)
+      | (name, Some str) :: t -> (name, string_to_json str) :: (iter t)
       | (name, None) :: t -> iter t
       | [] -> []
     in
@@ -64,16 +86,16 @@ let warblre_exec regex input: Yojson.Safe.t =
     | None -> current
   in
 
-  Warblre.Extracted.(
-    match Frontend.coq_RegExpExec regex input with
-    | Result.Success (Null _) -> Yojson.Safe.from_string "{}"
-    | Result.Success (Exotic (a,_)) -> 
-      let base = (format_groups_numbered a.array) @
-        (("index", `Int a.index) :: ("input", `String (Warblre.Interop.utf16_to_string input)) :: [])
-      in
-      let extended = maybe_add_groups base a.groups in
-      `Assoc extended
-    | Result.Failure f -> Yojson.Safe.from_string "\"Extracted --- FAILURE\"")
+  
+  match Warblre.Extracted.Frontend.coq_RegExpExec regex input with
+  | Warblre.Extracted.Result.Success (Null _) -> Yojson.Safe.from_string "{}"
+  | Warblre.Extracted.Result.Success (Exotic (a,_)) -> 
+    let base = (format_groups_numbered a.array) @
+      (("index", `Int a.index) :: ("input", string_to_json input) :: [])
+    in
+    let extended = maybe_add_groups base a.groups in
+    `Assoc extended
+  | Warblre.Extracted.Result.Failure f -> Yojson.Safe.from_string "\"Extracted --- FAILURE\""
 
 let filter_tests filters (tests: (int * Yojson.Safe.t) Seq.t) =
   List.fold_left (fun tests filter ->
@@ -97,7 +119,7 @@ end
 
 let run input filters ?(display=false) ?(max_failures_count=Int.max_int) ?(log_success=false) () =
   Yojson.Safe.(
-    let start_time = Sys.time () in
+    let start_time = time () in
     let test_count = ref 0 in
     let failures_count = ref 0 in
     let max_runtime = ref (Float.min_float) in
@@ -127,37 +149,35 @@ let run input filters ?(display=false) ?(max_failures_count=Int.max_int) ?(log_s
                       failures_count := !failures_count + 1;
                       ANSITerminal.erase Below;
                       Printf.printf "FAILED [%d]: engines do not agree.\n" i;
-                      Printf.printf "\tregex     : %s / \"%s\" @ %d\n" (pretty_to_string (`String str_pattern)) str_flags index;
-                      Printf.printf "\traw input : [%s]\n" (input_to_string input);
-                      Printf.printf "\tinput     : \"%s\"\n" (Warblre.Interop.utf16_to_string input);
-                      Printf.printf "\tnode      : %s\n" (pretty_to_string (node_res));
-                      Printf.printf "\t\ttime : %fs\n" node_time;
-                      Printf.printf "\textracted : %s\n%!" (pretty_to_string (warblre_res));
-                      Printf.printf "\t\ttime : %fs\n" warblre_time)
+                      Printf.printf "regex     : %s / \"%s\" @ %d\n" (pretty_to_string (`String str_pattern)) str_flags index;
+                      Printf.printf "raw input : [%s]\n" (input_to_string input);
+                      Printf.printf "input     : \"%s\"\n" (Warblre.Interop.utf16_to_string input);
+                      Printf.printf "node      : %fs\n\"\"\"\n%s\n\"\"\"\n" node_time (pretty_to_string node_res);
+                      Printf.printf "extracted : %fs\n\"\"\"\n%s\n\"\"\"\n\n%!" warblre_time (pretty_to_string warblre_res))
                     else if log_success then (
                       ANSITerminal.erase Below;
                       Printf.printf "Success [%d]: node %fs; extracted %fs.\n" i node_time warblre_time)
-                  with Failure msg | Invalid_argument msg | Yojson.Json_error msg -> (
+                  with Failure msg | Invalid_argument msg  -> ( (*| Yojson.Json_error msg -> ( *)
                     failures_count := !failures_count + 1;
                     ANSITerminal.erase Below;
                     Printf.printf "FAILED [%d]: an error occured.\n" i;
-                    Printf.printf "\tregex     : %s / %s\n" (pretty_to_string (`String str_pattern)) str_flags;
-                    Printf.printf "\traw input : [%s]\n" (input_to_string input));
-                    Printf.printf "\tinput     : \"%s\"\n" (Warblre.Interop.utf16_to_string input);
-                    Printf.printf "\tmessage   : %s\n%!" msg);
+                    Printf.printf "regex     : %s / %s\n" (pretty_to_string (`String str_pattern)) str_flags;
+                    Printf.printf "raw input : [%s]\n" (input_to_string input));
+                    Printf.printf "input     : \"%s\"\n" (Warblre.Interop.utf16_to_string input);
+                    Printf.printf "message   : %s\n\n%!" msg);
                   if !failures_count >= max_failures_count then failwith "Maximal number of failures reached"
               | _ -> failwith "Level 1 should have fields 'pattern', 'flags', 'index', 'ast' and 'flags'")
             | _ -> failwith "Level 1 should be an assoc")));
     ANSITerminal.erase Below;
-    Printf.printf "Summary:\n";
-    Printf.printf "\tFailures           : %d/%d\n" (!failures_count) (!test_count);
-    Printf.printf "\tTotal runtime      : %fs\n" (Sys.time () -. start_time);
+    Printf.printf "\nSummary:\n";
+    Printf.printf "\tTests succeeded    : %d/%d\n" (!test_count - !failures_count) (!test_count);
+    Printf.printf "\tTotal runtime      : %fs\n" (time () -. start_time);
     Printf.printf "\tHighest runtime    : %fs\n" (!max_runtime))
 
 
 let () =
   Printexc.record_backtrace true;
-  let input_file = if Array.length Sys.argv > 1 then Sys.argv.(1) else "dump.json" in
+  let input_file = if Array.length Sys.argv > 1 then Sys.argv.(1) else "../test262/dump.json" in
   let (modulus, offset) = if Array.length Sys.argv > 3 then (int_of_string Sys.argv.(2), int_of_string Sys.argv.(3)) else (0, 0) in
   let filters = Filters.(
     []) 

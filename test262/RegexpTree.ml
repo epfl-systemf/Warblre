@@ -145,11 +145,8 @@ let json_to_regex (json: (string * Yojson.Safe.t) list) index: Warblre.Extracted
 
     | `Assoc (("type", `String "Backreference") :: ("kind", `String "number") :: ("number", `Int i) :: ("reference", `Int _)  :: []) ->
       AtomEsc (AtomEscape.DecimalEsc i)
-    | `Assoc (("type", `String "Backreference") :: ("kind", `String "name") :: ("number", `Int _) :: ("reference", `String name) :: ("referenceRaw", `String _)  :: []) ->
+    | `Assoc (("type", `String "Backreference") :: ("kind", `String "name") :: ("reference", `String name) :: ("referenceRaw", `String _)  :: []) ->
       AtomEsc (AtomEscape.GroupEsc name)
-      (* There is a bug in the parser: https://github.com/DmitrySoshnikov/regexp-tree/issues/69 *)
-    (* We interpret all decimals as backrefs; hopefully, the tests never uses decimals,... *)
-    | `Assoc (("type", `String "Char") :: ("value", `String _) :: ("kind", `String "decimal") :: ("symbol", `String _) :: ("codePoint", `Int i) :: []) -> AtomEsc (AtomEscape.DecimalEsc i)
 
     | `Assoc (("type", `String "Assertion") :: ("kind", `String "^") :: []) -> InputStart
     | `Assoc (("type", `String "Assertion") :: ("kind", `String "$") :: []) -> InputEnd

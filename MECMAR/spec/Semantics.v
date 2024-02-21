@@ -93,7 +93,7 @@ Module Semantics.
 
   (** 22.2.2.7 Runtime Semantics: CompileAtom *)
   (** 22.2.2.7.3 Canonicalize ( rer, ch ) *)
-  Definition canonicalize {F: Type} {_: Result.AssertionError F} (rer: RegExp) (ch: Character): Result Character F :=
+  Definition canonicalize (rer: RegExp) (ch: Character): Character :=
     (* 1. If rer.[[Unicode]] is true and rer.[[IgnoreCase]] is true, then *)
     if (RegExp.unicode rer is true) && (RegExp.ignoreCase rer is true) then
       (* a. If the file https://unicode.org/Public/UCD/latest/ucd/CaseFolding.txt of the Unicode Character Database provides a simple or common case folding mapping for ch, return the result of applying that mapping to ch. *)
@@ -113,7 +113,14 @@ Module Semantics.
     (* 6. Let uStr be CodePointsToString(u). *)
     let uStr := CodePoint.code_points_to_string u in
     (* 7. If the length of uStr ≠ 1, return ch. *)
-    if (length uStr !=? 1)%nat then ch
+    (** TODO: fix *)
+    match uStr with
+    | cu :: nil =>
+      if (Character.numeric_value ch >=? 128) && (Character.numeric_value cu <? 128) then ch
+      else cu
+    | _ => ch
+    end.
+(*     if (length uStr !=? 1)%nat then ch
     else
     (* 8. Let cu be uStr's single code unit element. *)
     let! cu =<< List.Unique.unique uStr in
@@ -121,7 +128,7 @@ Module Semantics.
     if (Character.numeric_value ch >=? 128) && (Character.numeric_value cu <? 128) then ch
     else
     (* 10. Return cu. *)
-    cu.
+    cu. *)
   (** End --- 22.2.2.7.3 Canonicalize ( rer, ch ) *)
 
   (** 22.2.2.7.1 CharacterSetMatcher ( rer, A, invert, direction ) *)
@@ -151,11 +158,9 @@ Module Semantics.
       (* j. Let ch be the character Input[index]. *)
       let! chr =<< input[ index ] in
       (* k. Let cc be Canonicalize(rer, ch). *)
-      let! cc =<< canonicalize rer chr in
+      let cc := canonicalize rer chr in
       (* l. If there exists a member a of A such that Canonicalize(rer, a) is cc, let found be true. Otherwise, let found be false. *)
-      let! found =<< CharSet.exist A (
-        fun a => let! ca =<< (canonicalize rer a) in (ca =? cc)%Chr
-      ) in
+      let! found =<< CharSet.exist A ( fun a => ((canonicalize rer a) =? cc)%Chr ) in
       (* m. If invert is false and found is false, return failure. *)
       if (invert is false) && (found is false) then
         failure
@@ -169,6 +174,7 @@ Module Semantics.
       let y := match_state input f cap in
       (* q. Return c(y). *)
       c y.
+
   (** End --- 22.2.2.7.1 CharacterSetMatcher ( rer, A, invert, direction ) *)
 
   (** 22.2.2.7.2 BackreferenceMatcher ( rer, n, direction ) *)
@@ -212,9 +218,9 @@ Module Semantics.
       (* p. If there exists an integer i in the interval from 0 (inclusive) to len (exclusive) such that Canonicalize(rer, Input[rs + i]) is not Canonicalize(rer, Input[g + i]), return failure. *)
       let! b: bool =<< List.Exists.exist (List.Range.Int.Bounds.range 0 len) (fun (i: Z) =>
         let! rsi =<< input[ (rs + i)%Z ] in
-        let! rsi =<< canonicalize rer rsi in
+        let rsi := canonicalize rer rsi in
         let! gi =<< input[ (g + i)%Z ] in
-        let! gi =<< canonicalize rer gi in
+        let gi := canonicalize rer gi in
         (rsi !=? gi)%Chr)
       in
       if b
@@ -252,7 +258,7 @@ Module Semantics.
     let basicWordChars := CharSet.ascii_word_characters in
     (* 2. Let extraWordChars be the CharSet containing all characters c such that c is not in basicWordChars but Canonicalize(rer, c) is in basicWordChars. *)
     let! extraWordChars =<< CharSet.filter CharSet.all (fun (c: Character) =>
-      let! canonicalized_c =<< canonicalize rer c in
+      let canonicalized_c := canonicalize rer c in
       negb (CharSet.contains basicWordChars c) && (CharSet.contains basicWordChars canonicalized_c)
     ) in
     (* 3. Assert: extraWordChars is empty unless rer.[[Unicode]] is true and rer.[[IgnoreCase]] is true. *)

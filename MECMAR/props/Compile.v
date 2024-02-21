@@ -7,20 +7,20 @@ Import Semantics.
 Module Compile.
   Module Safety.
 
-    Lemma canonicalize {F: Type} {_: Result.AssertionError F}: forall c rer f, canonicalize rer c <> Failure f.
+(*     Lemma canonicalize {F: Type} {_: Result.AssertionError F}: forall c rer f, canonicalize rer c <> Failure f.
     Proof.
       intros c rer f. unfold canonicalize. clear_result. focus § _ (_ [] _) § auto destruct.
       apply List.Unique.failure_bounds in AutoDest_2. boolean_simplifier. spec_reflector Nat.eqb_spec.
       contradiction.
-    Qed.
+    Qed. *)
 
     Lemma wordCharacters {F: Type} {_: Result.AssertionError F}: forall rer f, wordCharacters rer <> Failure f.
     Proof.
       intros rer f. unfold wordCharacters. clear_result. focus § _ (_ [] _) § auto destruct.
-      unfold CharSet.filter in *. apply List.Filter.failure_kind in AutoDest_ as [ i [ v [ Eq_indexed Eq_f ]]].
+(*       unfold CharSet.filter in *. apply List.Filter.failure_kind in AutoDest_ as [ i [ v [ Eq_indexed Eq_f ]]].
       destruct (Semantics.canonicalize rer v) eqn:Eq_canon.
       - discriminate.
-      - injection Eq_f as ->. exfalso. apply (canonicalize _ _ _ Eq_canon).
+      - injection Eq_f as ->. exfalso. apply (canonicalize _ _ _ Eq_canon). *)
     Qed.
 
     (* TODO: remove it going with unfolded implementation *)
@@ -54,16 +54,16 @@ Module Compile.
             | _ => destruct t
             end
         end; try solve [ cbn; try easy ].
-      - cbn. apply wordCharacters.
+(*       - cbn. apply wordCharacters.
       - cbn. destruct (Semantics.wordCharacters rer) eqn:Eq_wc.
         + easy.
-        + exfalso. apply (wordCharacters _ _ Eq_wc).
+        + exfalso. apply (wordCharacters _ _ Eq_wc). *)
     Qed.
 
     Lemma compileToCharSet_ClassAtom_singleton: forall a rer r c,
       EarlyErrors.SingletonClassAtom a c ->
       Semantics.compileToCharSet_ClassAtom a rer = Success r ->
-      r = c :: nil.
+      r = CharSet.singleton c.
     Proof.
       induction a; intros rer c r Sing_a Eq_r; dependent destruction Sing_a; cbn in Eq_r; try rewrite -> Character.numeric_pseudo_bij in Eq_r;
         try injection Eq_r as <-; try reflexivity.
@@ -112,8 +112,6 @@ Module Compile.
       - focus § _ (_ [] _) § auto destruct; dependent destruction H0.
         + boolean_simplifier. spec_reflector Nat.leb_spec0. cbn in *. rewrite -> H in *. contradiction.
         + repeat match goal with | [ H: _ = Failure _ |- _ ] => focus § _ [] _ § auto destruct in H; try injection H as -> end.
-          * exfalso. apply (wordCharacters _ _ ltac:(eassumption)).
-          * exfalso. apply (wordCharacters _ _ ltac:(eassumption)).
         + repeat match goal with | [ H: _ = Failure _ |- _ ] => focus § _ [] _ § auto destruct in H; try injection H as -> end.
         + boolean_simplifier. spec_reflector Nat.eqb_spec. contradiction.
         + destruct (groupSpecifiersThatMatch (AtomEsc (AtomEscape.GroupEsc id)) ctx id) eqn:Eq_gstm; try discriminate.

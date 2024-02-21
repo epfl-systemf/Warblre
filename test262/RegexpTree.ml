@@ -27,13 +27,10 @@ let json_to_regex (json: (string * Yojson.Safe.t) list) index: Warblre.Extracted
     | `Assoc (("type", `String "Char") :: ("value", `String "\\w") :: ("kind", `String "meta") :: ("codePoint", `Null) :: []) ->
       ClassEsc (ClassEscape.CharacterClassEsc (CharacterClassEscape.Coq_w))
     | `Assoc (("type", `String "Char") :: ("value", `String "\\S") :: ("kind", `String "meta") :: ("codePoint", `Null) :: []) ->
-      (* failwith "Unsupported" *)
       ClassEsc (ClassEscape.CharacterClassEsc (CharacterClassEscape.S))
     | `Assoc (("type", `String "Char") :: ("value", `String "\\D") :: ("kind", `String "meta") :: ("codePoint", `Null) :: []) ->
-      (* failwith "Unsupported" *)
       ClassEsc (ClassEscape.CharacterClassEsc (CharacterClassEscape.D))
     | `Assoc (("type", `String "Char") :: ("value", `String "\\W") :: ("kind", `String "meta") :: ("codePoint", `Null) :: []) ->
-      (* failwith "Unsupported" *)
       ClassEsc (ClassEscape.CharacterClassEsc (CharacterClassEscape.W))
 
     | `Assoc (("type", `String "Char") :: ("value", `String "\\t") :: ("kind", `String "meta") :: ("symbol", `String _) :: ("codePoint", `Int _) :: []) ->
@@ -124,18 +121,14 @@ let json_to_regex (json: (string * Yojson.Safe.t) list) index: Warblre.Extracted
     | `Assoc (("type", `String "Char") :: ("value", `String "\\w") :: ("kind", `String "meta") :: ("codePoint", `Null) :: []) ->
       AtomEsc (AtomEscape.CharacterClassEsc (CharacterClassEscape.Coq_w))
     | `Assoc (("type", `String "Char") :: ("value", `String "\\S") :: ("kind", `String "meta") :: ("codePoint", `Null) :: []) ->
-      (* failwith "Unsupported" *)
       AtomEsc (AtomEscape.CharacterClassEsc (CharacterClassEscape.S))
     | `Assoc (("type", `String "Char") :: ("value", `String "\\D") :: ("kind", `String "meta") :: ("codePoint", `Null) :: []) ->
-      (* failwith "Unsupported" *)
       AtomEsc (AtomEscape.CharacterClassEsc (CharacterClassEscape.D))
     | `Assoc (("type", `String "Char") :: ("value", `String "\\W") :: ("kind", `String "meta") :: ("codePoint", `Null) :: []) ->
-      (* failwith "Unsupported" *)
       AtomEsc (AtomEscape.CharacterClassEsc (CharacterClassEscape.W))
 
     | `Assoc (("type", `String "CharacterClass") :: ("expressions", `List expressions) :: []) -> CharacterClass (NoninvertedCC (iter_cc expressions))
     | `Assoc (("type", `String "CharacterClass") :: ("negative", `Bool true) :: ("expressions", `List expressions) :: []) ->
-      (* failwith "Unsupported" *)
       CharacterClass (InvertedCC (iter_cc expressions))
 
     | `Assoc (("type", `String "Disjunction") :: ("left", left) :: ("right", right) :: _) -> Disjunction (iter_r left, iter_r right)
@@ -143,10 +136,20 @@ let json_to_regex (json: (string * Yojson.Safe.t) list) index: Warblre.Extracted
 
     | `Assoc (("type", `String "Repetition") :: ("expression", expression) :: ("quantifier", quantifier) :: []) -> Quantified (iter_r expression, iter_quantifier quantifier)
 
-    | `Assoc (("type", `String "Group") :: ("capturing", `Bool false) :: ("expression", expression)  :: []) -> iter_r expression
-    | `Assoc (("type", `String "Group") :: ("capturing", `Bool true) :: ("number", `Int _) :: ("expression", expression)  :: []) -> Group (None, iter_r expression)
+    | `Assoc (("type", `String "Group") :: ("capturing", `Bool false) :: ("expression", expression)  :: []) ->
+      iter_r expression
+    | `Assoc (("type", `String "Group") :: ("capturing", `Bool true) :: ("number", `Int _) :: ("expression", expression)  :: []) ->
+      Group (None, iter_r expression)
+    | `Assoc (("type", `String "Group") :: ("capturing", `Bool true) :: ("name", `String name) :: ("nameRaw", `String _) :: ("number", `Int _) :: ("expression", expression)  :: []) ->
+      Group (Some name, iter_r expression)
 
-    | `Assoc (("type", `String "Backreference") :: ("kind", `String "number") :: ("number", `Int i) :: ("reference", `Int _)  :: []) -> AtomEsc (AtomEscape.DecimalEsc i)
+    | `Assoc (("type", `String "Backreference") :: ("kind", `String "number") :: ("number", `Int i) :: ("reference", `Int _)  :: []) ->
+      AtomEsc (AtomEscape.DecimalEsc i)
+    | `Assoc (("type", `String "Backreference") :: ("kind", `String "name") :: ("number", `Int _) :: ("reference", `String name) :: ("referenceRaw", `String _)  :: []) ->
+      AtomEsc (AtomEscape.GroupEsc name)
+      (* There is a bug in the parser: https://github.com/DmitrySoshnikov/regexp-tree/issues/69 *)
+    (* We interpret all decimals as backrefs; hopefully, the tests never uses decimals,... *)
+    | `Assoc (("type", `String "Char") :: ("value", `String _) :: ("kind", `String "decimal") :: ("symbol", `String _) :: ("codePoint", `Int i) :: []) -> AtomEsc (AtomEscape.DecimalEsc i)
 
     | `Assoc (("type", `String "Assertion") :: ("kind", `String "^") :: []) -> InputStart
     | `Assoc (("type", `String "Assertion") :: ("kind", `String "$") :: []) -> InputEnd
@@ -155,6 +158,8 @@ let json_to_regex (json: (string * Yojson.Safe.t) list) index: Warblre.Extracted
 
     | `Assoc (("type", `String "Assertion") :: ("kind", `String "Lookahead") :: ("assertion", assertion) :: []) -> Lookahead (iter_r assertion)
     | `Assoc (("type", `String "Assertion") :: ("kind", `String "Lookahead") :: ("negative", `Bool true) :: ("assertion", assertion) :: []) -> NegativeLookahead (iter_r assertion)
+    | `Assoc (("type", `String "Assertion") :: ("kind", `String "Lookbehind") :: ("assertion", assertion) :: []) -> Lookbehind (iter_r assertion)
+    | `Assoc (("type", `String "Assertion") :: ("kind", `String "Lookbehind") :: ("negative", `Bool true) :: ("assertion", assertion) :: []) -> NegativeLookbehind (iter_r assertion)
 
     | _ -> failwith (String.cat "Unsupported JSON regex: " (Yojson.Safe.show json)))
     in

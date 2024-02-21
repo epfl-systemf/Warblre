@@ -10,7 +10,7 @@ Module Correctness.
   Import Notation.
   Import Semantics.
 
-  Lemma canonicalize_success: forall rer a, exists v, canonicalize rer a = Success v.
+(*   Lemma canonicalize_success: forall rer a, exists v, canonicalize rer a = Success v.
   Proof.
     intros. remember (canonicalize rer a) as r eqn:C. unfold canonicalize in C.
     focus § _ _ [] § auto destruct in C; try solve [ focus § _ _ (_ []) § do (fun v => exists v) in C; subst; reflexivity ].
@@ -27,7 +27,7 @@ Module Correctness.
                 pose proof (canonicalize_success rer c) as [ d Eq ];
                 rewrite -> Eq in *
             end
-        end.
+        end. *)
 
   Lemma is_not_failure_true_rewrite: forall (r: option MatchState), r is not failure = true <-> r <> failure.
   Proof. intros [ | ]; split; easy. Qed.
@@ -566,9 +566,9 @@ Module Correctness.
       - search.
         + Zhelper. MatchState.solve_with lia.
         + apply Progress.step. lia.
-      - injection Eq_oof as <-. unfold CharSet.exist in AutoDest_2. apply List.Exists.failure_kind in AutoDest_2 as [_ [ c' [ _ Can_failure ]]].
-        rewrite_canonicalize. discriminate.
-      - rewrite_canonicalize. discriminate.
+(*       - injection Eq_oof as <-. unfold CharSet.exist in AutoDest_2. apply List.Exists.failure_kind in AutoDest_2 as [_ [ c' [ _ Can_failure ]]].
+        rewrite_canonicalize. discriminate. *)
+(*       - rewrite_canonicalize. discriminate. *)
       - injection Eq_oof as ->. boolean_simplifier. Zhelper.
         destruct Vx as [ Eq_str [ [ ? ? ] _ ]].
         destruct dir.
@@ -629,11 +629,11 @@ Module Correctness.
         rename s into t_s, e into t_e, H into Ineq_t, H0 into IO_t_s, H1 into IO_t_e.
         MatchState.normalize. cbn in *. rewrite -> List.Range.Int.Bounds.length in *.
         focus § _ [] _ § auto destruct in Eq_af; injection Eq_af as ->.
-        + rewrite_canonicalize. discriminate.
+(*         + rewrite_canonicalize. discriminate. *)
         + destruct dir.
-          * apply List.Indexing.Int.failure_bounds in AutoDest_2 as [ ? | ? ]; lia.
-          * apply List.Indexing.Int.failure_bounds in AutoDest_2 as [ ? | ? ]; lia.
-        + rewrite_canonicalize. discriminate.
+          * apply List.Indexing.Int.failure_bounds in AutoDest_1 as [ ? | ? ]; lia.
+          * apply List.Indexing.Int.failure_bounds in AutoDest_1 as [ ? | ? ]; lia.
+(*         + rewrite_canonicalize. discriminate. *)
         + destruct dir.
           * apply List.Indexing.Int.failure_bounds in AutoDest_0 as [ ? | ? ]; lia.
           * apply List.Indexing.Int.failure_bounds in AutoDest_0 as [ ? | ? ]; lia.
@@ -951,10 +951,10 @@ Module Correctness.
       - search.
         + Zhelper. MatchState.solve_with lia.
         + apply Progress.step. lia.
-      - injection Eq_oof as ->.
+(*       - injection Eq_oof as ->.
         unfold CharSet.exist in AutoDest_2. apply List.Exists.failure_kind in AutoDest_2 as [ i [ v [ ? ? ]]].
         rewrite_canonicalize. discriminate.
-      - injection Eq_oof as ->. rewrite_canonicalize. discriminate.
+      - injection Eq_oof as ->. rewrite_canonicalize. discriminate. *)
       - injection Eq_oof as ->.
         pose proof (@List.Indexing.Int.failure_kind Character) as Falsum. specialize Falsum  with (1 := AutoDest_0).
         cbn in *. congruence.
@@ -1001,10 +1001,10 @@ Module Correctness.
         apply List.Exists.failure_kind in AutoDest_3.
         destruct AutoDest_3 as [ i [ j [ Eq_indexed Eq_oof ]]].
         focus § _ [] _ § auto destruct in Eq_oof; injection Eq_oof as ->.
-        + rewrite_canonicalize. discriminate.
-        + pose proof (@List.Indexing.Int.failure_kind Character) as Falsum. specialize Falsum  with (1 := AutoDest_5).
+(*         + rewrite_canonicalize. discriminate. *)
+        + pose proof (@List.Indexing.Int.failure_kind Character) as Falsum. specialize Falsum  with (1 := AutoDest_4).
           cbn in *. congruence.
-        + rewrite_canonicalize. discriminate.
+(*         + rewrite_canonicalize. discriminate. *)
         + pose proof (@List.Indexing.Int.failure_kind Character) as Falsum. specialize Falsum  with (1 := AutoDest_3).
           cbn in *. congruence.
       - injection Eq_oof as ->.

@@ -14,11 +14,16 @@ Extract Constant HexDigit.to_integer => "Interop.parse_hex".
 Extract Constant AsciiLetter.type => "char".
 
 Extract Constant Character => "Interop.character".
-Extract Constant Character.eqb => "Interop.char_eq".
-Extract Constant Character.eqs => "Interop.char_eq".
 Extract Constant Character.numeric_value => "Interop.char_to_int".
 Extract Constant Character.from_numeric_value => "Interop.char_of_int".
 Extract Constant Character.Unicode.case_fold => "Interop.case_fold".
+Extract Constant Character.compare => "Interop.cmp".
+
+Extract Constant Character.all => "Interop.all_chars".
+Extract Constant Character.line_terminators => "Interop.line_terminators".
+Extract Constant Character.white_spaces => "Interop.white_spaces".
+Extract Constant Character.digits => "Interop.digits".
+Extract Constant Character.ascii_word_characters => "Interop.ascii_word_characters".
 
 Extract Constant CodePoint => "Interop.codepoint".
 Extract Constant CodePoint.code_points_to_string => "Interop.code_points_to_string".
@@ -29,12 +34,6 @@ Extract Constant CodePoint.numeric_value => "Interop.numeric_value".
 
 Extract Constant GroupName => "int".
 Extract Constant GroupName.eqb => "Int.equal".
-
-Extract Constant CharSet.all => "Interop.all_chars".
-Extract Constant CharSet.line_terminators => "Interop.line_terminators".
-Extract Constant CharSet.white_spaces => "Interop.white_spaces".
-Extract Constant CharSet.digits => "Interop.digits".
-Extract Constant CharSet.ascii_word_characters => "Interop.ascii_word_characters".
 
 Extract Constant Patterns.GroupName.type => "string".
 Extract Constant Patterns.GroupName.eqs => "String.equal".

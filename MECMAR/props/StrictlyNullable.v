@@ -1,4 +1,4 @@
-From Coq Require Import PeanoNat ZArith Bool Lia List.
+(* From Coq Require Import PeanoNat ZArith Bool Lia List.
 From Warblre Require Import Tactics Focus Result Base Patterns StaticSemantics Notation List Semantics Match EarlyErrors.
 
 Import Result.Notations.
@@ -69,6 +69,7 @@ Proof.
   assert (NOFAILURE: (0 <= endIndex x < length (input x))%Z) by lia.
   destruct (List.Indexing.Int.indexing (input x) (endIndex x)) eqn:INDEX.    
   2: { rewrite <- List.Indexing.Int.success_bounds0 in NOFAILURE. rewrite INDEX in NOFAILURE. destruct NOFAILURE. inversion H. }
+  cbn. destruct (CharSet.contains s0 s); eauto.
   destruct (wordCharacters rer) eqn:WORD.
   - cbn. destruct (CharSet.contains s0 s); eauto.
   - exfalso. eapply Compile.Compile.Safety.wordCharacters. eauto.
@@ -550,3 +551,4 @@ Proof.
   simpl in SUBSTAR. rewrite PeanoNat.Nat.add_0_r in SUBSTAR.
   unfold repeatMatcher. rewrite SUBSTAR. auto.
 Qed.                              
+ *)

@@ -87,10 +87,25 @@ let to_utf8 u: bytes =
   let ls = iter u in
   Bytes.init (List.length ls) (fun i -> Char.chr (List.nth ls i))
 
+let clean_utf16 (str: Unsigned.uint16 list) = 
+  let is_high c = (0xd800 <= c) && (c <= 0xdbff) in
+  let is_low c = (0xdc00 <= c) && (c <= 0xdfff) in
+  let is_normal c = (0x0000 <= c && c < 0xd800) || (0xe000 <= c) in (* (Bool.not (is_high c)) && (Bool.not (is_low c)) in *)
+  let rec iter (str: int list) =
+    match str with
+    | h :: l :: t when is_high h && is_low l -> (
+      (Unsigned.UInt16.of_int h) :: (Unsigned.UInt16.of_int l) :: (iter t)
+    )
+    | h :: t when is_normal h -> (Unsigned.UInt16.of_int h) :: (iter t)
+    | _ :: t -> (Unsigned.UInt16.of_int 0xFFFD) :: (iter t)
+    | [] -> []
+  in
+  iter (List.map Unsigned.UInt16.to_int str)
+
 let utf16_to_string (str: Unsigned.uint16 list) = 
   let is_high c = (0xd800 <= c) && (c <= 0xdbff) in
   let is_low c = (0xdc00 <= c) && (c <= 0xdfff) in
-  let is_normal c = (Bool.not (is_high c)) && (Bool.not (is_low c)) in
+  let is_normal c = (0x0000 <= c && c < 0xd800) || (0xe000 <= c) in (* (Bool.not (is_high c)) && (Bool.not (is_low c)) in *)
   let b = Buffer.create (List.length str) in
   let rec iter (str: int list) =
     match str with
@@ -105,7 +120,7 @@ let utf16_to_string (str: Unsigned.uint16 list) =
     | [] -> ()
   in
   iter (List.map Unsigned.UInt16.to_int str);
-  Buffer.contents b
+  Buffer.contents b 
 
 type codepoint = int
 let numeric_value (c: codepoint): int = c

@@ -91,9 +91,8 @@ let json_to_regex (json: (string * Yojson.Safe.t) list) index: Warblre.Extracted
     | `Assoc (("type", `String "Char") :: ("value", `String _) :: ("kind", `String "simple") :: ("symbol", `String _) :: ("codePoint", `Int codepoint) :: []) -> Char (Warblre.Interop.char_of_int codepoint)
     | `Assoc (("type", `String "Char") :: ("value", `String _) :: ("kind", `String "unicode") :: ("symbol", `String _) :: ("codePoint", `Int codepoint) :: []) -> Char (Warblre.Interop.char_of_int codepoint)
 
-    | `Assoc (("type", `String "Char") :: ("value", `String "\\0") :: ("kind", `String "decimal") :: ("symbol", `String _) :: ("codePoint", `Int 0) :: []) -> AtomEsc (AtomEscape.CharacterEsc CharacterEscape.Zero)
+    | `Assoc (("type", `String "Char") :: ("value", `String "\\0") :: ("kind", `String "zero") :: []) -> AtomEsc (AtomEscape.CharacterEsc CharacterEscape.Zero)
     | `Assoc (("type", `String "Char") :: ("value", `String ".") :: ("kind", `String "meta") :: ("symbol", `String ".") :: ("codePoint", `Null) :: []) ->
-      (* failwith "Unsupported"  *)
       Dot
 
     | `Assoc (("type", `String "Char") :: ("value", `String "\\t") :: ("kind", `String "meta") :: ("symbol", `String _) :: ("codePoint", `Int _) :: []) ->

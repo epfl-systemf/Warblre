@@ -60,6 +60,7 @@ let node_exec regex flags input index: Yojson.Safe.t =
 
 let warblre_exec regex input: Yojson.Safe.t =
   let string_to_json str = `List (List.map (fun i -> `Int (Warblre.Interop.char_to_int i)) str) in
+  (* let string_to_json str: Yojson.Safe.t = `List (List.map (fun i -> `Int i) (Warblre.Interop.clean_utf16 str)) in *)
 
   let format_groups_numbered ls: (string * Yojson.Safe.t) list =
     let rec iter ls i =
@@ -86,7 +87,7 @@ let warblre_exec regex input: Yojson.Safe.t =
     | None -> current
   in
 
-  
+  let input = Warblre.Interop.clean_utf16 input in
   match Warblre.Extracted.Frontend.coq_RegExpExec regex input with
   | Warblre.Extracted.Result.Success (Null _) -> Yojson.Safe.from_string "{}"
   | Warblre.Extracted.Result.Success (Exotic (a,_)) -> 
@@ -180,6 +181,7 @@ let () =
   let input_file = if Array.length Sys.argv > 1 then Sys.argv.(1) else "../test262/dump.json" in
   let (modulus, offset) = if Array.length Sys.argv > 3 then (int_of_string Sys.argv.(2), int_of_string Sys.argv.(3)) else (0, 0) in
   let filters = Filters.(
+    (* (only (1 :: [])) :: *)
     []) 
   in
   let filters = if modulus != 0

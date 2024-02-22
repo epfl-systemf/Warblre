@@ -1,4 +1,4 @@
-(* From Coq Require Import PeanoNat ZArith Bool Lia List.
+From Coq Require Import PeanoNat ZArith Bool Lia List.
 From Warblre Require Import Tactics Focus Result Base Patterns StaticSemantics Notation List Semantics Match EarlyErrors.
 
 Import Result.Notations.
@@ -58,6 +58,17 @@ Proof.
   intros T t l. unfold List.Update.Nat.Batch.update. simpl. auto.
 Qed.
 
+Lemma list_filter_success:
+  forall {T F:Type} (l:list T) (f:T -> Result bool F)
+    (SUCCESSF: forall t, exists res, f t = Success res),
+  exists res, List.Filter.filter l f = Success res.
+Proof.
+  intros T F l f SUCCESSF. induction l; simpl; eauto.
+  specialize (SUCCESSF a) as [fres FEQ]. rewrite FEQ.
+  simpl. destruct IHl as [res FILTER]. rewrite FILTER. simpl.
+  destruct fres; eauto.
+Qed.
+
 Lemma isWordsuccess :
   forall x rer (VALID: Valid (input x) rer x),
   exists res, isWordChar rer (input x) (endIndex x) = Success res.
@@ -69,11 +80,15 @@ Proof.
   assert (NOFAILURE: (0 <= endIndex x < length (input x))%Z) by lia.
   destruct (List.Indexing.Int.indexing (input x) (endIndex x)) eqn:INDEX.    
   2: { rewrite <- List.Indexing.Int.success_bounds0 in NOFAILURE. rewrite INDEX in NOFAILURE. destruct NOFAILURE. inversion H. }
-  cbn. destruct (CharSet.contains s0 s); eauto.
-  destruct (wordCharacters rer) eqn:WORD.
-  - cbn. destruct (CharSet.contains s0 s); eauto.
-  - exfalso. eapply Compile.Compile.Safety.wordCharacters. eauto.
-Qed.
+  cbn.
+  unfold wordCharacters.
+  match goal with | [ |-  context[CharSet.filter ?l ?f]] => specialize (list_filter_success l f) as FILTER;
+                                                          assert (FS: forall t, exists fres, f t = Success fres) end.
+  { intros t. specialize (canonicalize_success rer t) as [cres CAN]. rewrite CAN. simpl. eauto. }
+  specialize (FILTER FS). clear FS. destruct FILTER as [fres FILTER].
+  unfold CharSet.filter. rewrite FILTER. simpl.
+    destruct (CharSet.contains (CharSet.union CharSet.ascii_word_characters fres) s); eauto.
+Qed.  
 
 Lemma isWordsuccess_minusone :
   forall x rer (VALID: Valid (input x) rer x),
@@ -550,5 +565,4 @@ Proof.
   apply strictly_nullable_repeatmatcher' with (x:=x) (c:=c) (root:=root) in SUBSTAR; auto.
   simpl in SUBSTAR. rewrite PeanoNat.Nat.add_0_r in SUBSTAR.
   unfold repeatMatcher. rewrite SUBSTAR. auto.
-Qed.                              
- *)
+Qed.

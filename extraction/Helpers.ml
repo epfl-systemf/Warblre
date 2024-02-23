@@ -1,4 +1,5 @@
 open Extracted.Notation
+open Extracted.ECMA
 
 let rec drop n ls = 
   if n <= 0 then
@@ -35,7 +36,7 @@ let substring str s e unicode: string =
   iter s (e-s);
   Buffer.contents b
 
-let pretty_print_result sinput at (res: Extracted.Notation.coq_MatchResult) unicode =
+let pretty_print_result sinput at (res: coq_MatchResult) unicode =
   match res with
   | Success (Some { MatchState.endIndex = i; MatchState.captures = captures; MatchState.input = input }) -> 
     Printf.printf "Matched %d characters ([%d-%d]) in '%s' (length=%d)\n" (i - at) at i sinput (List.length input);
@@ -55,49 +56,49 @@ let pretty_print_result sinput at (res: Extracted.Notation.coq_MatchResult) unic
   | Failure AssertionFailed -> Printf.printf "Assertion error during matching on '%s' \n" sinput
 
 let test_regex_using_record regex input at rer =
-  match Extracted.Semantics.compilePattern regex rer with
+  match compilePattern regex rer with
   | Success matcher ->
     let ls_input = Interop.string_to_utf16 input in
-    pretty_print_result input at (matcher ls_input at) (RegExp.unicode rer)
+    pretty_print_result input at (matcher (Obj.magic ls_input) at) (Extracted.RegExp.unicode rer)
     
   | Failure AssertionFailed -> Printf.printf "Assertion error during compilation \n"
 
 
 let test_regex regex input at ?(ignoreCase=false) ?(multiline=false) ?(dotAll=false) ?(unicode=false) () =
-  let groups = (Extracted.StaticSemantics.countLeftCapturingParensWithin regex []) in
-  let rer = {
+  let groups = (countGroups regex) in
+  let rer = Extracted.({
     RegExp.ignoreCase = ignoreCase;
     RegExp.multiline = multiline;
     RegExp.dotAll = dotAll;
     RegExp.unicode = unicode;
     RegExp.capturingGroupsCount = groups;
-  } in
+  }) in
   test_regex_using_record regex input at rer
 
 let compare_regexes_using_record regex1 regex2 input at rer: unit =
-  match Extracted.Semantics.compilePattern regex1 rer, Extracted.Semantics.compilePattern regex2 rer with
+  match compilePattern regex1 rer, compilePattern regex2 rer with
   | Success m1, Success m2 ->
     let ls_input = Interop.string_to_utf16 input in
-    let res1 = (m1 ls_input at) in
-    let res2 = (m2 ls_input at) in
+    let res1 = (m1 (Obj.magic ls_input) at) in
+    let res2 = (m2 (Obj.magic ls_input) at) in
     if res1 = res2 then
       (Printf.printf "The two regexes resulted in identical matches.\n";
-      pretty_print_result input at res1 (RegExp.unicode rer))
+      pretty_print_result input at res1 (Extracted.RegExp.unicode rer))
     else
       (Printf.printf "The two regexes resulted in different matches.\n";
-      pretty_print_result input at res1 (RegExp.unicode rer);
-      pretty_print_result input at res2 (RegExp.unicode rer))
+      pretty_print_result input at res1 (Extracted.RegExp.unicode rer);
+      pretty_print_result input at res2 (Extracted.RegExp.unicode rer))
     
   | Failure AssertionFailed, _ -> Printf.printf "Assertion error during compilation \n"
   | _, Failure AssertionFailed -> Printf.printf "Assertion error during compilation \n"
 
 let compare_regexes r1 r2 input at ?(ignoreCase=false) ?(multiline=false) ?(dotAll=false) ?(unicode=false) () =
-  let groups = (Extracted.StaticSemantics.countLeftCapturingParensWithin r1 []) in
-  let rer = {
+  let groups = (countGroups r1) in
+  let rer = Extracted.({
     RegExp.ignoreCase = ignoreCase;
     RegExp.multiline = multiline;
     RegExp.dotAll = dotAll;
     RegExp.unicode = unicode;
     RegExp.capturingGroupsCount = groups;
-  } in
+  }) in
   compare_regexes_using_record r1 r2 input at rer

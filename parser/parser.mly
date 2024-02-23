@@ -1,5 +1,5 @@
 %{
-    open Warblre.Extracted.Patterns
+    open Warblre.Extracted.ECMA
     open Warblre.Notations
 %}
 

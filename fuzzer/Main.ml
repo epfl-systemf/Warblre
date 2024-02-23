@@ -1,8 +1,5 @@
 open Warblre
-open Extracted.Patterns
-open Extracted.StaticSemantics
-open Extracted.Result
-open Extracted.Notation
+open Extracted.ECMA
 open Notations
 open Helpers
 
@@ -55,17 +52,17 @@ let quantifier_to_string (q:coq_Quantifier) : string =
 let rec regex_to_string (r:coq_Regex) : string =
   match r with
   | Empty -> ""
-  | Char i -> String.make 1 (Char.chr (Interop.char_to_int i))
+  | Char i -> String.make 1 (Char.chr (Interop.char_to_int (Obj.magic i)))
   | Dot -> String.make 1 '.'
   | CharacterClass cc ->
-    let class_atom_to_string ca = match ca with
+    let class_atom_to_string (ca: coq_ClassAtom) = match ca with
       | SourceCharacter i ->
-          let c = Char.chr (Interop.char_to_int i) in 
+          let c = Char.chr (Interop.char_to_int (Obj.magic i)) in 
           if (Char.equal c '-') then failwith "Unsupported character: '-'"
           else String.make 1 c
       | ClassEsc _ -> failwith "TODO"
     in
-    let rec range_to_string r = match r with
+    let rec range_to_string (r: coq_ClassRanges) = match r with
       | EmptyCR -> ""
       | ClassAtomCR (ca, r) -> (class_atom_to_string ca) ^ (range_to_string r)
       | RangeCR (l, h, r) -> (class_atom_to_string l) ^ "-" ^ (class_atom_to_string h) ^ (range_to_string r)
@@ -74,7 +71,7 @@ let rec regex_to_string (r:coq_Regex) : string =
     | NoninvertedCC r -> "[" ^ (range_to_string r) ^ "]"
     | InvertedCC r -> "[^" ^ (range_to_string r) ^ "]"
     )
-  | AtomEsc (AtomEscape.DecimalEsc gid) ->"\\"^ string_of_int gid
+  | AtomEsc (DecimalEsc gid) ->"\\"^ string_of_int gid
   | AtomEsc _ -> failwith "TODO"
   | Disjunction (r1, r2) -> noncap(regex_to_string r1) ^ "|" ^ noncap(regex_to_string r2)
   | Quantified (r1, q) -> noncap(regex_to_string r1) ^ quantifier_to_string q
@@ -89,7 +86,7 @@ let rec regex_to_string (r:coq_Regex) : string =
   | Lookbehind (r1) -> "(?<="^ regex_to_string r1 ^ ")"
   | NegativeLookbehind (r1) -> "(?<!"^ regex_to_string r1 ^")"
 
-let flags_to_string (flags:Extracted.Frontend.coq_RegExpFlags) : string =
+let flags_to_string (flags:coq_RegExpFlags) : string =
   let s = ref "" in
   if (flags.d) then s := "d" ^ !s;
   if (flags.g) then s := "g" ^ !s;
@@ -129,7 +126,7 @@ let string_of_command (command:string) : string =
 
 (* getting the Node result as a string, with a timeout in case of exponential complexity *)
 (* when the result is None, a Timeout occurred *)
-let get_js_result (regex:coq_Regex) (flags:Extracted.Frontend.coq_RegExpFlags) (lastindex:int) (str:string) (f:frontend_function): string option =
+let get_js_result (regex:coq_Regex) (flags:coq_RegExpFlags) (lastindex:int) (str:string) (f:frontend_function): string option =
   let js_regex = regex_to_string regex in
   let js_regex = "'" ^ js_regex ^ "'" in (* adding quotes to escape special characters *)
   let js_flags = "'" ^ flags_to_string flags ^ "'" in
@@ -148,7 +145,7 @@ let get_js_result (regex:coq_Regex) (flags:Extracted.Frontend.coq_RegExpFlags) (
 (** * Calling the Reference Implementation *)
 
 (* printing the result of different frontend functions *)
-let print_slice (string_input:string) single_capture : string =
+let print_slice (string_input:string) (single_capture: coq_CaptureRange option) : string =
   match single_capture with
   | None -> "Undefined"
   | Some { CaptureRange.startIndex = s; CaptureRange.endIndex = e } ->
@@ -173,11 +170,11 @@ let rec print_array_indexed (l:Interop.character list option list) (index:int) :
 let print_array (l:Interop.character list option list) : string =
   print_array_indexed l 0
 
-let print_groups_map (g:Extracted.Frontend.groups_map) : string =
+let print_groups_map (g:groups_map) : string =
   List.fold_left
-    (fun acc (gname, op) -> acc ^ "#"^gname^":"^print_char_list_option op^"\n") "" g
+    (fun acc (gname, op) -> acc ^ "#"^gname^":"^print_char_list_option op^"\n") "" (Obj.magic g)
 
-let print_groups_map_option (g:Extracted.Frontend.groups_map option) : string =
+let print_groups_map_option (g:groups_map option) : string =
   match g with
   | None -> "None"
   | Some g -> print_groups_map g
@@ -211,10 +208,10 @@ let print_indices_group (o:(string * (int * int) option) list option) : string =
      List.fold_left
        (fun acc p -> acc ^ print_group_option p ^ "\n") "" l
 
-let print_array_exotic (a:Extracted.Frontend.coq_ArrayExotic) : string =
+let print_array_exotic (a:coq_ArrayExotic) : string =
   let s = ref "" in
   s := !s ^ "index:" ^ string_of_int a.index ^ "\n";
-  s := !s ^ "array:" ^ print_array a.array ^ "\n";
+  s := !s ^ "array:" ^ print_array (Obj.magic a.array) ^ "\n";
   s := !s ^ "groups:" ^ print_groups_map_option a.groups ^ "\n";
   s := !s ^ "indices_array:" ^ print_index_array a.indices_array ^ "\n";
   s := !s ^ "indices_groups:" ^ print_indices_group a.indices_groups ^ "\n";
@@ -223,67 +220,67 @@ let print_array_exotic (a:Extracted.Frontend.coq_ArrayExotic) : string =
 let print_array_exotic_list l : string =
   List.fold_left (fun acc a -> acc ^ "-" ^ print_array_exotic a ^ "\n") "" l
 
-let print_exec_result (r:Extracted.Frontend.coq_ExecResult) : string =
+let print_exec_result (r:coq_ExecResult) : string =
   match r with
   | Null _ -> "NoMatch\n\n"
   | Exotic (a,_) -> print_array_exotic a ^ "\n"
 
-let print_match_result (r:Extracted.Frontend.coq_ProtoMatchResult) : string =
+let print_match_result (r:coq_ProtoMatchResult) : string =
   match r with
   | GlobalResult (lo,_) ->
      begin match lo with
      | None -> "NoMatch\n\n"
      | Some l ->
-        (List.fold_left (fun acc s -> acc ^ "·" ^ print_char_list s ^ "\n") "" l) ^ "\n"
+        (List.fold_left (fun acc s -> acc ^ "·" ^ print_char_list s ^ "\n") "" (Obj.magic l)) ^ "\n"
      end
   | NonGlobalResult e -> print_exec_result e
 
-let get_success (r) =
+let get_success (r: ('a, 'b) Warblre.Extracted.Result.coq_Result) =
   match r with
   | Success x -> x
   | Failure Extracted.MatchError.OutOfFuel -> failwith "Failure: Out of Fuel"
   | Failure Extracted.MatchError.AssertionFailed -> failwith "Failure: Assertion"
 
-let get_success_compile (r) =
+let get_success_compile (r: ('a, 'b) Warblre.Extracted.Result.coq_Result) =
   match r with
   | Success x -> x
   | Failure _ -> failwith "Compile Error"
 
 (* exec *)
-let reference_exec (r:Extracted.Frontend.coq_RegExpInstance) (str) : string =
-  let res = get_success (Extracted.Frontend.coq_PrototypeExec r str) in
+let reference_exec (r:coq_RegExpInstance) (str) : string =
+  let res = get_success (coq_PrototypeExec r str) in
   print_exec_result res
   
 (* search *)
-let reference_search (r:Extracted.Frontend.coq_RegExpInstance) (str): string =
-  let res = get_success (Extracted.Frontend.coq_PrototypeSearch r str) in
+let reference_search (r:coq_RegExpInstance) (str): string =
+  let res = get_success (coq_PrototypeSearch r str) in
   string_of_int (fst res) ^ "\n"
 
 (* test *)
-let reference_test (r:Extracted.Frontend.coq_RegExpInstance) (str): string =
-  let res = get_success (Extracted.Frontend.coq_PrototypeTest r str) in
+let reference_test (r:coq_RegExpInstance) (str): string =
+  let res = get_success (coq_PrototypeTest r str) in
   string_of_bool (fst res) ^ "\n"
 
 (* match *)
-let reference_match (r:Extracted.Frontend.coq_RegExpInstance) (str): string =
-  let res = get_success (Extracted.Frontend.coq_PrototypeMatch r str) in
+let reference_match (r:coq_RegExpInstance) (str): string =
+  let res = get_success (coq_PrototypeMatch r str) in
   print_match_result res 
 
 (* matchAll *)
-let reference_matchall (r:Extracted.Frontend.coq_RegExpInstance) (str): string =
-  let res = get_success (Extracted.Frontend.coq_PrototypeMatchAll r str) in
+let reference_matchall (r:coq_RegExpInstance) (str): string =
+  let res = get_success (coq_PrototypeMatchAll r str) in
   print_array_exotic_list (fst res) ^ "\n"
 
-let get_reference_result (regex:coq_Regex) (flags:Extracted.Frontend.coq_RegExpFlags) (index:int) (str:string) (f:frontend_function) : string option =
-  let instance = get_success_compile (Extracted.Frontend.coq_RegExpInitialize regex flags) in
-  let instance = Extracted.Frontend.setlastindex instance index in
+let get_reference_result (regex:coq_Regex) (flags:coq_RegExpFlags) (index:int) (str:string) (f:frontend_function) : string option =
+  let instance = get_success_compile (coq_RegExpInitialize regex flags) in
+  let instance = setLastIndex instance index in
   let list_input = Interop.string_to_utf16 str in
   match f with
-  | Exec -> Some (reference_exec instance list_input)
-  | Search -> Some (reference_search instance list_input)
-  | Test -> Some (reference_test instance list_input)
-  | Match -> Some (reference_match instance list_input)
-  | MatchAll -> Some (reference_matchall instance list_input)
+  | Exec -> Some (reference_exec instance (Obj.magic list_input))
+  | Search -> Some (reference_search instance (Obj.magic list_input))
+  | Test -> Some (reference_test instance (Obj.magic list_input))
+  | Match -> Some (reference_match instance (Obj.magic list_input))
+  | MatchAll -> Some (reference_matchall instance (Obj.magic list_input))
 
 
 
@@ -298,7 +295,7 @@ let print_result (s:string option) : string =
   | Some s -> s
 
 (* calling the two engines and failing if they disagree on the result *)
-let compare_engines (regex:coq_Regex) (flags:Extracted.Frontend.coq_RegExpFlags) (index:int) (str:string) (f:frontend_function) : unit =
+let compare_engines (regex:coq_Regex) (flags:coq_RegExpFlags) (index:int) (str:string) (f:frontend_function) : unit =
   Printf.printf "\027[36mJS Regex:\027[0m %s\n" (regex_to_string regex);
   Printf.printf "\027[36mString:\027[0m \"%s\"\n%!" str;
   Printf.printf "\027[36mLastIndex:\027[0m \"%s\"\n%!" (string_of_int index);
@@ -339,7 +336,7 @@ let random_quant () : coq_Quantifier =
   if (Random.bool ()) then Greedy qp else Lazy qp
 
 let random_char_ranges () : coq_ClassRanges =
-  List.fold_left (fun current _ ->
+  List.fold_left (fun current _: coq_ClassRanges ->
     if Random.bool() then
       let c = random_char() in
       ClassAtomCR (sc c, current)
@@ -358,13 +355,13 @@ let random_char_ranges () : coq_ClassRanges =
 
 let ticketTableNonRec: (int * (unit -> coq_Regex)) list = [
   ( 1, fun _ -> Empty);
-  ( 1, fun _ ->
+  ( 1, fun _: coq_Regex ->
       let r = random_char_ranges () in
-      let cc = if Random.bool() then NoninvertedCC (r) else InvertedCC(r) in
+      let cc: coq_CharClass = if Random.bool() then NoninvertedCC (r) else InvertedCC(r) in
       CharacterClass (cc)
   ); 
   ( 3, fun _ -> let c = random_char() in achar(c));
-  ( 1, fun _ -> AtomEsc (AtomEscape.DecimalEsc 0));
+  ( 1, fun _ -> AtomEsc (DecimalEsc 0));
   ( 1, fun _ -> Dot);
 ]
 
@@ -435,16 +432,16 @@ let rec random_ast (depth:int) : coq_Regex =
     gen depth random_ast
 
 let max_group (r:coq_Regex) : int =
-  countLeftCapturingParensWithin_impl r
+  countGroups r
 
 (* replacing each backreference number with a legal one, between 1 and the maximum group id  *)
 let rec fill_backref (r:coq_Regex) (maxgroup:int) : coq_Regex =
   match r with
   | Empty | Char _ | Dot| CharacterClass _ -> r
-  | AtomEsc (AtomEscape.DecimalEsc _) ->
+  | AtomEsc (DecimalEsc _) ->
       if (maxgroup = 0) then Empty
       else let groupid = (Random.int maxgroup) + 1 in
-        AtomEsc (AtomEscape.DecimalEsc groupid)
+        AtomEsc (DecimalEsc groupid)
   | AtomEsc _ -> r
   | Disjunction (r1,r2) -> Disjunction (fill_backref r1 maxgroup, fill_backref r2 maxgroup)
   | Quantified (r1,quant) -> Quantified (fill_backref r1 maxgroup, quant)
@@ -463,7 +460,7 @@ let random_regex (): coq_Regex =
   fill_backref ast maxgroup
 
 (* generates random flags *)
-let random_flags () : Extracted.Frontend.coq_RegExpFlags =
+let random_flags () : coq_RegExpFlags =
   { d=Random.bool();
     g=Random.bool();
     i=Random.bool();

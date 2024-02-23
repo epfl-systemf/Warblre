@@ -1,4 +1,4 @@
-From Coq Require Import PeanoNat ZArith Bool Lia Program.Equality List.
+(* From Coq Require Import PeanoNat ZArith Bool Lia Program.Equality List.
 From Warblre Require Import Tactics Specialize Focus Result Base Patterns StaticSemantics Notation Semantics Definitions Compile Match ClutterFree.
 
 Import Result.Notations.
@@ -66,4 +66,4 @@ Module Incorrectness.
     exists r1. exists r2. exists flags. exists str. exists 0. exists P00. exists P01. exists P10. exists P11. exists P2.
     (* Execution gets stuck due to subset types *)
   Admitted. *)
-End Incorrectness.
+End Incorrectness. *)

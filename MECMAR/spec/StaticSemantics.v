@@ -1,12 +1,15 @@
 From Coq Require Import PeanoNat List Bool.
-From Warblre Require Import Result List Base Result Patterns Coercions.
+From Warblre Require Import Result List Base Result Patterns Coercions Typeclasses.
 
 Import Coercions.
 Import Result.Notations.
 Import Result.Notations.Boolean.
 Local Open Scope result_flow.
 
-Module StaticSemantics.
+Section StaticSemantics.
+  Context `{CharacterInstance}.
+  Import Patterns.
+
   (** 22.2.1.9 Static Semantics: RegExpIdentifierCodePoints *)
 
   (** 22.2.1.10 Static Semantics: RegExpIdentifierCodePoint *)
@@ -25,13 +28,13 @@ Module StaticSemantics.
     let result := List.flat_map ( fun r => match r with
       | (Group (Some gs) inner, ctx) =>
         (* a. If the CapturingGroupName of gs is name, then *)
-        if (GroupName.eqs gs name) then
+        if (gs =?= name) then
           (* i. Append gs to result. *)
           (inner, Group_inner (Some gs) :: ctx) :: nil
         else nil
       | _ => nil
       end
-      ) (Zip.Walk.walk pattern nil)
+      ) (Zipper.Walk.walk pattern nil)
     in
     (* 5. Return result. *)
     result.
@@ -47,59 +50,58 @@ Module StaticSemantics.
       Character.numeric_value ch
 
   (** ClassEscape :: b *)
-  | ClassEsc (ClassEscape.b) =>
+  | ClassEsc (esc_b) =>
       (* 1. Return the numeric value of U+0008 (BACKSPACE). *)
-      Character.numeric_value Character.BACKSPACE
+      Character.numeric_value Characters.BACKSPACE
 
   (** ClassEscape :: - *)
-  | ClassEsc (ClassEscape.Dash) =>
+  | ClassEsc (esc_Dash) =>
       (* 1. Return the numeric value of U+002D (HYPHEN-MINUS). *)
-      Character.numeric_value Character.HYPHEN_MINUS
+      Character.numeric_value Characters.HYPHEN_MINUS
 
   (** CharacterEscape :: ControlEscape *)
-  | ClassEsc (ClassEscape.CharacterEsc (CharacterEscape.ControlEsc esc)) =>
+  | ClassEsc (CCharacterEsc (ControlEsc esc)) =>
       (* 1. Return the numeric value according to Table 63. *)
       match esc with
-      | ControlEscape.t => Character.numeric_value Character.CHARACTER_TABULATION
-      | ControlEscape.n => Character.numeric_value Character.LINE_FEED
-      | ControlEscape.v => Character.numeric_value Character.LINE_TABULATION
-      | ControlEscape.f => Character.numeric_value Character.FORM_FEED
-      | ControlEscape.r => Character.numeric_value Character.CARRIAGE_RETURN
+      | esc_t => Character.numeric_value Characters.CHARACTER_TABULATION
+      | esc_n => Character.numeric_value Characters.LINE_FEED
+      | esc_v => Character.numeric_value Characters.LINE_TABULATION
+      | esc_f => Character.numeric_value Characters.FORM_FEED
+      | esc_r => Character.numeric_value Characters.CARRIAGE_RETURN
       end
 
   (** CharacterEscape :: c AsciiLetter *)
-  | ClassEsc (ClassEscape.CharacterEsc (CharacterEscape.AsciiControlEsc l)) =>
+  | ClassEsc (CCharacterEsc (AsciiControlEsc l)) =>
       (* 1. Let ch be the code point matched by AsciiLetter. *)
-      let ch := CodePoint.from_ascii_letter l in
       (* 2. Let i be the numeric value of ch. *)
-      let i := CodePoint.numeric_value ch in
+      let i := AsciiLetter.numeric_value l in
       (* 3. Return the remainder of dividing i by 32. *)
       NonNegInt.modulo i 32
 
   (** CharacterEscape :: 0 *)
-  | ClassEsc (ClassEscape.CharacterEsc (CharacterEscape.Zero)) =>
-      (* 1. Return the MV of HexEscapeSequence. *)
-      Character.numeric_value Character.NULL
+  | ClassEsc (CCharacterEsc (esc_Zero)) =>
+      (* 1. Return the numeric value of U+0000 (NULL). *)
+      Character.numeric_value Characters.NULL
 
   (* CharacterEscape :: HexEscapeSequence *)
-  | ClassEsc (ClassEscape.CharacterEsc (CharacterEscape.HexEscape d1 d2)) =>
+  | ClassEsc (CCharacterEsc (HexEscape d1 d2)) =>
       (* 1. Return the MV of HexEscapeSequence. *)
       HexDigit.to_integer d1 d2
 
   (** CharacterEscape :: IdentityEscape *)
-  | ClassEsc (ClassEscape.CharacterEsc (CharacterEscape.IdentityEsc chr)) =>
+  | ClassEsc (CCharacterEsc (IdentityEsc chr)) =>
       (* 1. Let ch be the code point matched by IdentityEscape. *)
       let ch := chr in
       (* 2. Return the numeric value of ch. *)
       Character.numeric_value ch
 
-  | ClassEsc (ClassEscape.CharacterClassEsc esc) => match esc with
-    | CharacterClassEscape.d => Result.assertion_failed
-    | CharacterClassEscape.D => Result.assertion_failed
-    | CharacterClassEscape.s => Result.assertion_failed
-    | CharacterClassEscape.S => Result.assertion_failed
-    | CharacterClassEscape.w => Result.assertion_failed
-    | CharacterClassEscape.W => Result.assertion_failed
+  | ClassEsc (CCharacterClassEsc esc) => match esc with
+    | esc_d => Result.assertion_failed
+    | esc_D => Result.assertion_failed
+    | esc_s => Result.assertion_failed
+    | esc_S => Result.assertion_failed
+    | esc_w => Result.assertion_failed
+    | esc_W => Result.assertion_failed
     end
   end.
 
@@ -114,13 +116,13 @@ Module StaticSemantics.
       -
       CharacterEscape *)
   | SourceCharacter _
-  | ClassEsc (ClassEscape.b)
-  | ClassEsc (ClassEscape.Dash)
-  | ClassEsc (ClassEscape.CharacterEsc _) =>
+  | ClassEsc (esc_b)
+  | ClassEsc (esc_Dash)
+  | ClassEsc (CCharacterEsc _) =>
       (* 1. Return false. *)
       false
   (** ClassEscape :: CharacterClassEscape *)
-  | ClassEsc (ClassEscape.CharacterClassEsc _) =>
+  | ClassEsc (CCharacterClassEsc _) =>
       (* 1. Return true. *)
       true
   end.
@@ -209,13 +211,13 @@ Module StaticSemantics.
     | Char _ => false
     | Dot => false
     (**  AtomEscape :: DecimalEscape *)
-    | AtomEsc (AtomEscape.DecimalEsc n) =>
+    | AtomEsc (DecimalEsc n) =>
         (* * It is a Syntax Error if the CapturingGroupNumber of DecimalEscape is strictly greater than CountLeftCapturingParensWithin(the Pattern containing AtomEscape). *)
         if (capturingGroupNumber n >? countLeftCapturingParensWithin (zip r ctx) nil)%nat then true else false
     (**  AtomEscape :: k GroupName *)
-    | AtomEsc (AtomEscape.GroupEsc name) =>
+    | AtomEsc (GroupEsc name) =>
         (* * It is a Syntax Error if GroupSpecifiersThatMatch(GroupName) is empty. *)
-        if (List.length (groupSpecifiersThatMatch (AtomEsc (Patterns.AtomEscape.GroupEsc name)) ctx name) =? 0)%nat then true else false
+        if (List.length (groupSpecifiersThatMatch (AtomEsc (GroupEsc name)) ctx name) =? 0)%nat then true else false
     | AtomEsc _ => false
     | CharacterClass cc => earlyErrors_char_class cc
     | Disjunction r1 r2 => earlyErrors_rec r1 (Disjunction_left r2 :: ctx) ||! earlyErrors_rec r2 (Disjunction_right r1 :: ctx)
@@ -233,22 +235,21 @@ Module StaticSemantics.
     end.
 
   Definition earlyErrors (r: Regex) (ctx: RegexContext): Result bool SyntaxError :=
-    let nodes := Zip.Walk.walk r ctx in
+    let nodes := Zipper.Walk.walk r ctx in
     (**  Pattern :: Disjunction *)
     (* * It is a Syntax Error if CountLeftCapturingParensWithin(Pattern) ≥ 2^32 - 1. *)
     (* if (countLeftCapturingParensWithin r nil >=? 4294967295)%nat then true *)
     (* * It is a Syntax Error if Pattern contains two or more GroupSpecifiers for which CapturingGroupName of GroupSpecifier is the same. *)
     if! List.Exists.exist nodes (fun node0 =>
       List.Exists.exist nodes (fun node1 =>
-        if RegexNode.eqs node0 node1 then false
+        if node0 =?= node1 then false
         else
           let (r0, ctx0) := node0 in
           let (r1, ctx1) := node1 in
           match r0, r1 with
-          | Group (Some name0) _, Group (Some name1) _ => GroupName.eqb name0 name1
+          | Group (Some name0) _, Group (Some name1) _ => name0 == name1
           | _, _ => false
           end
     )) then true
     else earlyErrors_rec r ctx.
 End StaticSemantics.
-Export StaticSemantics.

@@ -3,10 +3,10 @@ open Extracted.Patterns
 let epsilon = Empty
 let char c =
   match Interop.string_to_utf16 c with
-  | h :: [] -> Char h
+  | h :: [] -> Char (Obj.magic h)
   | _ -> failwith (String.cat "Invalid character: " c)
-let achar c = Char (Interop.char_of_int (Char.code c))
-let sc c = SourceCharacter (Interop.char_of_int (Char.code c))
+let achar c = Char (Obj.magic (Interop.char_of_int (Char.code c)))
+let sc c = SourceCharacter (Obj.magic (Interop.char_of_int (Char.code c)))
 
 let group r = Group (None, r)
 let ngroup p = Group (Some (fst p), (snd p))
@@ -29,5 +29,5 @@ let (?<=) r = Lookbehind r
 let (?!) r = NegativeLookahead r
 let (?<!) r = NegativeLookbehind r
 
-let (!$) n = assert(0 < n); AtomEsc (AtomEscape.DecimalEsc n)
-let (!&) n = AtomEsc (AtomEscape.GroupEsc n)
+let (!$) n = assert(0 < n); AtomEsc (DecimalEsc n)
+let (!&) n = AtomEsc (GroupEsc n)

@@ -1,0 +1,183 @@
+From Coq Require Import Bool PeanoNat Structures.OrderedType FSets.FSetAVL NArith.
+From Warblre Require Import Typeclasses Tactics Numeric Characters Patterns RegExp StaticSemantics Semantics List Result Notation Frontend.
+
+Module UInt16.
+  Parameter type: Type.
+  Parameter numeric_value: type -> non_neg_integer.
+  Parameter from_numeric_value: non_neg_integer -> type.
+  Parameter from_ascii_letter: AsciiLetter -> type.
+  Axiom lt : type -> type -> Prop.
+  Parameter compare: type -> type -> nat.
+  Axiom compare_spec_lt: forall l r, Nat.ltb (compare l r) 0 = true -> lt l r.
+  Axiom compare_spec_eq: forall l r, Nat.eqb (compare l r) 0 = true -> eq l r.
+  Axiom compare_spec_gt: forall l r, Nat.ltb 0 (compare l r) = true -> lt r l.
+
+  Axiom numeric_pseudo_bij: forall c, from_numeric_value (numeric_value c) = c.
+  Axiom numeric_pseudo_bij2: forall n, n < Pos.to_nat 65536 -> numeric_value (from_numeric_value n) = n.
+
+  Module MiniOrdered <: MiniOrderedType.
+    Definition t := type.
+
+    Definition eq : t -> t -> Prop := Logic.eq.
+    Definition lt : t -> t -> Prop := UInt16.lt.
+
+    Axiom eq_refl : forall x : t, eq x x.
+    Axiom eq_sym : forall x y : t, eq x y -> eq y x.
+    Axiom eq_trans : forall x y z : t, eq x y -> eq y z -> eq x z.
+
+    Axiom lt_trans : forall x y z : t, lt x y -> lt y z -> lt x z.
+    Axiom lt_not_eq : forall x y : t, lt x y -> ~ eq x y.
+
+    Definition compare : forall x y : t, Compare lt eq x y.
+      intros l r.
+      destruct (Nat.ltb (compare l r) 0) eqn:Lt.
+      - apply LT. apply compare_spec_lt. assumption.
+      - destruct (Nat.eqb (compare l r) 0) eqn:Eq.
+        + apply EQ. apply compare_spec_eq. assumption.
+        + assert (forall n m : nat, n <> m -> ~ n < m -> m < n) as H. {
+            intros. apply Lt.nat_total_order_stt in H as [? | ?]; easy.
+          }
+          spec_reflector Nat.ltb_spec0. spec_reflector Nat.eqb_spec.
+          specialize H with (1 := Eq) (2 := Lt). spec_denoter Nat.ltb_spec0.
+          apply GT. apply compare_spec_gt. assumption.
+    Defined.
+  End MiniOrdered.
+  Module Ordered := MOT_to_OT (MiniOrdered).
+  #[export] Instance eqdec_uint16: EqDec type := { eq_dec := Ordered.eq_dec; }.
+
+  Parameter CodePoint: Type.
+  Parameter to_code_point: type -> CodePoint.
+  Parameter to_upper_case: CodePoint -> list CodePoint.
+  Parameter code_points_to_string: list CodePoint -> list type.
+
+  Definition canonicalize (rer: RegExp) (ch: type): type :=
+    (* 2. If rer.[[IgnoreCase]] is false, return ch. *)
+    if (RegExp.ignoreCase rer == false) then ch
+    else
+    (* 3. Assert: ch is a UTF-16 code unit. *)
+    (*+ TODO: what to do? *)
+    (* 4. Let cp be the code point whose numeric value is the numeric value of ch. *)
+    let cp := to_code_point ch in
+    (* 5. Let u be the result of toUppercase(« cp »), according to the Unicode Default Case Conversion algorithm. *)
+    let u := to_upper_case cp in
+    (* 6. Let uStr be CodePointsToString(u). *)
+    let uStr := code_points_to_string u in
+    (* 7. If the length of uStr ≠ 1, return ch. *)
+    (** TODO: fix *)
+    match uStr with
+    | cu :: nil =>
+      if (numeric_value ch >=? 128) && (numeric_value cu <? 128) then ch
+      else cu
+    | _ => ch
+    end.
+
+  Parameter all: list type.
+  Parameter line_terminators: list type.
+  Parameter digits: list type.
+  Parameter white_spaces: list type.
+  Parameter ascii_word_characters: list type.
+
+End UInt16.
+
+Module AVLCharSet.
+  Module M := Make (UInt16.Ordered).
+
+  Local Definition from_list := fun ls => List.fold_left (fun s c => M.add c s) ls M.empty.
+
+  #[refine]
+  Instance instance: @CharSet.class UInt16.type := {
+    set_type := M.t;
+
+    empty := M.empty;
+    from_list := from_list;
+    union := fun l r => M.union l r;
+    singleton := fun c => M.singleton c;
+    size := fun s => M.cardinal s;
+    remove_all := fun l r => M.diff l r;
+
+    is_empty := fun s => M.is_empty s;
+
+    contains := fun s c => M.mem c s;
+
+    range := fun l h => from_list (List.map UInt16.from_numeric_value (List.Range.Nat.Bounds.range (UInt16.numeric_value l) (S (UInt16.numeric_value h))));
+
+    unique := fun {F: Type} {_: Result.AssertionError F} s =>
+      if (Nat.eqb (M.cardinal s) 1) then Result.Conversions.from_option (M.choose s) else Result.assertion_failed;
+    filter := fun s (f: UInt16.type -> bool) => M.filter f s;
+    exist := fun s (m: UInt16.type -> bool) => M.exists_ m s;
+  }.
+  Proof. - reflexivity. - reflexivity. Defined.
+End AVLCharSet.
+
+Module Utf16CharCode.
+  #[refine]
+  Instance instance: Character.class := {
+    (* The character type and its operations *)
+    type := UInt16.type;
+    eq_dec := UInt16.eqdec_uint16;
+    from_numeric_value := UInt16.from_numeric_value;
+    numeric_value := UInt16.numeric_value;
+    canonicalize := UInt16.canonicalize;
+
+    set_type := AVLCharSet.instance;
+
+    (* Some important (sets of) characters *)
+    all := UInt16.all;
+    line_terminators := UInt16.line_terminators;
+    digits := UInt16.digits;
+    white_spaces := UInt16.white_spaces;
+    ascii_word_characters := UInt16.ascii_word_characters;
+  }.
+  Proof. - apply UInt16.numeric_pseudo_bij. - apply UInt16.numeric_pseudo_bij2. Defined.
+End Utf16CharCode.
+
+Module Type Parameters.
+  Parameter char_instance: @Character.class.
+  Definition Character := @Character.type char_instance.
+End Parameters.
+
+Module Instance (parameters: Parameters).
+  Definition char_instance := parameters.char_instance.
+  Definition Character := parameters.Character.
+
+  Definition QuantifierPrefix := Patterns.QuantifierPrefix.
+  Definition Quantifier := Patterns.Quantifier.
+  Definition ClassAtom := @Patterns.ClassAtom char_instance.
+  Definition CharClass := @Patterns.CharClass char_instance.
+  Definition ClassRanges := @Patterns.ClassRanges char_instance.
+  Definition Regex := @Patterns.Regex char_instance.
+
+  Definition MatchState := @Notation.MatchState char_instance.
+  Definition MatchResult := @Notation.MatchResult char_instance.
+
+  Definition compilePattern := @Semantics.compilePattern char_instance.
+
+  Definition countGroups r := @StaticSemantics.countLeftCapturingParensWithin char_instance r nil.
+
+  Definition RegExpFlags := RegExpFlags.
+  Definition groups_map := @groups_map char_instance.
+  Definition CaptureRange := Notation.CaptureRange.
+  Module CaptureRange := Notation.CaptureRange.
+
+  Definition RegExpInstance := @Frontend.RegExpInstance char_instance.
+  Definition setLastIndex := @setlastindex char_instance.
+  Definition RegExpInitialize := @Frontend.RegExpInitialize char_instance.
+  Definition ArrayExotic := @Frontend.ArrayExotic char_instance.
+  Definition RegExpExec := @Frontend.RegExpExec char_instance.
+
+  Definition PrototypeExec := @PrototypeExec char_instance.
+  Definition ExecResult := @Frontend.ExecResult char_instance.
+  Definition PrototypeSearch := @PrototypeSearch char_instance.
+  Definition PrototypeTest := @PrototypeTest char_instance.
+  Definition PrototypeMatch := @PrototypeMatch char_instance.
+  Definition ProtoMatchResult := @Frontend.ProtoMatchResult char_instance.
+  Definition PrototypeMatchAll := @PrototypeMatchAll char_instance.
+End Instance.
+
+Module ECMASig <: Parameters.
+  Definition char_instance: @Character.class := Utf16CharCode.instance.
+  Definition Character: Type := UInt16.type.
+End ECMASig.
+Module ECMA.
+  Include Instance ECMASig.
+End ECMA.

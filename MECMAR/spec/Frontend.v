@@ -1,10 +1,13 @@
 From Coq Require Import List.
-From Warblre Require Import Base Notation Patterns StaticSemantics Semantics Result List.
+From Warblre Require Import RegExp Base Notation Patterns StaticSemantics Semantics Result List.
 
 Import Result.Notations.
 Local Open Scope result_flow.
 
-Module Frontend.
+Section Frontend.
+  Context `{CharacterInstance}.
+  Import Notation.
+  Import Patterns.
   (* This module intentionally diverges from ECMAScript *)
 
 
@@ -30,7 +33,7 @@ Module Frontend.
     end.
 
   (* checks that a pattern contains a group name somewhere *)
-  Fixpoint containsgroupname (r:Patterns.Regex) : bool :=
+  Fixpoint containsgroupname (r: Regex) : bool :=
     match r with
     | Empty => false
     | Char _ => false
@@ -122,7 +125,7 @@ A Match Record is a Record value used to encapsulate the start and end indices o
     (* Let capturingGroupsCount be CountLeftCapturingParensWithin(parseResult). *)
     let capturingGroupsCount := countLeftCapturingParensWithin pattern nil in
     (* Let rer be the RegExp Record { [[IgnoreCase]]: i, [[Multiline]]: m, [[DotAll]]: s, [[Unicode]]: u, [[UnicodeSets]]: v, [[CapturingGroupsCount]]: capturingGroupsCount }. *)
-    let rer := RegExp.make (i flags) (m flags) (s flags) (u flags) capturingGroupsCount in
+    let rer := reg_exp (i flags) (m flags) (s flags) (u flags) capturingGroupsCount in
     (* Set obj.[[RegExpMatcher]] to CompilePattern of parseResult with argument rer. *)
     let! matcher =<< Semantics.compilePattern pattern rer in
     (* Perform ? Set(obj, "lastIndex", +0𝔽, true) *)
@@ -780,4 +783,3 @@ the String did not match. *)
     end.
   
 End Frontend.
-Export Frontend.

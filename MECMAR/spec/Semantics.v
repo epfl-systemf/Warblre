@@ -1,5 +1,5 @@
 From Coq Require Import PeanoNat ZArith Bool Lia Program.Equality List Program.Wf.
-From Warblre Require Import Tactics Focus Result Base Patterns StaticSemantics Notation List.
+From Warblre Require Import RegExp Tactics Focus Result Base Patterns StaticSemantics Notation List Typeclasses.
 
 Import Result.Notations.
 Import Result.Notations.Boolean.
@@ -7,23 +7,16 @@ Import Coercions.
 Local Open Scope result_flow.
 
 (** 22.2.2 Pattern Semantics *)
-Module Semantics.
+Module Semantics. Section main.
+  Context `{ci: CharacterInstance}.
   Import Patterns.
   Import Notation.
 
   (** 22.2.2.6 Runtime Semantics: CompileQuantifierPrefix *)
-  Module CompiledQuantifierPrefix.
-    Record type := make {
-      min: non_neg_integer;
-      max: non_neg_integer_or_inf;
-    }.
-
-    Module Notations.
-      Notation CompiledQuantifierPrefix := type.
-      Notation compiled_quantifier_prefix := make.
-    End Notations.
-  End CompiledQuantifierPrefix.
-  Import CompiledQuantifierPrefix.Notations.
+  Record CompiledQuantifierPrefix := compiled_quantifier_prefix {
+    CompiledQuantifierPrefix_min: non_neg_integer;
+    CompiledQuantifierPrefix_max: non_neg_integer_or_inf;
+  }.
 
   Definition compileQuantifierPrefix (self: QuantifierPrefix): CompiledQuantifierPrefix := match self with
   (** QuantifierPrefix :: * *)
@@ -63,76 +56,30 @@ Module Semantics.
   (** End --- 22.2.2.6 Runtime Semantics: CompileQuantifierPrefix *)
 
   (** 22.2.2.5 Runtime Semantics: CompileQuantifier *)
-  Module CompiledQuantifier.
-    Record type := make {
-      min: non_neg_integer;
-      max: non_neg_integer_or_inf;
-      greedy: bool;
-    }.
-
-    Module Notations.
-      Notation CompiledQuantifier := type.
-      Notation compiled_quantifier := make.
-    End Notations.
-  End CompiledQuantifier.
-  Import CompiledQuantifier.Notations.
+  Record CompiledQuantifier := compiled_quantifier {
+    CompiledQuantifier_min: non_neg_integer;
+    CompiledQuantifier_max: non_neg_integer_or_inf;
+    CompiledQuantifier_greedy: bool;
+  }.
 
   Definition compileQuantifier(self: Quantifier): CompiledQuantifier := match self with
   | Greedy q => (* Quantifier :: QuantifierPrefix *)
       (* 1. Let qp be CompileQuantifierPrefix of QuantifierPrefix. *)
       let qp := compileQuantifierPrefix q in
       (* 2. Return the Record { [[Min]]: qp.[[Min]], [[Max]]: qp.[[Max]], [[Greedy]]: true }. *)
-      compiled_quantifier (CompiledQuantifierPrefix.min qp) (CompiledQuantifierPrefix.max qp) true
+      compiled_quantifier (CompiledQuantifierPrefix_min qp) (CompiledQuantifierPrefix_max qp) true
   | Lazy q => (* Quantifier :: QuantifierPrefix ? *)
       (* 1. Let qp be CompileQuantifierPrefix of QuantifierPrefix. *)
       let qp := compileQuantifierPrefix q in
       (* 2. Return the Record { [[Min]]: qp.[[Min]], [[Max]]: qp.[[Max]], [[Greedy]]: false }. *)
-      compiled_quantifier (CompiledQuantifierPrefix.min qp) (CompiledQuantifierPrefix.max qp) false
+      compiled_quantifier (CompiledQuantifierPrefix_min qp) (CompiledQuantifierPrefix_max qp) false
   end.
   (** End --- 22.2.2.5 Runtime Semantics: CompileQuantifier *)
 
   (** 22.2.2.7 Runtime Semantics: CompileAtom *)
-  (** 22.2.2.7.3 Canonicalize ( rer, ch ) *)
-  Definition canonicalize (rer: RegExp) (ch: Character): Character :=
-    (* 1. If rer.[[Unicode]] is true and rer.[[IgnoreCase]] is true, then *)
-    if (RegExp.unicode rer is true) && (RegExp.ignoreCase rer is true) then
-      (* a. If the file https://unicode.org/Public/UCD/latest/ucd/CaseFolding.txt of the Unicode Character Database provides a simple or common case folding mapping for ch, return the result of applying that mapping to ch. *)
-      let ch := Character.Unicode.case_fold ch in
-      (* b. Return ch. *)
-      ch
-    else
-    (* 2. If rer.[[IgnoreCase]] is false, return ch. *)
-    if (RegExp.ignoreCase rer is false) then ch
-    else
-    (* 3. Assert: ch is a UTF-16 code unit. *)
-    (*+ TODO: what to do? *)
-    (* 4. Let cp be the code point whose numeric value is the numeric value of ch. *)
-    let cp := CodePoint.from_character ch in
-    (* 5. Let u be the result of toUppercase(« cp »), according to the Unicode Default Case Conversion algorithm. *)
-    let u := CodePoint.to_upper_case cp in
-    (* 6. Let uStr be CodePointsToString(u). *)
-    let uStr := CodePoint.code_points_to_string u in
-    (* 7. If the length of uStr ≠ 1, return ch. *)
-    (** TODO: fix *)
-    match uStr with
-    | cu :: nil =>
-      if (Character.numeric_value ch >=? 128) && (Character.numeric_value cu <? 128) then ch
-      else cu
-    | _ => ch
-    end.
-(*     if (length uStr !=? 1)%nat then ch
-    else
-    (* 8. Let cu be uStr's single code unit element. *)
-    let! cu =<< List.Unique.unique uStr in
-    (* 9. If the numeric value of ch ≥ 128 and the numeric value of cu < 128, return ch. *)
-    if (Character.numeric_value ch >=? 128) && (Character.numeric_value cu <? 128) then ch
-    else
-    (* 10. Return cu. *)
-    cu. *)
-  (** End --- 22.2.2.7.3 Canonicalize ( rer, ch ) *)
 
   (** 22.2.2.7.1 CharacterSetMatcher ( rer, A, invert, direction ) *)
-  Definition characterSetMatcher (rer: RegExp) (A: CharSet) (invert: bool) (direction: direction): Matcher :=
+  Definition characterSetMatcher (rer: RegExp) (A: CharSet) (invert: bool) (direction: Direction): Matcher :=
     (* 1. Return a new Matcher with parameters (x, c) that captures rer, A, invert, and direction and performs the following steps when called: *)
     fun (x: MatchState) (c: MatcherContinuation) =>
       (* a. Assert: x is a MatchState. *)
@@ -143,7 +90,7 @@ Module Semantics.
       let e := MatchState.endIndex x in
       (* e. If direction is forward, let f be e + 1. *)
       (* f. Else, let f be e - 1. *)
-      let f := if direction is forward
+      let f := if direction == forward
         then (e + 1)%Z
         else (e - 1)%Z
       in
@@ -158,9 +105,9 @@ Module Semantics.
       (* j. Let ch be the character Input[index]. *)
       let! chr =<< input[ index ] in
       (* k. Let cc be Canonicalize(rer, ch). *)
-      let cc := canonicalize rer chr in
+      let cc := Character.canonicalize rer chr in
       (* l. If there exists a member a of A such that Canonicalize(rer, a) is cc, let found be true. Otherwise, let found be false. *)
-      let! found =<< CharSet.exist A ( fun a => ((canonicalize rer a) =? cc)%Chr ) in
+      let! found =<< CharSet.exist A ( fun a => (Character.canonicalize rer a) == cc ) in
       (* m. If invert is false and found is false, return failure. *)
       if (invert is false) && (found is false) then
         failure
@@ -178,7 +125,7 @@ Module Semantics.
   (** End --- 22.2.2.7.1 CharacterSetMatcher ( rer, A, invert, direction ) *)
 
   (** 22.2.2.7.2 BackreferenceMatcher ( rer, n, direction ) *)
-  Definition backreferenceMatcher (rer: RegExp) (n: positive_integer) (direction: direction): Matcher :=
+  Definition backreferenceMatcher (rer: RegExp) (n: positive_integer) (direction: Direction): Matcher :=
     (* 1. Assert: n ≥ 1. *)
     (* 2. Return a new Matcher with parameters (x, c) that captures rer, n, and direction and performs the following steps when called: *)
     fun (x: MatchState) (c: MatcherContinuation) =>
@@ -202,8 +149,8 @@ Module Semantics.
       let re := CaptureRange.endIndex r in
       (* j. Let len be re - rs. *)
       let len := (re - rs)%Z in
-      (* k. If direction is forward, let f be e + len. *)
-      let f := if direction is forward
+      (* k. If direction = forward, let f be e + len. *)
+      let f := if direction == forward
         then (e + len)%Z
       (* l. Else, let f be e - len. *)
         else (e - len)%Z
@@ -218,10 +165,10 @@ Module Semantics.
       (* p. If there exists an integer i in the interval from 0 (inclusive) to len (exclusive) such that Canonicalize(rer, Input[rs + i]) is not Canonicalize(rer, Input[g + i]), return failure. *)
       let! b: bool =<< List.Exists.exist (List.Range.Int.Bounds.range 0 len) (fun (i: Z) =>
         let! rsi =<< input[ (rs + i)%Z ] in
-        let rsi := canonicalize rer rsi in
+        let rsi := Character.canonicalize rer rsi in
         let! gi =<< input[ (g + i)%Z ] in
-        let gi := canonicalize rer gi in
-        (rsi !=? gi)%Chr)
+        let gi := Character.canonicalize rer gi in
+        (rsi != gi))
       in
       if b
         then failure else
@@ -249,16 +196,16 @@ Module Semantics.
     (* 6. Assert: i ≤ j. *)
     assert! (i <=? j)%nat ;
     (* 7. Return the CharSet containing all characters with a character value in the inclusive interval from i to j. *)
-    CharSet.range i j.
+    CharSet.range (Character.from_numeric_value i) (Character.from_numeric_value j).
   (** End --- 22.2.2.9.1 CharacterRange ( A, B ) *)
 
   (** 22.2.2.9.2 WordCharacters ( rer ) *)
   Definition wordCharacters {F: Type} {_: Result.AssertionError F} (rer: RegExp): Result CharSet F :=
     (* 1. Let basicWordChars be the CharSet containing every character in the ASCII word characters. *)
-    let basicWordChars := CharSet.ascii_word_characters in
+    let basicWordChars := Characters.ascii_word_characters in
     (* 2. Let extraWordChars be the CharSet containing all characters c such that c is not in basicWordChars but Canonicalize(rer, c) is in basicWordChars. *)
-    let! extraWordChars =<< CharSet.filter CharSet.all (fun (c: Character) =>
-      let canonicalized_c := canonicalize rer c in
+    let! extraWordChars =<< CharSet.filter Characters.all (fun (c: Character) =>
+      let canonicalized_c := Character.canonicalize rer c in
       negb (CharSet.contains basicWordChars c) && (CharSet.contains basicWordChars canonicalized_c)
     ) in
     (* 3. Assert: extraWordChars is empty unless rer.[[Unicode]] is true and rer.[[IgnoreCase]] is true. *)
@@ -277,9 +224,9 @@ Module Semantics.
         b
         -
         CharacterEscape *)
-  | ClassEsc (ClassEscape.b)
-  | ClassEsc (ClassEscape.Dash)
-  | ClassEsc (ClassEscape.CharacterEsc _) =>
+  | ClassEsc (esc_b)
+  | ClassEsc (esc_Dash)
+  | ClassEsc (CCharacterEsc _) =>
       (* 1. Let cv be the CharacterValue of this ClassEscape. *)
       let! cv =<< characterValue self in
       (* 2. Let c be the character whose character value is cv. *)
@@ -288,48 +235,48 @@ Module Semantics.
       CharSet.singleton c
 
   (** CharacterClassEscape :: d *)
-  | ClassEsc (ClassEscape.CharacterClassEsc CharacterClassEscape.d) =>
+  | ClassEsc (CCharacterClassEsc esc_d) =>
       (* 1. Return the ten-element CharSet containing the characters 0, 1, 2, 3, 4, 5, 6, 7, 8, and 9. *)
-      CharSet.digits
+      Characters.digits
 
   (** CharacterClassEscape :: D *)
-  | ClassEsc (ClassEscape.CharacterClassEsc CharacterClassEscape.D) => Result.assertion_failed
+  | ClassEsc (CCharacterClassEsc esc_D) => Result.assertion_failed
 
   (** CharacterClassEscape :: s *)
-  | ClassEsc (ClassEscape.CharacterClassEsc CharacterClassEscape.s) =>
+  | ClassEsc (CCharacterClassEsc esc_s) =>
       (* 1. Return the CharSet containing all characters corresponding to a code point on the right-hand side of the WhiteSpace or LineTerminator productions. *)
-      CharSet.union CharSet.white_spaces CharSet.line_terminators
+      CharSet.union Characters.white_spaces Characters.line_terminators
 
   (** CharacterClassEscape :: S *)
-  | ClassEsc (ClassEscape.CharacterClassEsc CharacterClassEscape.S) => Result.assertion_failed
+  | ClassEsc (CCharacterClassEsc esc_S) => Result.assertion_failed
 
   (** CharacterClassEscape :: w *)
-  | ClassEsc (ClassEscape.CharacterClassEsc CharacterClassEscape.w) =>
+  | ClassEsc (CCharacterClassEsc esc_w) =>
       (* 1. Return WordCharacters(rer). *)
       wordCharacters rer
 
   (** CharacterClassEscape :: W *)
-  | ClassEsc (ClassEscape.CharacterClassEsc CharacterClassEscape.W) => Result.assertion_failed
+  | ClassEsc (CCharacterClassEsc esc_W) => Result.assertion_failed
   end.
 
   Definition compileToCharSet_ClassAtom (self: ClassAtom) (rer: RegExp) : Result CharSet CompileError := match self with
   (** CharacterClassEscape :: D *)
-  | ClassEsc (ClassEscape.CharacterClassEsc CharacterClassEscape.D) =>
+  | ClassEsc (CCharacterClassEsc esc_D) =>
       (* 1. Return the CharSet containing all characters not in the CharSet returned by CharacterClassEscape :: d . *)
-      let! d_set =<< compileToCharSet_ClassAtom_0 (ClassEsc (ClassEscape.CharacterClassEsc CharacterClassEscape.d)) rer in
-      CharSet.remove_all CharSet.all d_set
+      let! d_set =<< compileToCharSet_ClassAtom_0 (ClassEsc (CCharacterClassEsc esc_d)) rer in
+      CharSet.remove_all Characters.all d_set
 
   (** CharacterClassEscape :: S *)
-  | ClassEsc (ClassEscape.CharacterClassEsc CharacterClassEscape.S) =>
+  | ClassEsc (CCharacterClassEsc esc_S) =>
       (* 1. Return the CharSet containing all characters not in the CharSet returned by CharacterClassEscape :: s . *)
-      let! s_set =<< compileToCharSet_ClassAtom_0 (ClassEsc (ClassEscape.CharacterClassEsc CharacterClassEscape.s)) rer in
-      CharSet.remove_all CharSet.all s_set
+      let! s_set =<< compileToCharSet_ClassAtom_0 (ClassEsc (CCharacterClassEsc esc_s)) rer in
+      CharSet.remove_all Characters.all s_set
 
   (** CharacterClassEscape :: W *)
-  | ClassEsc (ClassEscape.CharacterClassEsc CharacterClassEscape.W) =>
+  | ClassEsc (CCharacterClassEsc esc_W) =>
       (* 1. Return the CharSet containing all characters not in the CharSet returned by CharacterClassEscape :: w . *)
-      let! w_set =<< compileToCharSet_ClassAtom_0 (ClassEsc (ClassEscape.CharacterClassEsc CharacterClassEscape.w)) rer in
-      CharSet.remove_all CharSet.all w_set
+      let! w_set =<< compileToCharSet_ClassAtom_0 (ClassEsc (CCharacterClassEsc esc_w)) rer in
+      CharSet.remove_all Characters.all w_set
 
   | _ => compileToCharSet_ClassAtom_0 self rer
   end.
@@ -355,24 +302,20 @@ Module Semantics.
       let! A =<< compileToCharSet_ClassAtom l rer in
       (* 2. Let B be CompileToCharSet of the second ClassAtom with argument rer. *)
       let! B =<< compileToCharSet_ClassAtom h rer in
-      (* 3. Let C be CompileToCharSet of ClassRanges with argument rer. *)
-      let! C =<< compileToCharSet t rer in
+      (* 3. Let Character be CompileToCharSet of ClassRanges with argument rer. *)
+      let! Character =<< compileToCharSet t rer in
       (* 4. Let D be CharacterRange(A, B). *)
       let! D =<< characterRange A B in
-      (* 5. Return the union of D and C. *)
-      CharSet.union D C
+      (* 5. Return the union of D and Character. *)
+      CharSet.union D Character
   end.
   (** End --- 22.2.2.9 CharacterRange *)
 
   (** 22.2.2.8 Runtime Semantics: CompileCharacterClass *)
-  Module CompiledCharacterClass.
-    Record type := make {
-      charSet: CharSet;
-      invert: bool;
-    }.
-  End CompiledCharacterClass.
-  Notation compiled_character_class := CompiledCharacterClass.make.
-  Notation CompiledCharacterClass := CompiledCharacterClass.type.
+  Record CompiledCharacterClass := compiled_character_class {
+    CompiledCharacterClass_charSet: CharSet;
+    CompiledCharacterClass_invert: bool;
+  }.
 
   Definition compileCharacterClass (self: CharClass) (rer: RegExp): Result CompiledCharacterClass CompileError := match self with
   | NoninvertedCC crs =>
@@ -442,7 +385,7 @@ Module Semantics.
     (* 6. Let e be x's endIndex. *)
     let e := MatchState.endIndex x in
     (* 7. Let xr be the MatchState (Input, e, cap). *)
-    let xr := MatchState.make input e cap in
+    let xr := match_state input e cap in
     (* 8. If min ≠ 0, return m(xr, d). *)
     if (min !=? 0)%nat
       then m xr d else
@@ -470,7 +413,7 @@ Module Semantics.
     repeatMatcher' m min max greedy x c parenIndex parenCount (repeatMatcherFuel min x).
   (** End --- 22.2.2.3.1 RepeatMatcher ( m, min, max, greedy, x, c, parenIndex, parenCount ) *)
 
-  Fixpoint compileSubPattern (self: Regex) (ctx: RegexContext) (rer: RegExp) (direction: direction): Result Matcher CompileError := match self with
+  Fixpoint compileSubPattern (self: Regex) (ctx: RegexContext) (rer: RegExp) (direction: Direction): Result Matcher CompileError := match self with
   (** Disjunction :: Alternative | Disjunction *)
   | Disjunction r1 r2 =>
       (* 1. Let m1 be CompileSubpattern of Alternative with arguments rer and direction. *)
@@ -549,7 +492,7 @@ Module Semantics.
           (* d. Let e be x's endIndex. *)
           let e := MatchState.endIndex x in
           (* e. If e = 0, or if rer.[[Multiline]] is true and the character Input[e - 1] is matched by LineTerminator, then *)
-          if! (e =? 0)%Z ||! ((RegExp.multiline rer is true) &&! (let! c =<< input[(e-1)%Z] in CharSet.contains CharSet.line_terminators c)) then
+          if! (e =? 0)%Z ||! ((RegExp.multiline rer is true) &&! (let! c =<< input[(e-1)%Z] in CharSet.contains Characters.line_terminators c)) then
             (* i. Return c(x). *)
             c x
           else
@@ -569,7 +512,7 @@ Module Semantics.
           (* e. Let InputLength be the number of elements in Input. *)
           let inputLength := List.length input in
           (* f. If e = InputLength, or if rer.[[Multiline]] is true and the character Input[e] is matched by LineTerminator, then *)
-          if! (e =? inputLength)%Z ||! ((RegExp.multiline rer is true) &&! (let! c =<< input[e] in CharSet.contains CharSet.line_terminators c)) then
+          if! (e =? inputLength)%Z ||! ((RegExp.multiline rer is true) &&! (let! c =<< input[e] in CharSet.contains Characters.line_terminators c)) then
             (* i. Return c(x). *)
             c x
           else
@@ -744,11 +687,11 @@ Module Semantics.
     (** Atom :: . *)
     | Dot =>
         (* 1. Let A be the CharSet of all characters. *)
-        let A := CharSet.all in
+        let A := Characters.all in
         (* 2. If rer.[[DotAll]] is not true, then *)
         let A := if RegExp.dotAll rer is not true
           (* a. Remove from A all characters corresponding to a code point on the right-hand side of the LineTerminator production. *)
-          then CharSet.remove_all A CharSet.line_terminators
+          then CharSet.remove_all A Characters.line_terminators
           else A
         in
         (* 3. Return CharacterSetMatcher(rer, A, false, direction). *)
@@ -759,7 +702,7 @@ Module Semantics.
         (* 1. Let cc be CompileCharacterClass of CharacterClass with argument rer. *)
         let! cc =<< compileCharacterClass cc rer in
         (* 2. Return CharacterSetMatcher(rer, cc.[[CharSet]], cc.[[Invert]], direction). *)
-        characterSetMatcher rer (CompiledCharacterClass.charSet cc) (CompiledCharacterClass.invert cc) direction
+        characterSetMatcher rer (CompiledCharacterClass_charSet cc) (CompiledCharacterClass_invert cc) direction
 
     (**  Atom :: ( GroupSpecifier_opt Disjunction ) *)
     | Group id r =>
@@ -784,18 +727,18 @@ Module Semantics.
             let ye := MatchState.endIndex y in
             let! r =<<
               (* vi. If direction is forward, then *)
-              if direction is forward then
+              if direction == forward then
                 (* 1. Assert: xe ≤ ye. *)
                 assert! (xe <=? ye)%Z ;
                 (* 2. Let r be the CaptureRange (xe, ye). *)
-                CaptureRange.make xe ye
+                capture_range xe ye
               (* vii. Else, *)
               else
                 (* 1. Assert: direction is backward. *)
                 (* 2. Assert: ye ≤ xe. *)
                 assert! (ye <=? xe)%Z ;
                 (* 3. Let r be the CaptureRange (ye, xe). *)
-                CaptureRange.make ye xe
+                capture_range ye xe
             in
             (* viii. Set cap[parenIndex + 1] to r. *)
             set cap[parenIndex + 1] := r in
@@ -808,7 +751,7 @@ Module Semantics.
           m x d): Matcher
 
       (** AtomEscape :: DecimalEscape *)
-      | AtomEsc (AtomEscape.DecimalEsc de) =>
+      | AtomEsc (DecimalEsc de) =>
           (* 1. Let n be the CapturingGroupNumber of DecimalEscape. *)
           let n := de in
           (* 2. Assert: n ≤ rer.[[CapturingGroupsCount]]. *)
@@ -817,25 +760,25 @@ Module Semantics.
           backreferenceMatcher rer n direction
 
       (** AtomEscape :: CharacterEscape *)
-      | AtomEsc (AtomEscape.CharacterEsc ce) =>
+      | AtomEsc (ACharacterEsc ce) =>
           (* 1. Let cv be the CharacterValue of CharacterEscape. *)
           let! cv =<< characterValue ce in
           (* 2. Let ch be the character whose character value is cv. *)
-          let! ch =<< Character.from_numeric_value cv in
+          let ch := Character.from_numeric_value cv in
           (* 3. Let A be a one-element CharSet containing the character ch. *)
           let a := CharSet.singleton ch in
           (* 4. Return CharacterSetMatcher(rer, A, false, direction). *)
           characterSetMatcher rer a false direction
 
       (** AtomEscape :: CharacterClassEscape *)
-      | AtomEsc (AtomEscape.CharacterClassEsc cce) =>
+      | AtomEsc (ACharacterClassEsc cce) =>
           (* 1. Let A be CompileToCharSet of CharacterClassEscape with argument rer. *)
           let! a =<< compileToCharSet cce rer in
           (* 2. Return CharacterSetMatcher(rer, A, false, direction). *)
           characterSetMatcher rer a false direction
 
       (** AtomEscape :: k GroupName *)
-      | AtomEsc (AtomEscape.GroupEsc gn) =>
+      | AtomEsc (GroupEsc gn) =>
           (* 1. Let matchingGroupSpecifiers be GroupSpecifiersThatMatch(GroupName). *)
           let matchingGroupSpecifiers := groupSpecifiersThatMatch self ctx gn in
           (* 2. Assert: matchingGroupSpecifiers contains a single GroupSpecifier. *)
@@ -867,10 +810,9 @@ Module Semantics.
         (* a. Assert: x is a MatchState. *)
         (* b. Assert: c is a MatcherContinuation. *)
         (* c. Return RepeatMatcher(m, q.[[Min]], q.[[Max]], q.[[Greedy]], x, c, parenIndex, parenCount). *)
-        repeatMatcher m (CompiledQuantifier.min q) (CompiledQuantifier.max q) (CompiledQuantifier.greedy q) x c parenIndex parenCount): Matcher
+        repeatMatcher m (CompiledQuantifier_min q) (CompiledQuantifier_max q) (CompiledQuantifier_greedy q) x c parenIndex parenCount): Matcher
   end.
   (** End --- 22.2.2.3 Runtime Semantics: CompileSubpattern *)
-
 
   (** 22.2.2.2 Runtime Semantics: CompilePattern *)
   Definition compilePattern (r: Regex) (rer: RegExp): Result (list Character -> non_neg_integer -> MatchResult) CompileError :=
@@ -895,4 +837,4 @@ Module Semantics.
       (* f. Return m(x, c). *)
       m x c).
   (** End --- 22.2.2.2 Runtime Semantics: CompilePattern *)
-End Semantics.
+End main. End Semantics.

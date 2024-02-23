@@ -1,4 +1,4 @@
-open Warblre.Extracted.Patterns
+open Warblre.Extracted.ECMA
 
 let find_field ls name = let (_, r) = List.find (fun (n, _) -> String.equal n name) ls in r
 
@@ -35,17 +35,17 @@ let warblre_exec regex input: Yojson.Safe.t =
   in
 
   let input = Warblre.Interop.clean_utf16 input in
-  match Warblre.Extracted.Frontend.coq_RegExpExec regex input with
+  match coq_RegExpExec regex (Obj.magic input) with
   | Warblre.Extracted.Result.Success (Null regex_new) ->
     `Assoc (("lastIndex", `Int (regex_new.lastIndex) ) :: ("result", `Null) :: [])
   | Warblre.Extracted.Result.Success (Exotic (a, regex_new)) ->
     (* (match a.groups with
     | Some v -> List.iter (fun (str, _) -> Printf.printf "%s\n" str) v
     | _ -> Printf.printf "Nuhu1\n"); *)
-    let res = (format_list_optional string_to_json a.array) @
+    let res = (format_list_optional string_to_json (Obj.magic a.array)) @
       (("index", `Int a.index) :: ("input", string_to_json input) :: [])
     in
-    let res = add_maybe res a.groups "groups" (format_map_optional string_to_json) in
+    let res = add_maybe res a.groups "groups" (format_map_optional (Obj.magic string_to_json)) in
     let res = (
       match a.indices_array with
       | None -> res

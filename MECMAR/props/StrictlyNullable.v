@@ -1,11 +1,13 @@
 From Coq Require Import PeanoNat ZArith Bool Lia List.
-From Warblre Require Import Tactics Focus Result Base Patterns StaticSemantics Notation List Semantics Match EarlyErrors.
+From Warblre Require Import Tactics Focus Result Base Patterns StaticSemantics Notation List Semantics Match EarlyErrors RegExp.
 
+Import Notation.
+Import Patterns.
 Import Result.Notations.
 Import Result.Notations.Boolean.
 Import Coercions.
 Import Semantics.
-Import MatchState.
+Import Notation.MatchState.
 Import Match.
 Import Correctness.MatchState.
 Import Correctness.
@@ -13,7 +15,8 @@ Import Correctness.
 Local Open Scope result_flow.
 
 (** * Stricly Nullable Static Analysis  *)
-
+Section StriclyNullable.
+  Context `{ci: CharacterInstance }.
 (* A regex is stricly nullable when if it matches, it always matches the empty string. It cannot match characters *)
 (* The following function is a static under-approximation  of when is a regex striclty nullable. *)
 

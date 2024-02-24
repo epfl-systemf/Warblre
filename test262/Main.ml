@@ -28,36 +28,6 @@ let read_whole_file filename =
   close_in ch;
   s
 
-let node_exec regex flags input index: Yojson.Safe.t = 
-  let js_input = input_to_string input in
-  let js = Printf.sprintf {|
-    function replacer(key, value) {
-      if (typeof value === "string") {
-        const input = new Array;
-        for (let i = 0; i < value.length; i++) {
-            let c = value.charCodeAt(i);
-            input.push(c);
-        }
-        return input;
-      }
-      return value;
-    }
-
-    const regex = /%s/%s;
-    regex.lastIndex = %d;
-    const input_array = [%s];
-    const dec = new TextDecoder("utf-16");
-    const input = dec.decode(new Uint16Array(input_array));
-    console.log(JSON.stringify({...regex.exec(input)}, replacer, 1));
-  |} regex flags index js_input in
-  let out_file = Filename.temp_file "node_" ".out.json" in
-  let command = Filename.quote_command "node" ~stdout:out_file ("-e" :: js :: []) in
-  let res_code = Sys.command command in
-  if res_code != 0 then
-    Yojson.Safe.from_string "\"Node --- FAILURE\""
-  else
-    Yojson.Safe.from_file out_file
-
 let warblre_exec regex input: Yojson.Safe.t =
   let string_to_json str = `List (List.map (fun i -> `Int (Warblre.Interop.char_to_int i)) str) in
   (* let string_to_json str: Yojson.Safe.t = `List (List.map (fun i -> `Int i) (Warblre.Interop.clean_utf16 str)) in *)
@@ -98,23 +68,23 @@ let warblre_exec regex input: Yojson.Safe.t =
     `Assoc extended
   | Warblre.Extracted.Result.Failure f -> Yojson.Safe.from_string "\"Extracted --- FAILURE\""
 
-let filter_tests filters (tests: (int * Yojson.Safe.t) Seq.t) =
+let filter_tests filters (tests: (int * 'a) Seq.t) =
   List.fold_left (fun tests filter ->
     Seq.filter filter tests  
   ) tests filters
 
 module Filters = struct
-  let only ids: (int * Yojson.Safe.t) -> bool =
+  let only ids: (int * 'a) -> bool =
     let module S = Set.Make(Int) in
     let only = List.fold_left (fun set elem -> S.add elem set) S.empty ids in
     fun (i, _) -> S.mem i only
 
-  let exclude ids: (int * Yojson.Safe.t) -> bool =
+  let exclude ids: (int * 'a) -> bool =
     let module S = Set.Make(Int) in
     let excluded = List.fold_left (fun set elem -> S.add elem set) S.empty ids in
     fun (i, _) -> Bool.not (S.mem i excluded)
 
-  let modulo m r: (int * Yojson.Safe.t) -> bool =
+  let modulo m r: (int * 'a) -> bool =
     fun (i, _) -> i mod m = r
 end
 
@@ -126,49 +96,44 @@ let run input filters ?(display=false) ?(max_failures_count=Int.max_int) ?(log_s
     let max_runtime = ref (Float.min_float) in
 
     (stream_file input
-      |> Seq.map from_string
       |> Seq.zip (Seq.ints 1)
       |> filter_tests filters
       |> (Seq.iter (fun (i, instance) ->
             test_count := !test_count + 1;
-            match instance with
-            | `Assoc fields ->
-              (match find_field fields "pattern", find_field fields "flags", find_field fields "index", find_field fields "ast", find_field fields "input" with
-              | `String str_pattern, `String str_flags, `Int index, `Assoc ast, `List raw_input ->
-                  let input = List.map (fun e -> match e with
-                    | `Int i -> Warblre.Interop.char_of_int i
-                    | _ -> failwith (String.cat "Invalid element in input string: " (pretty_to_string e))
-                  ) raw_input in
-                  (if display then Printf.printf "Running test %d...\r%!" i);
-                  (try
-                    Gc.full_major ();
-                    let (node_res, node_time) = timed (fun _ -> node_exec str_pattern str_flags input index) in
-                    let regex = RegexpTree.json_to_regex ast index in
-                    let (warblre_res, warblre_time) = timed (fun _ -> warblre_exec regex input) in
-                    if (warblre_time > !max_runtime) then max_runtime := warblre_time;
-                    if Bool.not (Yojson.Safe.equal node_res warblre_res) then (
-                      failures_count := !failures_count + 1;
-                      ANSITerminal.erase Below;
-                      Printf.printf "FAILED [%d]: engines do not agree.\n" i;
-                      Printf.printf "regex     : %s / \"%s\" @ %d\n" (pretty_to_string (`String str_pattern)) str_flags index;
-                      Printf.printf "raw input : [%s]\n" (input_to_string input);
-                      Printf.printf "input     : \"%s\"\n" (Warblre.Interop.utf16_to_string input);
-                      Printf.printf "node      : %fs\n\"\"\"\n%s\n\"\"\"\n" node_time (pretty_to_string node_res);
-                      Printf.printf "extracted : %fs\n\"\"\"\n%s\n\"\"\"\n\n%!" warblre_time (pretty_to_string warblre_res))
-                    else if log_success then (
-                      ANSITerminal.erase Below;
-                      Printf.printf "Success [%d]: node %fs; extracted %fs.\n" i node_time warblre_time)
-                  with Failure msg | Invalid_argument msg  -> ( (*| Yojson.Json_error msg -> ( *)
-                    failures_count := !failures_count + 1;
-                    ANSITerminal.erase Below;
-                    Printf.printf "FAILED [%d]: an error occured.\n" i;
-                    Printf.printf "regex     : %s / %s\n" (pretty_to_string (`String str_pattern)) str_flags;
-                    Printf.printf "raw input : [%s]\n" (input_to_string input));
-                    Printf.printf "input     : \"%s\"\n" (Warblre.Interop.utf16_to_string input);
-                    Printf.printf "message   : %s\n\n%!" msg);
-                  if !failures_count >= max_failures_count then failwith "Maximal number of failures reached"
-              | _ -> failwith "Level 1 should have fields 'pattern', 'flags', 'index', 'ast' and 'flags'")
-            | _ -> failwith "Level 1 should be an assoc")));
+            (try
+              match from_string instance with
+              | `Assoc fields ->
+                (match find_field fields "result", find_field fields "pattern", find_field fields "flags", find_field fields "index", find_field fields "ast", find_field fields "input" with
+                | `String str_node_res, `String str_pattern, `String str_flags, `Int index, `Assoc ast, `List raw_input ->
+                    let input = List.map (fun e -> match e with
+                      | `Int i -> Warblre.Interop.char_of_int i
+                      | _ -> failwith (String.cat "Invalid element in input string: " (pretty_to_string e))
+                    ) raw_input in
+                    (if display then Printf.printf "Running test %d...\r%!" i);
+                      let node_res = Yojson.Safe.from_string str_node_res in
+                      let regex = RegexpTree.json_to_regex ast index in
+                      let (warblre_res, warblre_time) = timed (fun _ -> warblre_exec regex input) in
+                      if (warblre_time > !max_runtime) then max_runtime := warblre_time;
+                      if Bool.not (Yojson.Safe.equal node_res warblre_res) then (
+                        failures_count := !failures_count + 1;
+                        ANSITerminal.erase Below;
+                        Printf.printf "FAILED [%d]: engines do not agree.\n" i;
+                        Printf.printf "instance  : \"%s\" %s / %d\n" str_pattern str_flags index;
+                        Printf.printf "raw input : [%s]\n" (input_to_string input);
+                        Printf.printf "input     : \"%s\"\n" (Warblre.Interop.utf16_to_string input);
+                        Printf.printf "node      :\n\"\"\"\n%s\n\"\"\"\n" (pretty_to_string node_res);
+                        Printf.printf "extracted : %fs\n\"\"\"\n%s\n\"\"\"\n\n%!" warblre_time (pretty_to_string warblre_res))
+                      else if log_success then (
+                        ANSITerminal.erase Below;
+                        Printf.printf "Success [%d]: %fs.\n" i warblre_time)
+                | _ -> failwith "Level 1 should have fields 'result', 'flags', 'index', 'ast' and 'flags'")
+              | _ -> failwith "Level 1 should be an assoc"
+            with Failure msg | Invalid_argument msg | Yojson__Common.Json_error msg -> (
+              failures_count := !failures_count + 1;
+              ANSITerminal.erase Below;
+              Printf.printf "FAILED [%d]: an error occured.\n" i;
+              Printf.printf "message   : %s\n\n%!" msg));
+            if !failures_count >= max_failures_count then failwith "Maximal number of failures reached")));
     ANSITerminal.erase Below;
     Printf.printf "\nSummary:\n";
     Printf.printf "\tTests succeeded    : %d/%d\n" (!test_count - !failures_count) (!test_count);

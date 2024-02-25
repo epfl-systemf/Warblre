@@ -27,7 +27,7 @@ let white_spaces: character list = (List.map (char_of_int) (
   11 :: (* <VT> *)
   12 :: (* <FF> *)
   32 :: 
-  133 :: 
+  (* 133 ::  *)
   160 :: 
   5760 ::
   8192 ::

@@ -31,6 +31,7 @@
                 ocamlPackages.ansiterminal
 
                 nodejs_21
+                node2nix
               ];
           };
         };

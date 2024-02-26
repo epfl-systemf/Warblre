@@ -85,13 +85,9 @@ Proof.
   2: { rewrite <- List.Indexing.Int.success_bounds0 in NOFAILURE. rewrite INDEX in NOFAILURE. destruct NOFAILURE. inversion H. }
   cbn.
   unfold wordCharacters.
-  match goal with | [ |-  context[CharSet.filter ?l ?f]] => specialize (list_filter_success l f) as FILTER;
-                                                          assert (FS: forall t, exists fres, f t = Success fres) end.
-  { intros t. specialize (canonicalize_success rer t) as [cres CAN]. rewrite CAN. simpl. eauto. }
-  specialize (FILTER FS). clear FS. destruct FILTER as [fres FILTER].
-  unfold CharSet.filter. rewrite FILTER. simpl.
-    destruct (CharSet.contains (CharSet.union CharSet.ascii_word_characters fres) s); eauto.
-Qed.  
+  unfold CharSet.filter.
+  match goal with | [ |- context[if ?b then _ else _]] => destruct (b); eauto end.
+Qed.
 
 Lemma isWordsuccess_minusone :
   forall x rer (VALID: Valid (input x) rer x),
@@ -105,8 +101,8 @@ Proof.
   destruct (List.Indexing.Int.indexing (input x) (endIndex x - 1)) eqn:INDEX.    
   2: { rewrite <- List.Indexing.Int.success_bounds0 in NOFAILURE. rewrite INDEX in NOFAILURE. destruct NOFAILURE. inversion H. }
   destruct (wordCharacters rer) eqn:WORD.
-  - cbn. destruct (CharSet.contains s0 s); eauto.
-  - exfalso. eapply Compile.Compile.Safety.wordCharacters. eauto.
+  - cbn. match goal with [ |- context[if ?b then _ else _]] => destruct b; eauto end.
+  - exfalso. eapply Compile.wordCharacters. eauto.
 Qed.
 
 Lemma valid_trans:
@@ -134,7 +130,7 @@ Lemma capture_reset_validity:
   forall (r:Regex) (root:Regex) (ctx:RegexContext) (rer:RegExp)
     (RER_ADEQUACY: countLeftCapturingParensWithin root nil = RegExp.capturingGroupsCount rer)
     (ROOT: Root root r ctx)
-    (EARLY_ERRORS: EarlyErrors.Pass.Regex root nil),
+    (EARLY_ERRORS: EarlyErrors.Pass_Regex root nil),
     Captures.Valid rer (countLeftCapturingParensBefore r ctx) (countLeftCapturingParensWithin r ctx).
 Proof.
   intros r root ctx rer RER_ADEQUACY ROOT EARLY_ERRORS.
@@ -216,17 +212,17 @@ Lemma repeat_matcher_min_0:
     (VALID: Valid (input x) rer x)
     (RER_ADEQUACY: countLeftCapturingParensWithin root nil = RegExp.capturingGroupsCount rer)
     (ROOT: Root root (Quantified r q) ctx)
-    (EARLY_ERRORS: EarlyErrors.Pass.Regex root nil)
+    (EARLY_ERRORS: EarlyErrors.Pass_Regex root nil)
     (SN: strictly_nullable_matcher s rer),
     repeatMatcher' s 0 max
-      (CompiledQuantifier.greedy (compileQuantifier q)) x c (countLeftCapturingParensBefore r ctx)
+      (CompiledQuantifier_greedy (compileQuantifier q)) x c (countLeftCapturingParensBefore r ctx)
       (countLeftCapturingParensWithin r (Quantified_inner q :: ctx)) (S fuel) = None \/
       (exists y : MatchState,
           Valid (input x) rer y /\
             endIndex x = endIndex y /\
             c y =
               repeatMatcher' s 0 max
-                (CompiledQuantifier.greedy (compileQuantifier q)) x c (countLeftCapturingParensBefore r ctx)
+                (CompiledQuantifier_greedy (compileQuantifier q)) x c (countLeftCapturingParensBefore r ctx)
                 (countLeftCapturingParensWithin r (Quantified_inner q :: ctx)) (S fuel)).
 Proof.
   intros r root s q rer ctx x c max fuel VALID RER_ADEQUACY ROOT EARLY_ERRORS SN.
@@ -277,18 +273,18 @@ Lemma repeat_matcher_sn:
     (VALID: Valid (input x) rer x)
     (RER_ADEQUACY: countLeftCapturingParensWithin root nil = RegExp.capturingGroupsCount rer)
     (ROOT: Root root (Quantified r q) ctx)
-    (EARLY_ERRORS: EarlyErrors.Pass.Regex root nil)
+    (EARLY_ERRORS: EarlyErrors.Pass_Regex root nil)
     (FUEL: fuel > min)
     (SN: strictly_nullable_matcher s rer),
     repeatMatcher' s min max
-      (CompiledQuantifier.greedy (compileQuantifier q)) x c (countLeftCapturingParensBefore r ctx)
+      (CompiledQuantifier_greedy (compileQuantifier q)) x c (countLeftCapturingParensBefore r ctx)
       (countLeftCapturingParensWithin r (Quantified_inner q :: ctx)) fuel = None \/
       (exists y : MatchState,
           Valid (input x) rer y /\
             endIndex x = endIndex y /\
             c y =
               repeatMatcher' s min max
-                (CompiledQuantifier.greedy (compileQuantifier q)) x c (countLeftCapturingParensBefore r ctx)
+                (CompiledQuantifier_greedy (compileQuantifier q)) x c (countLeftCapturingParensBefore r ctx)
                 (countLeftCapturingParensWithin r (Quantified_inner q :: ctx)) fuel).
 Proof.
   intros r root s q rer ctx min. 
@@ -332,12 +328,12 @@ Qed.
 
 (* main analysis correctness teorem *)
 Theorem strictly_nullable_analysis_correct:
-  forall (r:Regex) (root:Regex) (ctx:RegexContext) (rer:RegExp) (dir:direction) (m:Matcher)
+  forall (r:Regex) (root:Regex) (ctx:RegexContext) (rer:RegExp) (dir:Direction) (m:Matcher)
     (STRICTLY_NULLABLE: strictly_nullable r = true)
     (COMPILE: compileSubPattern r ctx rer dir = Success m)
     (RER_ADEQUACY: countLeftCapturingParensWithin root nil = RegExp.capturingGroupsCount rer)
     (ROOT: Root root r ctx)
-    (EARLY_ERRORS: EarlyErrors.Pass.Regex root nil),
+    (EARLY_ERRORS: EarlyErrors.Pass_Regex root nil),
     strictly_nullable_matcher m rer.
 Proof.
   intros r. induction r; intros root ctx rer dir m STRICTLY_NULLABLE COMPILE RER_ADEQUACY ROOT EARLY_ERRORS;
@@ -417,7 +413,7 @@ Proof.
     rewrite NOFAIL. rewrite Nat.add_sub.
     (* the update is independent of the direction *)
     match goal with
-    | [ dir:direction |- context[(if ?c then ?i else ?e)]] => replace (if c then i else e) with e
+    | [ |- context[(if ?c then ?i else ?e)]] => replace (if c then i else e) with e
     end.
     2: { destruct dir; auto. } simpl.
     destruct (List.Update.Nat.One.update (CaptureRange_or_undefined (CaptureRange.make (endIndex y) (endIndex y))) (captures y) (countLeftCapturingParensBefore (Group name r) ctx)) eqn:UPD.
@@ -445,7 +441,7 @@ Proof.
     { destruct VALID as [_ [ITER _]]. unfold IteratorOn in ITER. split; lia. }
     destruct (List.Indexing.Int.indexing (input x) (endIndex x - 1)) eqn:INDEX.    
     2: { rewrite <- List.Indexing.Int.success_bounds0 in NOFAILURE. rewrite INDEX in NOFAILURE. destruct NOFAILURE. inversion H. }
-    simpl. destruct (CharSet.contains CharSet.line_terminators s) eqn:TERMINATOR.
+    simpl. destruct (CharSet.contains Characters.line_terminators s) eqn:TERMINATOR.
     + right. exists x. auto.
     + left. auto.
   (* InputEnd *)
@@ -461,7 +457,7 @@ Proof.
     { destruct VALID as [_ [ITER _]]. unfold IteratorOn in ITER. split; lia. }
     destruct (List.Indexing.Int.indexing (input x) (endIndex x)) eqn:INDEX.    
     2: { rewrite <- List.Indexing.Int.success_bounds0 in NOFAILURE. rewrite INDEX in NOFAILURE. destruct NOFAILURE. inversion H. }
-    simpl. destruct (CharSet.contains CharSet.line_terminators s) eqn:TERMINATOR.
+    simpl. destruct (CharSet.contains Characters.line_terminators s) eqn:TERMINATOR.
     + right. exists x. auto.
     + left. auto.
   (* WordBoundary *)
@@ -514,12 +510,12 @@ Qed.
 (** * Repeating a strictly nullable matcher does nothing *)
 
 Lemma strictly_nullable_repeatmatcher':
-  forall (r:Regex) (root:Regex) (ctx:RegexContext) (rer:RegExp) (dir:direction) (m:Matcher)
+  forall (r:Regex) (root:Regex) (ctx:RegexContext) (rer:RegExp) (dir:Direction) (m:Matcher)
     (STRICTLY_NULLABLE: strictly_nullable r = true)
     (COMPILE: compileSubPattern r ctx rer dir = Success m)
     (RER_ADEQUACY: countLeftCapturingParensWithin root nil = RegExp.capturingGroupsCount rer)
     (ROOT: Root root r ctx)
-    (EARLY_ERRORS: EarlyErrors.Pass.Regex root nil),
+    (EARLY_ERRORS: EarlyErrors.Pass_Regex root nil),
   forall (x:MatchState) (c:MatcherContinuation)
     (VALID: Valid (input x) rer x),
     repeatMatcher' m O%nat NoI.Inf true x c (countLeftCapturingParensBefore r ctx) (countLeftCapturingParensWithin r ctx) (repeatMatcherFuel O%nat x) = c x.
@@ -550,13 +546,13 @@ Qed.
 (** * Transformation correctness: Switching a strictly nullable regex starred for a n empty is correct  *)
 
 Theorem strictly_nullable_same_matcher:
-  forall (r:Regex) (root:Regex) (ctx:RegexContext) (rer:RegExp) (dir:direction) (mstar:Matcher) (mempty:Matcher)
+  forall (r:Regex) (root:Regex) (ctx:RegexContext) (rer:RegExp) (dir:Direction) (mstar:Matcher) (mempty:Matcher)
     (STRICTLY_NULLABLE: strictly_nullable r = true)
     (COMPILESTAR: compileSubPattern (Quantified r (Greedy Star)) ctx rer dir = Success mstar)
     (COMPILEEMPTY: compileSubPattern Empty ctx rer dir = Success mempty)
     (RER_ADEQUACY: countLeftCapturingParensWithin root nil = RegExp.capturingGroupsCount rer)
     (ROOT: Root root r (Quantified_inner (Greedy Star) :: ctx))
-    (EARLY_ERRORS: EarlyErrors.Pass.Regex root nil),
+    (EARLY_ERRORS: EarlyErrors.Pass_Regex root nil),
   forall (x:MatchState) (c:MatcherContinuation) (VALID: Valid (input x) rer x),
     mstar x c = mempty x c.
 Proof.

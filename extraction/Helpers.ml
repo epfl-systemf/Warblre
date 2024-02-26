@@ -58,7 +58,7 @@ let pretty_print_result sinput at (res: coq_MatchResult) unicode =
 let test_regex_using_record regex input at rer =
   match compilePattern regex rer with
   | Success matcher ->
-    let ls_input = Interop.string_to_utf16 input in
+    let ls_input = Interop.Utf16.string_to_utf16 input in
     pretty_print_result input at (matcher (Obj.magic ls_input) at) (Extracted.RegExp.unicode rer)
     
   | Failure AssertionFailed -> Printf.printf "Assertion error during compilation \n"
@@ -78,7 +78,7 @@ let test_regex regex input at ?(ignoreCase=false) ?(multiline=false) ?(dotAll=fa
 let compare_regexes_using_record regex1 regex2 input at rer: unit =
   match compilePattern regex1 rer, compilePattern regex2 rer with
   | Success m1, Success m2 ->
-    let ls_input = Interop.string_to_utf16 input in
+    let ls_input = Interop.Utf16.string_to_utf16 input in
     let res1 = (m1 (Obj.magic ls_input) at) in
     let res2 = (m2 (Obj.magic ls_input) at) in
     if res1 = res2 then

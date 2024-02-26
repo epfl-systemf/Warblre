@@ -52,12 +52,12 @@ let quantifier_to_string (q:coq_Quantifier) : string =
 let rec regex_to_string (r:coq_Regex) : string =
   match r with
   | Empty -> ""
-  | Char i -> String.make 1 (Char.chr (Interop.char_to_int (Obj.magic i)))
+  | Char i -> String.make 1 (Char.chr (Interop.Utf16.char_to_int (Obj.magic i)))
   | Dot -> String.make 1 '.'
   | CharacterClass cc ->
     let class_atom_to_string (ca: coq_ClassAtom) = match ca with
       | SourceCharacter i ->
-          let c = Char.chr (Interop.char_to_int (Obj.magic i)) in 
+          let c = Char.chr (Interop.Utf16.char_to_int (Obj.magic i)) in 
           if (Char.equal c '-') then failwith "Unsupported character: '-'"
           else String.make 1 c
       | ClassEsc _ -> failwith "TODO"
@@ -151,23 +151,23 @@ let print_slice (string_input:string) (single_capture: coq_CaptureRange option) 
   | Some { CaptureRange.startIndex = s; CaptureRange.endIndex = e } ->
      String.sub string_input s (e-s)
        
-let print_char_list (l:Interop.character list): string =
+let print_char_list (l:Interop.Utf16.character list): string =
   assert (List.for_all (fun c -> Unsigned.UInt16.to_int c < 255) l);
-  List.fold_left (fun acc c -> acc ^ String.make 1 c) "" (List.map (fun c -> Char.chr (Interop.char_to_int c)) l)
+  List.fold_left (fun acc c -> acc ^ String.make 1 c) "" (List.map (fun c -> Char.chr (Interop.Utf16.char_to_int c)) l)
 
-let print_char_list_option (o:Interop.character list option) : string =
+let print_char_list_option (o:Interop.Utf16.character list option) : string =
   match o with
   | None -> "Undefined"
   | Some l ->
      print_char_list l
 
-let rec print_array_indexed (l:Interop.character list option list) (index:int) : string =
+let rec print_array_indexed (l:Interop.Utf16.character list option list) (index:int) : string =
   match l with
   | [] -> ""
   | o::l' -> "#"^string_of_int index^":"^print_char_list_option o^"\n"^
                print_array_indexed l' (index+1)
 
-let print_array (l:Interop.character list option list) : string =
+let print_array (l:Interop.Utf16.character list option list) : string =
   print_array_indexed l 0
 
 let print_groups_map (g:groups_map) : string =
@@ -274,7 +274,7 @@ let reference_matchall (r:coq_RegExpInstance) (str): string =
 let get_reference_result (regex:coq_Regex) (flags:coq_RegExpFlags) (index:int) (str:string) (f:frontend_function) : string option =
   let instance = get_success_compile (coq_RegExpInitialize regex flags) in
   let instance = setLastIndex instance index in
-  let list_input = Interop.string_to_utf16 str in
+  let list_input = Interop.Utf16.string_to_utf16 str in
   match f with
   | Exec -> Some (reference_exec instance (Obj.magic list_input))
   | Search -> Some (reference_search instance (Obj.magic list_input))

@@ -2,8 +2,8 @@ open Warblre.Extracted.ECMA
 
 let find_field ls name = let (_, r) = List.find (fun (n, _) -> String.equal n name) ls in r
 
-let warblre_exec regex input: Yojson.Safe.t =
-  let string_to_json str = `Assoc (("data", `List (List.map (fun i -> `Int (Warblre.Interop.char_to_int i)) str)) :: ("isString", `Bool true) :: []) in
+let warblre_exec (type a) regex (input: a list) (p: a -> int) : Yojson.Safe.t =
+  let string_to_json str = `Assoc (("data", `List (List.map (fun i -> `Int (p i)) str)) :: ("isString", `Bool true) :: []) in
   let make_exotic ls = `Assoc (("exotic", `Assoc ls) :: ("isExotic", `Bool true) :: []) in
 
   let format_list_optional (type a) (f: a -> Yojson.Safe.t) (ls: a option list): (string * Yojson.Safe.t) list =
@@ -19,7 +19,7 @@ let warblre_exec regex input: Yojson.Safe.t =
     let rec iter ls =
       match ls with
       | (name, Some v) :: t -> (name, f v) :: (iter t)
-      | (name, None) :: t -> iter t
+      | (name, None) :: t -> (name, `Null) :: iter t
       | [] -> []
     in
     `Assoc (iter ls)
@@ -34,14 +34,11 @@ let warblre_exec regex input: Yojson.Safe.t =
     add current name value
   in
 
-  let input = Warblre.Interop.clean_utf16 input in
+  
   match coq_RegExpExec regex (Obj.magic input) with
   | Warblre.Extracted.Result.Success (Null regex_new) ->
     `Assoc (("lastIndex", `Int (regex_new.lastIndex) ) :: ("result", `Null) :: [])
   | Warblre.Extracted.Result.Success (Exotic (a, regex_new)) ->
-    (* (match a.groups with
-    | Some v -> List.iter (fun (str, _) -> Printf.printf "%s\n" str) v
-    | _ -> Printf.printf "Nuhu1\n"); *)
     let res = (format_list_optional string_to_json (Obj.magic a.array)) @
       (("index", `Int a.index) :: ("input", string_to_json input) :: [])
     in
@@ -60,22 +57,48 @@ let warblre_exec regex input: Yojson.Safe.t =
 
 let () =
   Printexc.record_backtrace true;
+  if Array.length Sys.argv < 2 || Array.length Sys.argv > 3 then failwith "Incorrect number of arguments provided";
+  let input = (Sys.argv.(1)) in
+  let write_output out_str = (
+    if Array.length Sys.argv > 2 then (
+      let output = (Sys.argv.(2)) in
+      let oc = open_out output in
+      Printf.fprintf oc "%s" out_str;
+      close_out oc)
+    else (
+      Printf.printf "%s\n" out_str
+    ))
+  in
   Yojson.Safe.(
-    try
-      (if Array.length Sys.argv <= 1 then failwith "No argument provided");
-      let input = (Sys.argv.(1)) in
+    try (
       match from_file input with
       | `Assoc fields ->
-        (match find_field fields "index", find_field fields "ast", find_field fields "input" with
-        | `Int index, `Assoc ast, `List raw_input ->
+        (match find_field fields "index", find_field fields "ast", find_field fields "input", find_field fields "unicode" with
+        | `Int index, `Assoc ast, `List raw_input, `Bool unicode -> (
+
+          let res = if Bool.not unicode then (
             let input = List.map (fun e -> match e with
-              | `Int i -> Warblre.Interop.char_of_int i
+              | `Int i -> Warblre.Interop.Utf16.char_of_int i
               | _ -> failwith (String.cat "Invalid element in input string: " (pretty_to_string e))
             ) raw_input in
-              let regex = RegexpTree.json_to_regex ast index in
-              let warblre_res = warblre_exec regex input in
-              Printf.printf "%s" (to_string warblre_res)
+            let input = Warblre.Interop.Utf16.clean_utf16 input in
+            
+            let regex = RegexpTree.Utf16.json_to_regex ast index in
+            warblre_exec regex input Warblre.Interop.Utf16.char_to_int)
+
+          else (
+            let input = List.map (fun e -> match e with
+              | `Int i -> Warblre.Interop.Unicode.char_of_int i
+              | _ -> failwith (String.cat "Invalid element in input string: " (pretty_to_string e))
+            ) raw_input in
+            
+            let regex = RegexpTree.Unicode.json_to_regex ast index in
+            warblre_exec regex input Warblre.Interop.Unicode.char_to_int)
+          in
+          write_output (to_string res))
+
+
         | _ -> failwith "Failure: Level 1 is missing some fields.")
-      | _ -> failwith "Failure: Level 1 should be an assoc."
+      | _ -> failwith "Failure: Level 1 should be an assoc.")
     with Failure msg | Invalid_argument msg | Yojson__Common.Json_error msg -> (
-      Printf.printf "Failure: %s\n" msg))
+      write_output ("Failure: " ^ msg)))

@@ -1,5 +1,5 @@
 open Extracted.Notation
-open Extracted.ECMA
+open Extracted.ECMA_u
 
 let rec drop n ls = 
   if n <= 0 then
@@ -78,7 +78,7 @@ let test_regex regex input at ?(ignoreCase=false) ?(multiline=false) ?(dotAll=fa
 let compare_regexes_using_record regex1 regex2 input at rer: unit =
   match compilePattern regex1 rer, compilePattern regex2 rer with
   | Success m1, Success m2 ->
-    let ls_input = Interop.Utf16.string_to_utf16 input in
+    let ls_input = Interop.Unicode.string_to_utf8 input in
     let res1 = (m1 (Obj.magic ls_input) at) in
     let res2 = (m2 (Obj.magic ls_input) at) in
     if res1 = res2 then

@@ -13,7 +13,7 @@ Module UInt16.
   Axiom compare_spec_gt: forall l r, Z.ltb 0 (compare l r) = true -> lt r l.
 
   Axiom numeric_pseudo_bij: forall c, from_numeric_value (numeric_value c) = c.
-  Axiom numeric_pseudo_bij2: forall n, n < Pos.to_nat 65536 -> numeric_value (from_numeric_value n) = n.
+  Axiom round_trip: forall l r, l <= r -> (numeric_value (from_numeric_value l)) <= (numeric_value (from_numeric_value r)).
 
   Module MiniOrdered <: MiniOrderedType.
     Definition t := type.
@@ -90,7 +90,7 @@ Module Unicode.
   Axiom compare_spec_gt: forall l r, Z.ltb 0 (compare l r) = true -> lt r l.
 
   Axiom numeric_pseudo_bij: forall c, from_numeric_value (numeric_value c) = c.
-  Axiom numeric_pseudo_bij2: forall n, n < Pos.to_nat 65536 -> numeric_value (from_numeric_value n) = n.
+  Axiom round_trip: forall l r, l <= r -> (numeric_value (from_numeric_value l)) <= (numeric_value (from_numeric_value r)).
 
   Module MiniOrdered <: MiniOrderedType.
     Definition t := type.
@@ -133,6 +133,10 @@ Module Unicode.
       case_fold ch
     (* 2. If rer.[[IgnoreCase]] is false, return ch. *)
     else ch.
+
+  Parameter UnicodeProperty: Type.
+  Parameter unicode_property_eqdec: forall (l r: UnicodeProperty), {l=r} + {l<>r}.
+  Parameter code_points_for: UnicodeProperty -> list type.
 
   Parameter all: list type.
   Parameter line_terminators: list type.
@@ -219,8 +223,11 @@ Module Utf16CharCode.
     digits := UInt16.digits;
     white_spaces := UInt16.white_spaces;
     ascii_word_characters := UInt16.ascii_word_characters;
+
+    unicode_property := False;
+    code_points_for := fun v => match v with end;
   }.
-  Proof. - apply UInt16.numeric_pseudo_bij. - apply UInt16.numeric_pseudo_bij2. Defined.
+  Proof. - apply UInt16.numeric_pseudo_bij. - apply UInt16.round_trip. - constructor. intros []. Defined.
 End Utf16CharCode.
 
 Module UnicodeCharCode.
@@ -241,8 +248,12 @@ Module UnicodeCharCode.
     digits := Unicode.digits;
     white_spaces := Unicode.white_spaces;
     ascii_word_characters := Unicode.ascii_word_characters;
+
+    unicode_property := Unicode.UnicodeProperty;
+    unicode_property_eqdec := EqDec.make _ Unicode.unicode_property_eqdec;
+    code_points_for := Unicode.code_points_for;
   }.
-  Proof. - apply Unicode.numeric_pseudo_bij. - apply Unicode.numeric_pseudo_bij2. Defined.
+  Proof. - apply Unicode.numeric_pseudo_bij. - apply Unicode.round_trip. Defined.
 End UnicodeCharCode.
 
 Module Type Parameters.

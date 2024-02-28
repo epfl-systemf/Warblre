@@ -25,8 +25,11 @@ Module Patterns. Section main.
     (* w *)
     | esc_w
     (* W *)
-    | esc_W.
-    (*+ TODO: Unicode property p P *)
+    | esc_W
+    (* p *)
+    | UnicodeProp (p: UnicodeProperty)
+    (* P *)
+    | UnicodePropNeg (p: UnicodeProperty).
 
   (** ControlEscape :: *)
   Inductive ControlEscape :=
@@ -41,6 +44,12 @@ Module Patterns. Section main.
   (* v *)
   | esc_v.
 
+  (** RegExpUnicodeEscapeSequence :: *)
+  Inductive RegExpUnicodeEscapeSequence :=
+  | Pair (lead tail: Hex4Digits)
+  | Lonely (digis: Hex4Digits)
+  | CodePoint (c: Character).
+
   (** CharacterEscape :: *)
   Inductive CharacterEscape :=
   | ControlEsc (esc: ControlEscape)
@@ -50,7 +59,8 @@ Module Patterns. Section main.
   | esc_Zero
   (* x *)
   | HexEscape (d1 d2: HexDigit)
-  (*+ TODO: u *)
+  (* u *)
+  | UnicodeEsc (seq: RegExpUnicodeEscapeSequence)
   | IdentityEsc (chr: Character).
 
 
@@ -130,10 +140,14 @@ Module Patterns. Section main.
 
   Section EqDec.
     #[export] Instance eqdec_GroupName: EqDec GroupName := { eq_dec := GroupName_eq_dec; }.
-    #[export] #[refine] Instance eqdec_CharacterClassEscape: EqDec CharacterClassEscape := {}. decide equality. Defined.
+    #[export] #[refine] Instance eqdec_CharacterClassEscape: EqDec CharacterClassEscape := {}. decide equality; solve [ apply EqDec.eq_dec | apply (@EqDec.eq_dec _ Character.unicode_property_eqdec) ]. Defined.
     #[export] #[refine] Instance eqdec_ControlEscape: EqDec ControlEscape := {}. decide equality. Defined.
+    #[export] #[refine] Instance eqdec_Hex4Digits: EqDec Hex4Digits := {}.
+      decide equality; try apply EqDec.eq_dec. Defined.
+    #[export] #[refine] Instance eqdec_RegExpUnicodeEscapeSequence: EqDec RegExpUnicodeEscapeSequence := {}.
+      decide equality; try apply EqDec.eq_dec. Defined.
     #[export] #[refine] Instance eqdec_CharacterEscape: EqDec CharacterEscape := {}.
-      decide equality; apply EqDec.eq_dec. Defined.
+      decide equality; try apply EqDec.eq_dec. Defined.
     #[export] #[refine] Instance eqdec_CClassEscape: EqDec ClassEscape := {}.
       decide equality; apply EqDec.eq_dec. Defined.
     #[export] #[refine] Instance eqdec_AtomEscape: EqDec AtomEscape := {}.

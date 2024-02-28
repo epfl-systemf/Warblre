@@ -29,6 +29,7 @@ Module Coercions.
   (** These ones are used to wrap things into the error monad (Result) *)
   Coercion wrap_bool := fun (F: Type) (t: bool) => @Success _ F t.
 (*   Coercion wrap_Character := fun `{CharacterInstance} (F: Type) (c: Character) => @Success _ F c. *)
+  Coercion wrap_list_Character := fun `{CharacterInstance} (F: Type) (c: list Character) => @Success _ F c.
 
   Coercion wrap_option := fun (F T: Type) (t: option T) => @Success _ F t.
   Coercion wrap_Result := fun (F: Type) (v: non_neg_integer) => @Success _ F v.
@@ -38,4 +39,4 @@ Module Coercions.
 End Coercions.
 
 #[export]
-Hint Unfold Coercions.wrap_bool (* Coercions.wrap_Character *) Coercions.wrap_option Coercions.wrap_Result Coercions.wrap_Matcher Coercions.wrap_CharSet: result_wrappers.
+Hint Unfold Coercions.wrap_bool (* Coercions.wrap_Character *) Coercions.wrap_list_Character Coercions.wrap_option Coercions.wrap_Result Coercions.wrap_Matcher Coercions.wrap_CharSet: result_wrappers.

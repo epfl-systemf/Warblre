@@ -1,4 +1,5 @@
 open Extracted.Patterns
+open Interop.Unicode
 
 let epsilon = Empty
 let char c =
@@ -7,9 +8,12 @@ let char c =
   | _ -> failwith (String.cat "Invalid character: " c)
 let achar c = Char (Obj.magic (Interop.Utf16.char_of_int (Char.code c)))
 let sc c = SourceCharacter (Obj.magic (Interop.Utf16.char_of_int (Char.code c)))
+let uprop n = AtomEsc (ACharacterClassEsc (UnicodeProp (Obj.magic (Predicate n))))
 
 let group r = Group (None, r)
 let ngroup p = Group (Some (fst p), (snd p))
+
+(* let uprop name = AtomEsc (ACharacterClassEsc (UnicodeProp (Obj.magic ))) *)
 
 let (||) l r = Disjunction (l, r)
 

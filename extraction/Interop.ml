@@ -1,6 +1,7 @@
 exception NotImplemented of string
 
-let parse_hex d1 d2 = int_of_string ("0x" ^ (String.make 1 d1) ^ (String.make 1 d2))
+let parse_hex ls =
+  int_of_string ("0x" ^ (String.concat "" (List.map (fun c -> String.make 1 c) ls)))
 
 module Utf16 = struct
   type character = Unsigned.uint16
@@ -12,9 +13,9 @@ module Utf16 = struct
 
   let to_character_list (ls: char list): character list = List.map (fun c -> char_of_int (Char.code c)) ls
   let all_chars: character list = 
-
       List.init (Unsigned.UInt16.to_int Unsigned.UInt16.max_int) (fun i -> i)
         |> List.map char_of_int
+
   let line_terminators: character list = (List.map (char_of_int) ( 
     0x000A :: (* <LF> *)
     0x000D :: (* <CR> *)
@@ -139,6 +140,16 @@ module Utf16 = struct
 end
 
 module Unicode = struct
+  let string_to_utf8 (str: string): int list = 
+    let is = List.init (String.length str) (fun i -> i) in
+    List.map (fun i ->
+      let u = StringLabels.get_utf_8_uchar str i in
+      if Uchar.utf_decode_is_valid u then
+        Uchar.to_int (Uchar.utf_decode_uchar u)
+      else
+        0xFFFD
+    ) is
+
   type character = int
   let char_eq (l: character) (r: character) = Int.equal l r
   let char_to_int (c: character): int = c
@@ -161,7 +172,6 @@ module Unicode = struct
     11 :: (* <VT> *)
     12 :: (* <FF> *)
     32 :: 
-    (* 133 ::  *)
     160 :: 
     5760 ::
     8192 ::
@@ -175,9 +185,9 @@ module Unicode = struct
     8200 ::
     8201 ::
     8202 ::
-    8203 :: (* <ZWNBSP> *)
     8239 ::
     8287 ::
+    8288 :: (* <ZWNBSP> *)
     12288 ::
     []))
   let digits: character list = to_character_list ('0' :: '1' :: '2' :: '3' :: '4' :: '5' :: '6' :: '7' :: '8' :: '9' :: [])
@@ -192,4 +202,21 @@ module Unicode = struct
         | `Uchars (cp :: []) -> Uchar.to_int cp
         | `Uchars _ -> c
     else c
+
+  type unicodeProperty = 
+  | Predicate of string
+
+  let up_eq x y = match x, y with
+  | Predicate x, Predicate y -> String.equal x y
+
+  let char_adapter d f = fun c ->
+    if (Uchar.is_valid c) then f (Uchar.of_int c)
+    else d
+
+  let code_points_for up =
+    let f = char_adapter false (match up with
+    | Predicate "Alphabetic" -> Uucp.Alpha.is_alphabetic
+    | Predicate name -> failwith ("Unknown property: " ^ name))
+    in
+    List.filter f all_chars
 end

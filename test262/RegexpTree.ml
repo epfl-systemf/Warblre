@@ -197,6 +197,13 @@ module Unicode = struct
 
   let json_to_regex (json: (string * Yojson.Safe.t) list) index: coq_RegExpInstance =
     Yojson.Safe.(
+      let uprop (json: Yojson.Safe.t): (unicodeProperty * bool) = match json with
+      | `Assoc (("type", `String "UnicodeProperty") :: ("name", `String _) :: ("value", `String _) :: ("negative", `Bool neg) ::
+        ("shorthand", `Bool _) :: ("binary", `Bool true) :: ("canonicalName", `String name) :: ("canonicalValue", _) :: []) ->
+          (Predicate name, neg)
+      | _-> failwith (String.cat "Unsupported unicode property: " (Yojson.Safe.show json))
+      in
+
       let iter_ca (json: Yojson.Safe.t): coq_ClassAtom = (match json with
       | `Assoc (("type", `String "Char") :: ("value", `String _) :: ("kind", `String "simple") :: ("symbol", `String _) :: ("codePoint", `Int codepoint) :: ("escaped", `Bool true) :: []) ->
         ClassEsc (CCharacterEsc (IdentityEsc (Obj.magic (char_of_int codepoint))))
@@ -271,6 +278,14 @@ module Unicode = struct
 
 
       let rec iter_r (json: Yojson.Safe.t): coq_Regex = (match json with
+      | `Assoc (("type", `String "UnicodeProperty") :: _) ->
+          let (p, neg) = uprop json in
+          if neg then
+            AtomEsc(ACharacterClassEsc (UnicodePropNeg (Obj.magic p))) 
+          else
+            AtomEsc(ACharacterClassEsc (UnicodeProp (Obj.magic p))) 
+
+
       | `Null -> Empty
 
       | `Assoc (("type", `String "Char") :: ("value", `String _) :: ("kind", `String "simple") :: ("symbol", `String _) :: ("codePoint", `Int codepoint) :: ("escaped", `Bool true) :: []) ->

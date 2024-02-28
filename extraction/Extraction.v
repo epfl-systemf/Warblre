@@ -1,4 +1,5 @@
 From Warblre Require Import Base Patterns Semantics ClutterFree Frontend ECMA.
+From Coq Require Import ZArith.
 
 From Coq Require Extraction.
 Extraction Language OCaml.
@@ -7,6 +8,7 @@ From Coq Require extraction.ExtrOcamlBasic.
 From Coq Require extraction.ExtrOcamlString.
 From Coq Require extraction.ExtrOcamlNatInt.
 From Coq Require extraction.ExtrOcamlZInt.
+Extract Constant Pos.to_nat => "(fun c -> c)".
 
 Extract Constant HexDigit.type => "char".
 Extract Constant HexDigit.to_integer => "Interop.parse_hex".
@@ -44,6 +46,10 @@ Extract Constant Unicode.line_terminators => "Interop.Unicode.line_terminators".
 Extract Constant Unicode.white_spaces => "Interop.Unicode.white_spaces".
 Extract Constant Unicode.digits => "Interop.Unicode.digits".
 Extract Constant Unicode.ascii_word_characters => "Interop.Unicode.ascii_word_characters".
+
+Extract Constant Unicode.UnicodeProperty => "Interop.Unicode.unicodeProperty".
+Extract Constant Unicode.unicode_property_eqdec => "Interop.Unicode.up_eq".
+Extract Constant Unicode.code_points_for => "Interop.Unicode.code_points_for".
 
 Extraction "Extracted.ml" RegExp.RegExp  ECMA.ECMA ECMA.ECMA_u.
 

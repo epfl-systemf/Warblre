@@ -1,25 +1,30 @@
 From Coq Require Import PeanoNat List Lia NArith Program.Equality.
-From Warblre Require Import Tactics List Result Focus Base Patterns StaticSemantics.
+From Warblre Require Import Tactics List Result Focus Base Characters Patterns StaticSemantics.
 
 Section EarlyErrors.
   Context `{ci: CharacterInstance}.
     Import Patterns.
 
-  Inductive SingletonCharacterEscape: CharacterEscape -> Character -> Prop :=
-  | Singleton_ctrl_t: SingletonCharacterEscape (ControlEsc esc_t) Characters.CHARACTER_TABULATION
-  | Singleton_ctrl_n: SingletonCharacterEscape (ControlEsc esc_n) Characters.LINE_FEED
-  | Singleton_ctrl_v: SingletonCharacterEscape (ControlEsc esc_v) Characters.LINE_TABULATION
-  | Singleton_ctrl_f: SingletonCharacterEscape (ControlEsc esc_f) Characters.FORM_FEED
-  | Singleton_ctrl_r: SingletonCharacterEscape (ControlEsc esc_r) Characters.CARRIAGE_RETURN
-  | Singleton_zero: SingletonCharacterEscape esc_Zero Characters.NULL
-  | Singleton_ascii_control: forall l, SingletonCharacterEscape (AsciiControlEsc l) (Character.from_numeric_value (NonNegInt.modulo (AsciiLetter.numeric_value l) 32))
-  | Singleton_hex: forall d1 d2, SingletonCharacterEscape (HexEscape d1 d2) (Character.from_numeric_value (HexDigit.to_integer d1 d2))
-  | Singleton_id: forall c, SingletonCharacterEscape (IdentityEsc c) c.
+  Notation hex4digitsValue v := (let (_0, _1, _2, _3) := v in HexDigit.to_integer (_0 :: _1 :: _2 :: _3 :: nil)) (only parsing).
 
-  Inductive SingletonClassAtom: ClassAtom -> Character -> Prop :=
-  | Singleton_SourceCharacter: forall c, SingletonClassAtom (SourceCharacter c) c
-  | Singleton_b: SingletonClassAtom (ClassEsc esc_b) Characters.BACKSPACE
-  | Singleton_dash: SingletonClassAtom (ClassEsc esc_Dash) Characters.HYPHEN_MINUS
+  Inductive SingletonCharacterEscape: CharacterEscape -> non_neg_integer -> Prop :=
+  | Singleton_ctrl_t: SingletonCharacterEscape (ControlEsc esc_t) (Character.numeric_value Characters.CHARACTER_TABULATION)
+  | Singleton_ctrl_n: SingletonCharacterEscape (ControlEsc esc_n) (Character.numeric_value Characters.LINE_FEED)
+  | Singleton_ctrl_v: SingletonCharacterEscape (ControlEsc esc_v) (Character.numeric_value Characters.LINE_TABULATION)
+  | Singleton_ctrl_f: SingletonCharacterEscape (ControlEsc esc_f) (Character.numeric_value Characters.FORM_FEED)
+  | Singleton_ctrl_r: SingletonCharacterEscape (ControlEsc esc_r) (Character.numeric_value Characters.CARRIAGE_RETURN)
+  | Singleton_zero: SingletonCharacterEscape esc_Zero (Character.numeric_value Characters.NULL)
+  | Singleton_ascii_control: forall l, SingletonCharacterEscape (AsciiControlEsc l) (NonNegInt.modulo (AsciiLetter.numeric_value l) 32)
+  | Singleton_hex: forall d1 d2, SingletonCharacterEscape (HexEscape d1 d2) (HexDigit.to_integer (d1 :: d2 :: nil))
+  | Singleton_id: forall c, SingletonCharacterEscape (IdentityEsc c) (Character.numeric_value c)
+  | Singleton_unicode_pair: forall d1 d2, SingletonCharacterEscape (UnicodeEsc (Pair d1 d2)) (Unicode.utf16SurrogatePair (HexDigit.to_integer_4 d1) (HexDigit.to_integer_4 d2))
+  | Singleton_unicode_lonely: forall d, SingletonCharacterEscape (UnicodeEsc (Lonely d)) (HexDigit.to_integer_4 d)
+  | Singleton_unicode_cp: forall c, SingletonCharacterEscape (UnicodeEsc (CodePoint c)) (Character.numeric_value c).
+
+  Inductive SingletonClassAtom: ClassAtom -> non_neg_integer -> Prop :=
+  | Singleton_SourceCharacter: forall c, SingletonClassAtom (SourceCharacter c) (Character.numeric_value c)
+  | Singleton_b: SingletonClassAtom (ClassEsc esc_b) (Character.numeric_value Characters.BACKSPACE)
+  | Singleton_dash: SingletonClassAtom (ClassEsc esc_Dash) (Character.numeric_value Characters.HYPHEN_MINUS)
   | Singleton_char_esc: forall ce c,
       SingletonCharacterEscape ce c -> SingletonClassAtom (ClassEsc (CCharacterEsc ce)) c.
 
@@ -29,7 +34,7 @@ Section EarlyErrors.
   | Pass_RangeCR: forall l h cl ch t,
       SingletonClassAtom l cl ->
       SingletonClassAtom h ch ->
-      (Character.numeric_value cl <= Character.numeric_value ch)%nat ->
+      (cl <= ch)%nat ->
       Pass_ClassRanges t ->
       Pass_ClassRanges (Patterns.RangeCR l h t).
 
@@ -186,36 +191,44 @@ Section EarlyErrors.
   Proof.
     intros [ ]; cbn.
     - eexists; repeat econstructor.
-    - destruct esc; try discriminate; intros _.
+    - destruct esc eqn:Esc; try discriminate; intros _.
       + eexists. econstructor.
       + eexists. econstructor.
-      + destruct esc.
+      + clear Esc esc. destruct esc0 eqn:Esc.
         1: { destruct esc; eexists; do 3 econstructor. }
+        4: { destruct seq; eexists; do 2 econstructor. }
         all: eexists; do 2 econstructor.
   Qed.
 
 
-  Lemma char_fits_32 n :
+(*   Lemma char_fits_32 n :
     NonNegInt.modulo n 32 < Pos.to_nat 65536.
   Proof.
     etransitivity; [ apply Nat.mod_upper_bound | ]; lia.
   Qed.
 
-  Lemma char_fits_hex d1 d2 :
-    HexDigit.to_integer d1 d2 < Pos.to_nat 65536.
+  Lemma char_fits_hex_2 d1 d2 :
+    HexDigit.to_integer (d1 :: d2 :: nil) < Pos.to_nat 65536.
   Proof.
-    etransitivity; [ apply HexDigit.upper_bound | ]; lia.
+    etransitivity; [ apply HexDigit.upper_bound_2 | ]; lia.
   Qed.
 
+  Lemma char_fits_hex_4 d :
+    HexDigit.to_integer_4 d < Pos.to_nat 65536.
+  Proof.
+    destruct d.
+    apply HexDigit.upper_bound_4.
+  Qed. *)
 
-  Lemma characterValue_singleton {F: Type} {_: Result.AssertionError F}: forall c v, characterValue c = @Success _ F (Character.numeric_value v) <-> SingletonClassAtom c v.
+
+  Lemma characterValue_singleton {F: Type} {_: Result.AssertionError F}: forall c v, characterValue c = @Success _ F v <-> SingletonClassAtom c v.
   Proof.
     intros c v; split; intros H;
       repeat (
         subst ||
         autounfold with result_wrappers in * ||
         unfold nat_to_nni in * ||
-        (rewrite -> ?Character.numeric_pseudo_bij,?Character.numeric_pseudo_bij2 in * by first [ apply char_fits_32 || apply char_fits_hex || lia ]) ||
+        (rewrite -> ?Character.numeric_pseudo_bij) || (*,?Character.numeric_pseudo_bij2 in * by first [ apply char_fits_32 || apply char_fits_hex_2 || apply char_fits_hex_4 || lia ]) || *)
         (* rewrite <- ?CodePoint.numeric_value_from_ascii in * || *)
         cbn ||
         match goal with
@@ -224,6 +237,7 @@ Section EarlyErrors.
         | [ c: CharacterEscape |- _] => destruct c
         | [ c: CharacterClassEscape |- _] => destruct c
         | [ c: ControlEscape |- _] => destruct c
+        | [ c: RegExpUnicodeEscapeSequence |- _] => destruct c
         | [ S: SingletonClassAtom _ _ |- _ ] => dependent destruction S
         | [ S: SingletonCharacterEscape _ _ |- _ ] => dependent destruction S
 
@@ -247,6 +261,7 @@ Section EarlyErrors.
       destruct esc; Result.assertion_failed_helper.
       destruct esc; Result.assertion_failed_helper.
       destruct esc; Result.assertion_failed_helper.
+      destruct seq; Result.assertion_failed_helper.
     Qed.
 
     Lemma Safety_class_ranges: forall c, earlyErrors_class_ranges c <> Failure SyntaxError.AssertionFailed.
@@ -298,6 +313,7 @@ Section EarlyErrors.
         | [ c: CharacterEscape |- _] => destruct c
         | [ c: CharacterClassEscape |- _] => destruct c
         | [ c: ControlEscape |- _] => destruct c
+        | [ c: RegExpUnicodeEscapeSequence |- _ ] => destruct c
         end; cbn in Eq; try solve [ discriminate | eexists; repeat econstructor ].
     Qed.
 

@@ -239,24 +239,25 @@ Module Semantics. Section main.
       (* 1. Return the ten-element CharSet containing the characters 0, 1, 2, 3, 4, 5, 6, 7, 8, and 9. *)
       Characters.digits
 
-  (** CharacterClassEscape :: D *)
-  | ClassEsc (CCharacterClassEsc esc_D) => Result.assertion_failed
-
   (** CharacterClassEscape :: s *)
   | ClassEsc (CCharacterClassEsc esc_s) =>
       (* 1. Return the CharSet containing all characters corresponding to a code point on the right-hand side of the WhiteSpace or LineTerminator productions. *)
       CharSet.union Characters.white_spaces Characters.line_terminators
-
-  (** CharacterClassEscape :: S *)
-  | ClassEsc (CCharacterClassEsc esc_S) => Result.assertion_failed
 
   (** CharacterClassEscape :: w *)
   | ClassEsc (CCharacterClassEsc esc_w) =>
       (* 1. Return WordCharacters(rer). *)
       wordCharacters rer
 
-  (** CharacterClassEscape :: W *)
+  (**  CharacterClassEscape :: p{ UnicodePropertyValueExpression } *)
+  | ClassEsc (CCharacterClassEsc (UnicodeProp p)) => 
+      (* 1. Return the CharSet containing all Unicode code points included in CompileToCharSet of UnicodePropertyValueExpression with argument rer. *)
+      CharSet.from_list (Character.code_points_for p)
+
+  | ClassEsc (CCharacterClassEsc esc_D) => Result.assertion_failed
+  | ClassEsc (CCharacterClassEsc esc_S) => Result.assertion_failed
   | ClassEsc (CCharacterClassEsc esc_W) => Result.assertion_failed
+  | ClassEsc (CCharacterClassEsc (UnicodePropNeg _)) => Result.assertion_failed
   end.
 
   Definition compileToCharSet_ClassAtom (self: ClassAtom) (rer: RegExp) : Result CharSet CompileError := match self with
@@ -274,9 +275,15 @@ Module Semantics. Section main.
 
   (** CharacterClassEscape :: W *)
   | ClassEsc (CCharacterClassEsc esc_W) =>
-      (* 1. Return the CharSet containing all characters not in the CharSet returned by CharacterClassEscape :: w . *)
+      (* 1. Return the CharSet containing all characters not in the CharSet returned by CharacterClassEscape :: p . *)
       let! w_set =<< compileToCharSet_ClassAtom_0 (ClassEsc (CCharacterClassEsc esc_w)) rer in
       CharSet.remove_all Characters.all w_set
+
+  (** CharacterClassEscape :: P{ UnicodePropertyValueExpression } *)
+  | ClassEsc (CCharacterClassEsc (UnicodePropNeg p)) =>
+      (* 1. Return the CharSet containing all Unicode code points not included in CompileToCharSet of UnicodePropertyValueExpression with argument rer.*)
+      let! p_set =<< compileToCharSet_ClassAtom_0 (ClassEsc (CCharacterClassEsc (UnicodeProp p))) rer in
+      CharSet.remove_all Characters.all p_set
 
   | _ => compileToCharSet_ClassAtom_0 self rer
   end.

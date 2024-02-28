@@ -8,23 +8,11 @@ Section Compile.
   Context `{ci: CharacterInstance}.
     Import Patterns.
 
-(*     Lemma canonicalize {F: Type} {_: Result.AssertionError F}: forall c rer f, canonicalize rer c <> Failure f.
-    Proof.
-      intros c rer f. unfold canonicalize. clear_result. focus § _ (_ [] _) § auto destruct.
-      apply List.Unique.failure_bounds in AutoDest_2. boolean_simplifier. spec_reflector Nat.eqb_spec.
-      contradiction.
-    Qed. *)
-
     Lemma wordCharacters {F: Type} {_: Result.AssertionError F}: forall rer f, wordCharacters rer <> Failure f.
     Proof.
       intros rer f. unfold wordCharacters. clear_result. focus § _ (_ [] _) § auto destruct.
-(*       unfold CharSet.filter in *. apply List.Filter.failure_kind in AutoDest_ as [ i [ v [ Eq_indexed Eq_f ]]].
-      destruct (Semantics.canonicalize rer v) eqn:Eq_canon.
-      - discriminate.
-      - injection Eq_f as ->. exfalso. apply (canonicalize _ _ _ Eq_canon). *)
     Qed.
 
-    (* TODO: remove it going with unfolded implementation *)
     Lemma compileToCharSet_ClassAtom_rel_ind: forall (P: ClassAtom -> Prop),
       (forall chr, P (SourceCharacter chr)) ->
       P (ClassEsc (esc_b)) ->
@@ -33,9 +21,11 @@ Section Compile.
       P (ClassEsc (CCharacterClassEsc esc_d)) ->
       P (ClassEsc (CCharacterClassEsc esc_s)) ->
       P (ClassEsc (CCharacterClassEsc esc_w)) ->
+      (forall p, P (ClassEsc (CCharacterClassEsc (UnicodeProp p)))) ->
       (P (ClassEsc (CCharacterClassEsc esc_d)) -> P (ClassEsc (CCharacterClassEsc esc_D)) ) ->
       (P (ClassEsc (CCharacterClassEsc esc_s)) -> P (ClassEsc (CCharacterClassEsc esc_S)) ) ->
       (P (ClassEsc (CCharacterClassEsc esc_w)) -> P (ClassEsc (CCharacterClassEsc esc_W)) ) ->
+      (forall p, P (ClassEsc (CCharacterClassEsc (UnicodeProp p))) -> P (ClassEsc (CCharacterClassEsc (UnicodePropNeg p))) ) ->
       forall ca, P ca.
     Proof.
       intros P H_char H_b H_dash H_char_esc H_d H_s H_w H_D H_S H_W.
@@ -46,28 +36,27 @@ Section Compile.
 
     Lemma compileToCharSet_ClassAtom: forall ca rer, compileToCharSet_ClassAtom ca rer <> compile_assertion_failed.
     Proof.
-      (* TODO: improve proof *)
-      induction ca using compileToCharSet_ClassAtom_rel_ind; intros rer;
-        do 3 match goal with
-        | [ t: ?T |- _ ] => lazymatch T with
-            | RegExp => fail
-            | Character => fail
-            | CharacterClassEscape => fail
-            | _ => destruct t
-            end
-        end; try solve [ cbn; try easy ].
+      induction ca using compileToCharSet_ClassAtom_rel_ind; intros rer; try easy.
+      destruct esc; try easy.
+      - destruct esc; try easy.
+      - destruct seq; try easy.
     Qed.
 
-    Lemma compileToCharSet_ClassAtom_singleton: forall a rer r c,
-      EarlyErrors.SingletonClassAtom a c ->
+    Lemma compileToCharSet_ClassAtom_singleton: forall a rer r i,
+      EarlyErrors.SingletonClassAtom a i ->
       Semantics.compileToCharSet_ClassAtom a rer = Success r ->
-      r = CharSet.singleton c.
+      r = CharSet.singleton (Character.from_numeric_value i).
     Proof.
-      induction a; intros rer c r Sing_a Eq_r; dependent destruction Sing_a; cbn in Eq_r; unfold nat_to_nni in Eq_r; try rewrite -> Character.numeric_pseudo_bij in Eq_r;
-        try injection Eq_r as <-; try reflexivity.
-      - focus § _ [] _ § auto destruct in Eq_r.
-        focus § _ [] _ § auto destruct in AutoDest_; injection AutoDest_ as <-;
-          (rewrite -> ?Character.numeric_pseudo_bij in Eq_r; subst; dependent destruction H; injection Eq_r as <-; reflexivity).
+      induction a; intros rer c r Sing_a Eq_r; dependent destruction Sing_a; cbn in Eq_r.
+      - injection Eq_r as <-. rewrite -> Character.numeric_pseudo_bij. reflexivity.
+      - unfold nat_to_nni in Eq_r; cbn in Eq_r. rewrite -> Character.numeric_pseudo_bij in Eq_r; injection Eq_r as <-.
+        rewrite -> Character.numeric_pseudo_bij. reflexivity.
+      - unfold nat_to_nni in Eq_r; cbn in Eq_r. rewrite -> Character.numeric_pseudo_bij in Eq_r; injection Eq_r as <-.
+        rewrite -> Character.numeric_pseudo_bij. reflexivity.
+      - destruct ce; try destruct esc; dependent destruction H.
+        all: unfold nat_to_nni in Eq_r; cbn in Eq_r; unfold characterValue_Hex4Digits in Eq_r. 
+        all: try rewrite -> Character.numeric_pseudo_bij in Eq_r; injection Eq_r as <-.
+        all: try rewrite -> Character.numeric_pseudo_bij; try reflexivity.
     Qed.
 
     Lemma compileToCharSet: forall crs rer,
@@ -87,7 +76,8 @@ Section Compile.
           unfold characterRange in *. repeat rewrite -> CharSet.singleton_size,CharSet.singleton_unique in *.
           cbn in AutoDest_2. focus § _ [] _ § auto destruct in AutoDest_2.
           boolean_simplifier. spec_reflector Nat.leb_spec0.
-          easy.
+          apply Character.numeric_round_trip_order in H1.
+          contradiction.
         + exfalso. apply (IHcrs _ ltac:(eassumption)).
         + exfalso. apply (compileToCharSet_ClassAtom _ _ ltac:(eassumption)).
         + exfalso. apply (compileToCharSet_ClassAtom _ _ ltac:(eassumption)).

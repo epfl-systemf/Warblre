@@ -3,12 +3,16 @@ From Warblre Require Import RegExp Tactics List Result Numeric Typeclasses.
 
 Module HexDigit.
   Parameter type: Type.
+  Inductive Hex4Digits := hex4 (_0 _1 _2 _3: type).
   Parameter eq_dec: EqDec type.
 
-  Parameter to_integer: type -> type -> non_neg_integer.
-  Axiom upper_bound: forall d1 d2, to_integer d1 d2 < 256.
+  Parameter to_integer: list type -> non_neg_integer.
+  Definition to_integer_4 (v: Hex4Digits) := let (_0, _1, _2, _3) := v in HexDigit.to_integer (_0 :: _1 :: _2 :: _3 :: nil).
+  Axiom upper_bound_2: forall d1 d2, to_integer (d1 :: d2 :: nil) < 256.
+  Axiom upper_bound_4: forall d1 d2 d3 d4, to_integer (d1 :: d2 :: d3 :: d4 :: nil) < Pos.to_nat 65536.
 End HexDigit.
 Notation HexDigit := HexDigit.type.
+Notation Hex4Digits := HexDigit.Hex4Digits.
 Instance eqdec_HexDigit: EqDec HexDigit := HexDigit.eq_dec.
 
 Module AsciiLetter.
@@ -19,6 +23,13 @@ Module AsciiLetter.
 End AsciiLetter.
 Notation AsciiLetter := AsciiLetter.type.
 Instance eqdec_AsciiLetter: EqDec AsciiLetter := AsciiLetter.eq_dec.
+
+Module Unicode.
+  (** TODO: Follow the spec more closely *)
+  Definition utf16SurrogatePair (lead trail: non_neg_integer): non_neg_integer :=
+    (* Let cp be (lead - 0xD800) × 0x400 + (trail - 0xDC00) + 0x10000. *)
+    (lead - (Pos.to_nat 0xD800))*(Pos.to_nat 0x400) + (trail - (Pos.to_nat 0xDC00)) + (Pos.to_nat 0x10000).
+End Unicode.
 
 Module CharSet.
   Class class (type: Type) := make {
@@ -82,7 +93,7 @@ Module Character.
     canonicalize: RegExp -> type -> type;
 
     numeric_pseudo_bij: forall c, from_numeric_value (numeric_value c) = c;
-    numeric_pseudo_bij2: forall n, n < Pos.to_nat 65536 -> numeric_value (from_numeric_value n) = n;
+    numeric_round_trip_order: forall l r, l <= r -> (numeric_value (from_numeric_value l)) <= (numeric_value (from_numeric_value r));
 
     set_type: CharSet.class type;
 
@@ -92,6 +103,10 @@ Module Character.
     digits: list type;
     white_spaces: list type;
     ascii_word_characters: list type;
+
+    unicode_property: Type;
+    unicode_property_eqdec: EqDec unicode_property;
+    code_points_for: unicode_property -> list type;
   }.
 
   Lemma numeric_inj `{class}: forall c c', numeric_value c = numeric_value c' -> c = c'.
@@ -104,6 +119,7 @@ End Character.
 Notation CharacterInstance := @Character.class.
 Notation CharSet := (@CharSet.set_type _ Character.set_type).
 Notation Character := Character.type.
+Notation UnicodeProperty := Character.unicode_property.
 
 Instance eqdec_Character `{ci: CharacterInstance}: EqDec Character := Character.eq_dec.
 

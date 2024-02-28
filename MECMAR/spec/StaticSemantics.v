@@ -1,5 +1,5 @@
 From Coq Require Import PeanoNat List Bool.
-From Warblre Require Import Result List Base Result Patterns Coercions Typeclasses.
+From Warblre Require Import Result List Base Result Patterns Characters Coercions Typeclasses.
 
 Import Coercions.
 Import Result.Notations.
@@ -40,6 +40,13 @@ Section StaticSemantics.
     result.
 
   (** 22.2.1.6 Static Semantics: CharacterValue *)
+  Definition characterValue_Hex4Digits (self: Hex4Digits): non_neg_integer :=
+    (** HexLeadSurrogate :: Hex4Digits *)
+    (** HexTrailSurrogate :: Hex4Digits *)
+    (** HexNonSurrogate :: Hex4Digits *)
+    (* Return the MV of Hex4Digits. *)
+    HexDigit.to_integer_4 self.
+
   Definition characterValue {F: Type} {_: Result.AssertionError F} (self: ClassAtom): Result non_neg_integer F := match self with
   (** ClassAtomNoDash :: SourceCharacter *)
   | SourceCharacter chr =>
@@ -83,10 +90,10 @@ Section StaticSemantics.
       (* 1. Return the numeric value of U+0000 (NULL). *)
       Character.numeric_value Characters.NULL
 
-  (* CharacterEscape :: HexEscapeSequence *)
+  (** CharacterEscape :: HexEscapeSequence *)
   | ClassEsc (CCharacterEsc (HexEscape d1 d2)) =>
       (* 1. Return the MV of HexEscapeSequence. *)
-      HexDigit.to_integer d1 d2
+      HexDigit.to_integer (d1 :: d2 :: nil)
 
   (** CharacterEscape :: IdentityEscape *)
   | ClassEsc (CCharacterEsc (IdentityEsc chr)) =>
@@ -95,6 +102,27 @@ Section StaticSemantics.
       (* 2. Return the numeric value of ch. *)
       Character.numeric_value ch
 
+  (** RegExpUnicodeEscapeSequence :: u HexLeadSurrogate \u HexTrailSurrogate *)
+  | ClassEsc (CCharacterEsc (UnicodeEsc (Pair head tail))) =>
+    (* 1. Let lead be the CharacterValue of HexLeadSurrogate. *)
+    let lead := characterValue_Hex4Digits head in
+    (* 2. Let trail be the CharacterValue of HexTrailSurrogate. *)
+    let trail := characterValue_Hex4Digits tail in
+    (* 3. Let cp be UTF16SurrogatePairToCodePoint(lead, trail). *)
+    let cp := Unicode.utf16SurrogatePair lead trail in
+    (* 4. Return the numeric value of cp. *)
+    cp
+
+  (** RegExpUnicodeEscapeSequence :: u Hex4Digits *)
+  | ClassEsc (CCharacterEsc (UnicodeEsc (Lonely hex))) =>
+    (* 1. Return the MV of Hex4Digits. *)
+    characterValue_Hex4Digits hex
+
+  (** RegExpUnicodeEscapeSequence :: u{ CodePoint } *)
+  | ClassEsc (CCharacterEsc (UnicodeEsc (CodePoint c))) => 
+    (* Return the MV of CodePoint. *)
+    Character.numeric_value c
+
   | ClassEsc (CCharacterClassEsc esc) => match esc with
     | esc_d => Result.assertion_failed
     | esc_D => Result.assertion_failed
@@ -102,6 +130,8 @@ Section StaticSemantics.
     | esc_S => Result.assertion_failed
     | esc_w => Result.assertion_failed
     | esc_W => Result.assertion_failed
+    | UnicodeProp _ => Result.assertion_failed
+    | UnicodePropNeg _ => Result.assertion_failed
     end
   end.
 

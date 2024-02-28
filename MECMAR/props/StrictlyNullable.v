@@ -565,3 +565,4 @@ Proof.
   simpl in SUBSTAR. rewrite PeanoNat.Nat.add_0_r in SUBSTAR.
   unfold repeatMatcher. rewrite SUBSTAR. auto.
 Qed.
+End StriclyNullable.

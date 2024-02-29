@@ -837,49 +837,6 @@ Module Correctness.
       exists y,
         MatchState.Valid (MatchState.input x) rer y /\ progress dir x (Success (Some y)) /\ c y = out_of_fuel.
     Proof.
-      (* The 'recursive' case (i.e. when min is not zero or the endIndex is different from last iteration) *)
-  (*     assert (forall x s c str fuel dir m min max greedy groups,
-        MatchState.Valid str x ->
-        List.Updating.batch_updating (MatchState.captures x) groups None = Success s ->
-        TerminatingMatcher str m dir ->
-        (forall dir m min max greedy groups,
-          TerminatingMatcher str m dir ->
-          TerminatingMatcher str (Definitions.RepeatMatcher.matcher m min max greedy groups fuel) dir) ->
-        (m (match_state (MatchState.input x) (MatchState.endIndex x) s)
-          (Definitions.RepeatMatcher.continuation x c m min max greedy groups fuel) = out_of_fuel) ->
-        exists y : MatchState,
-          MatchState.Valid str y /\ progress dir x (Success (Some y)) /\ c y = out_of_fuel
-      ) as Rec. {
-        intros x s c str fuel dir m min max greedy groups V_x Eq_s Tm IH Eq_rec.
-        apply Tm in Eq_rec; try Progress.solve. destruct Eq_rec as [ y [ Vy [ P_x_y Eq_rec ] ] ].
-        (focus § _ [] _ § auto destruct in Eq_rec). boolean_simplifier.
-        destruct (PeanoNat.Nat.eq_dec min 0).
-        - assert(FD: fuelBound 0 y dir <= fuel). {
-            (focus § _ [] _ § do (fun t => apply fuelDecreases_progress with (str := str) (x := t)) in P_x_y); try Progress.solve.
-            MatchState.normalize. spec_reflector Z.eqb_spec. congruence.
-          }
-          admit.
-        - assert(FD: fuelBound (min - 1) y dir <= fuel). {
-            apply fuelDecreases_min with (min := min) (x := x); try Progress.solve.
-            + lia.
-            + admit.
-          }
-          admit.
-          (* specialize IH with (1 := FD) (2 := Vy) (3 := Tm) (4 := Eq_rec). clear Eq_rec.
-          destruct IH as [ z [ Vz [ Pyz Falsum ] ] ].
-          search. *)
-        
-        (*unfold TerminatingMatcher in Tm, IH.
-        specialize IH with (1 := Tm).
-        focus § _ (_ _ []) _ § remember as d in Eq_rec.
-        specialize HCm with (2 := Eq_rec).
-        fforward HCm as [ y0 [ Vy0 [ Pxy0 Eq_dy0 ]] ] by MatchState.solve.
-        rewrite -> Heqd in Eq_dy0. unfold Definitions.RepeatMatcher.continuation in Eq_dy0.
-        focus § _ [] _ § auto destruct in Eq_dy0.
-        specialize IH with (2 := Eq_dy0). fforward IH as [ y1 [ Vy1 [ Py0y1 Eq_cy1 ]]].
-        search.*)
-      } *)
-    
       induction fuel; intros m min max greedy parenIndex parenCount x c dir rer Ineq_fuel Vx Tm Falsum.
       - clear -Ineq_fuel. unfold fuelBound, remainingChars in *. lia.
       - cbn in Falsum.
@@ -1111,45 +1068,6 @@ Module Correctness.
       subst. discriminate.
     Qed.
 
-    (*From Coq Require Import Logic.FunctionalExtensionality.
-    Definition TerminatingContinuation (c: MatcherContinuation) :=
-      forall x, c x <> out_of_fuel.
-    Lemma repeatMatcher_fuelWeakening: forall fuelL fuelH (m: Matcher) min max greedy captures x c dir str, fuelL <= fuelH ->
-      TerminatingMatcher str m dir -> IntermediateValue.HonoresContinuation str m dir -> TerminatingContinuation c ->
-      Semantics.repeatMatcher' m min max greedy x c captures fuelL <> out_of_fuel -> 
-      Semantics.repeatMatcher' m min max greedy x c captures fuelH = Semantics.repeatMatcher' m min max greedy x c captures fuelL.
-    Proof.
-      induction fuelL; intros fuelH m min max greedy captures x c dir INEQ_fuel Tm Hm Tc Tl; [ easy | ].
-      apply Nat.lt_exists_pred in INEQ_fuel. destruct INEQ_fuel as [ fuelH' [ EQ_fuelH INEQ_fuel ] ].
-      subst. rename fuelH' into fuelH.
-      cbn in Tl |- *.
-      (focus § _ (_ [] _) § auto destruct in Tl); try easy.
-      - (* How to go from Tl to the hypothesis of IHfuelL? *)
-        (* We are in the case min > 0, i.e. we need to eat *)
-        (focus § _ (_ [] _) § do (fun t => destruct t eqn:Eq in Tl) in Tl).
-        + (* pose proof Eq as Eq'.
-          apply Hm in Eq. destruct Eq as [ y [Pxy Eq] ].
-          (focus § _ [] _ § auto destruct in Eq).
-          focus § _ [] _ § do (fun t => assert (NEQ: t <> out_of_fuel) by congruence) in Eq.
-          specialize IHfuelL with (1 := INEQ_fuel) (2 := Tm) (3 := Hm) (4 := Tc) (5 := NEQ).
-          rewrite -> Eq'. rewrite <- Eq. rewrite <- IHfuelL. *)
-          (* How does one show that y is the value privded to the continuation? *)
-          f_equal. apply functional_extensionality. intros y.
-          (focus § _ [] _ § auto destruct); try easy.
-          apply IHfuelL with (dir := dir); try assumption.
-          (* Intermediate value doesn't help; we have no way of connecting it to y *)
-          admit.
-        + destruct f; try easy.
-          (*  If m was systematically failing, this could hide termination issues in its continuation,
-                which must terminate in order to apply the IH *)
-          admit.
-      - admit.
-      - (focus § _ (_ [] _) § do (fun t => destruct t eqn:Eq in Tl) in Tl).
-        + admit.
-        + admit.
-      - admit.
-      - admit.
-    Abort.*)
   End main. End Termination.
 
   Section MatcherInvariant.

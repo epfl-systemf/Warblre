@@ -1,5 +1,5 @@
 {
-  description = "A very basic flake";
+  description = "A mechanization of the ECMAScript specification of regexes.";
 
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/3cb4ae6689d2aa3f363516234572613b31212b78";
@@ -21,12 +21,10 @@
                 ocamlPackages.ocamlformat
                 ocamlPackages.ocaml-lsp
                 ocamlPackages.findlib
-                ocamlPackages.ppx_assert
                 ocamlPackages.ppx_expect
                 ocamlPackages.menhir
                 ocamlPackages.yojson
                 ocamlPackages.integers
-                ocamlPackages.uutf
                 ocamlPackages.uucp
                 ocamlPackages.ansiterminal
 

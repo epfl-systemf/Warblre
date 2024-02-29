@@ -3,4 +3,4 @@
  (libraries Warblre)
  (inline_tests)
  (preprocess
-  (pps ppx_assert ppx_expect)))
+  (pps ppx_expect)))

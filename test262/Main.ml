@@ -2,7 +2,7 @@ open Warblre.Extracted.ECMA
 
 let find_field ls name = let (_, r) = List.find (fun (n, _) -> String.equal n name) ls in r
 
-let warblre_exec (type a) regex (input: a list) (p: a -> int) : Yojson.Safe.t =
+let warblre_exec (type a) regex (input: a list) unicode (p: a -> int) : Yojson.Safe.t =
   let string_to_json str = `Assoc (("data", `List (List.map (fun i -> `Int (p i)) str)) :: ("isString", `Bool true) :: []) in
   let make_exotic ls = `Assoc (("exotic", `Assoc ls) :: ("isExotic", `Bool true) :: []) in
 
@@ -34,8 +34,8 @@ let warblre_exec (type a) regex (input: a list) (p: a -> int) : Yojson.Safe.t =
     add current name value
   in
 
-  
-  match coq_RegExpExec regex (Obj.magic input) with
+  let res = (if unicode then Warblre.Extracted.ECMA_u.coq_RegExpExec regex (Obj.magic input)  else Warblre.Extracted.ECMA.coq_RegExpExec regex (Obj.magic input)) in
+  match res with
   | Warblre.Extracted.Result.Success (Null regex_new) ->
     `Assoc (("lastIndex", `Int (regex_new.lastIndex) ) :: ("result", `Null) :: [])
   | Warblre.Extracted.Result.Success (Exotic (a, regex_new)) ->
@@ -84,7 +84,7 @@ let () =
             let input = Warblre.Interop.Utf16.clean_utf16 input in
             
             let regex = RegexpTree.Utf16.json_to_regex ast index in
-            warblre_exec regex input Warblre.Interop.Utf16.char_to_int)
+            warblre_exec regex input false Warblre.Interop.Utf16.char_to_int)
 
           else (
             let input = List.map (fun e -> match e with
@@ -93,7 +93,7 @@ let () =
             ) raw_input in
             
             let regex = RegexpTree.Unicode.json_to_regex ast index in
-            warblre_exec regex input Warblre.Interop.Unicode.char_to_int)
+            warblre_exec regex input true Warblre.Interop.Unicode.char_to_int)
           in
           write_output (to_string res))
 

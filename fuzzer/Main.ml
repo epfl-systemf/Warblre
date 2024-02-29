@@ -27,7 +27,7 @@ let max_string = 100
 let max_depth = 50
 
 (* number of tests the fuzzer does *)
-let max_tests = 100
+let max_tests = 2000
 
 
 (** * JS Regex pretty-printing *)
@@ -461,7 +461,7 @@ let random_regex (): coq_Regex =
 
 (* generates random flags *)
 let random_flags () : coq_RegExpFlags =
-  { d=Random.bool();
+  { d=false;
     g=Random.bool();
     i=Random.bool();
     m=Random.bool();
@@ -504,6 +504,30 @@ let fuzzer () : unit =
 
 
 let () =
+  (* let rgx: coq_Regex = 
+    Quantified (
+      Quantified (
+        Group (None, Quantified (
+          (Disjunction ((Group( None, AtomEsc (DecimalEsc 2)), Empty))),
+          Greedy (Plus)
+        )), Greedy (RepRange (8, 16))),
+        Greedy (RepExact 6))
+  in 
+  let flags: coq_RegExpFlags = {
+    d=false;
+    g=false;
+    i=false;
+    m=false;
+    s=false;
+    u=false;                    (* unsupported for now *)
+    v=false;                    (* unsupported for now *)
+    y=false;
+  }
+  in
+  let lastindex = 0 in 
+  let str = "-bbabaa" in
+  let f = Exec in
+  compare_engines rgx flags lastindex str f *)
   Random.self_init();
   fuzzer();
 

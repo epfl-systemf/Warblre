@@ -123,6 +123,10 @@ Module List.
         indexing ls i = Result.Failure f -> indexing ls i = Result.assertion_failed.
       Proof. intros ls i f H. pose proof (failure_is_assertion ls i f H) as [=]. Result.assertion_failed_helper. Qed.
 
+      Lemma failure_rewrite {T F: Type} {_: Result.AssertionError F}: forall (ls: list T) (i: nat) (f: F),
+        indexing ls i = Result.Failure f -> indexing ls i = Result.assertion_failed /\ @Result.Failure T F f = Result.assertion_failed.
+      Proof. intros ls i f H. pose proof (failure_is_assertion ls i f H) as [=]. Result.assertion_failed_helper. Qed.
+
       Lemma failure_bounds0 {T F: Type} {f: Result.AssertionError F}: forall (ls: list T) (i: nat), @indexing T F f ls i = Result.assertion_failed <-> (length ls <= i )%nat.
       Proof.
         destruct f as [f]. intros ls i. rewrite <- nth_error_None.
@@ -224,6 +228,10 @@ Module List.
 
       Lemma failure_kind {T F: Type} {_: Result.AssertionError F}: forall (ls: list T) (i: Z) (f: F),
         indexing ls i = Result.Failure f -> indexing ls i = Result.assertion_failed.
+      Proof. intros ls i f H. pose proof (failure_is_assertion ls i f H) as [=]. Result.assertion_failed_helper. Qed.
+
+      Lemma failure_rewrite {T F: Type} {_: Result.AssertionError F}: forall (ls: list T) (i: Z) (f: F),
+        indexing ls i = Result.Failure f -> indexing ls i = Result.assertion_failed /\ @Result.Failure T F f = Result.assertion_failed.
       Proof. intros ls i f H. pose proof (failure_is_assertion ls i f H) as [=]. Result.assertion_failed_helper. Qed.
 
       Lemma failure_bounds0 {T F: Type} {f: Result.AssertionError F}: forall (ls: list T) (i: Z), @indexing T F f ls i = Result.assertion_failed <-> (i < 0 \/ (Z.of_nat (length ls)) <= i )%Z.

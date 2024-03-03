@@ -140,4 +140,14 @@ Section Compile.
       rewrite <- (Zipper.Zip.id r) in H0.
       exfalso. apply (compileSubPattern _ _ _ _ H0 H1 AutoDest_).
     Qed.
+
+    Theorem compilePattern_success: forall r rer,
+      countLeftCapturingParensWithin r nil = RegExp.capturingGroupsCount rer ->
+      EarlyErrors.Pass_Regex r nil ->
+      exists m, Semantics.compilePattern r rer = Success m.
+    Proof.
+      intros. destruct (Semantics.compilePattern r rer) as [ | [ ] ] eqn:Eq.
+      - exists s. reflexivity.
+      - pose proof (compilePattern r rer) as Falsum. fforward Falsum. contradiction.
+    Qed.
 End Compile.

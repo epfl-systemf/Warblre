@@ -2,7 +2,7 @@
   description = "A mechanization of the ECMAScript specification of regexes.";
 
   inputs = {
-    nixpkgs.url = "github:nixos/nixpkgs/3cb4ae6689d2aa3f363516234572613b31212b78";
+    nixpkgs.url = "github:nixos/nixpkgs/219951b495fc2eac67b1456824cc1ec1fd2ee659";
     flake-utils.url = "github:numtide/flake-utils";
   };
 

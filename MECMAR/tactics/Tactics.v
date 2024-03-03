@@ -139,6 +139,8 @@ Ltac goal_reflector := repeat match goal with
   | [ |- _ && _ = true ] => apply andb_true_intro; split
   end.
 
+Ltac reflect_all := hypotheses_reflector; goal_reflector.
+
 Ltac introduce H := let H' := fresh H in pose proof H as H'.
 
 Ltac reflector_base_0 spec := progress repeat (

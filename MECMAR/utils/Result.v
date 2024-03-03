@@ -30,6 +30,13 @@ Module Result.
     let (f) := failure in
     Failure f.
 
+  Ltac inject_all := repeat match goal with
+  | [ H: Success _ = Success _ |- _ ] => injection H as H
+  | [ H: Failure _ = Failure _ |- _ ] => injection H as H
+  | [ _: Success _ = Failure _ |- _ ] => discriminate
+  | [ _: Failure _ = Success _ |- _ ] => discriminate
+  end.
+
   Ltac assertion_failed_helper := repeat
   (   unfold Result.assertion_failed in *
   ||  match goal with

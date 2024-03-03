@@ -183,7 +183,7 @@ Section Zipper.
   | Lookbehind_inner
   | NegativeLookbehind_inner.
   Notation RegexContext := (list RegexContextLayer).
-  Definition RegexNode: Type := Regex * RegexContext.
+  Notation RegexNode := (Regex * RegexContext)%type.
 
   Definition zip_one (focus: Regex) (ctx: RegexContextLayer) := match ctx with
   | Disjunction_left r => Disjunction focus r
@@ -204,7 +204,7 @@ Section Zipper.
     | h :: t => zip (zip_one focus h) t
     end.
 
-  Definition Root (r f: Regex) (ctx: RegexContext) := r = zip f ctx.
+  Definition Root (root: Regex) (r: RegexNode) := root = zip (fst r) (snd r).
 
   Section EqDec.
     #[export] #[refine] Instance eqdec_RegexContextLayer: EqDec RegexContextLayer := {}.
@@ -221,10 +221,10 @@ Module Zipper.
   Module Root. Section main.
     Context `{CharacterInstance}.
 
-    Lemma id: forall r, Root r r nil.
+    Lemma id: forall r, Root r (r, nil).
     Proof. intros. reflexivity. Qed.
 
-    Lemma nil: forall r r', Root r r' nil -> r = r'.
+    Lemma nil: forall r r', Root r (r', nil) -> r = r'.
     Proof. intros. unfold Root in H. cbn in H. assumption. Qed.
   End main. End Root.
 
@@ -276,13 +276,13 @@ Module Zipper.
   Module Down. Section main.
     Context `{ci: CharacterInstance}.
 
-    Lemma same_root: forall root r0 ctx0 r1 ctx1, Down (r0, ctx0) (r1, ctx1) -> (Root root r0 ctx0 <-> Root root r1 ctx1).
+    Lemma same_root: forall root r0 ctx0 r1 ctx1, Down (r0, ctx0) (r1, ctx1) -> (Root root (r0, ctx0) <-> Root root (r1, ctx1)).
     Proof. unfold Root. intros. dependent destruction H; cbn; easy. Qed.
 
-    Lemma same_root_down0: forall root r0 ctx0 r1 ctx1, Down (r0, ctx0) (r1, ctx1) -> Root root r1 ctx1 -> Root root r0 ctx0.
+    Lemma same_root_down0: forall root r0 ctx0 r1 ctx1, Down (r0, ctx0) (r1, ctx1) -> Root root (r1, ctx1) -> Root root (r0, ctx0).
     Proof. intros. rewrite -> (same_root _ _ _ _ _ ltac:(eassumption)). assumption. Qed.
 
-    Lemma same_root_down: forall root r0 ctx0 r1 ctx1, Down* (r0, ctx0) (r1, ctx1) -> Root root r1 ctx1 -> Root root r0 ctx0.
+    Lemma same_root_down: forall root r0 ctx0 r1 ctx1, Down* (r0, ctx0) (r1, ctx1) -> Root root (r1, ctx1) -> Root root (r0, ctx0).
     Proof.
       intros root r0 ctx0 r1 ctx1 D R_root. dependent induction D.
       - eapply same_root_down0; eassumption.
@@ -291,7 +291,7 @@ Module Zipper.
         apply IHD1. apply IHD2. assumption.
     Qed.
 
-    Lemma root_is_top: forall root ctx r, Root root r ctx -> Down* (r, ctx) (root, nil).
+    Lemma root_is_top: forall root ctx r, Root root (r, ctx) -> Down* (r, ctx) (root, nil).
     Proof.
       intros root. induction ctx; intros r Root.
       - apply Root.nil in Root. subst. apply Relation_Operators.rt_refl.
@@ -321,10 +321,10 @@ Module Zipper.
       pose proof (List.mutual_prefixes _ _ _ _ Eq_01 Eq_10) as <-. clear Eq_01 Eq_10 ext01 ext10.
 
       remember (zip r0 ctx0) as root eqn:Eq_root.
-      assert (Root root r0 ctx0) as Root_0 by (subst; reflexivity). clear Eq_root.
+      assert (Root root (r0, ctx0)) as Root_0 by (subst; reflexivity). clear Eq_root.
       pose proof (same_root_down _ _ _ _ _ D10 Root_0) as Root_1.
       unfold Root in *. rewrite -> Root_1 in Root_0.
-      pose proof (Zip.focus_injection _ _ _ Root_0). subst.
+      pose proof (Zip.focus_injection _ _ _ Root_0). cbn in *. subst.
       reflexivity.
     Qed.
   End main. End Down.
@@ -478,4 +478,58 @@ Module Zipper.
     Qed.
   End main. End Walk.
 End Zipper.
+
+Section Induction.
+    Context `{ci: CharacterInstance}.
+    Import Patterns.
+    Print Regex_ind.
+
+    Lemma Node_ind: forall root (P : (Regex * RegexContext) -> Prop),
+      (forall ctx, 
+        Root root (Empty, ctx) -> P (Empty, ctx)) ->
+      (forall ctx chr,
+        Root root ((Char chr), ctx) -> P ((Char chr), ctx)) ->
+      (forall ctx,
+        Root root (Dot, ctx) -> P (Dot, ctx)) ->
+      (forall ctx ae,
+        Root root ((AtomEsc ae), ctx) -> P ((AtomEsc ae), ctx)) ->
+      (forall ctx cc,
+        Root root ((CharacterClass cc), ctx) -> P ((CharacterClass cc), ctx)) ->
+      (forall ctx r1 r2,
+        Root root (r1, Disjunction_left r2 :: ctx) -> P (r1, Disjunction_left r2 :: ctx) ->
+        Root root (r2, Disjunction_right r1 :: ctx) -> P (r2, Disjunction_right r1 :: ctx) ->
+        Root root (Disjunction r1 r2, ctx) -> P (Disjunction r1 r2, ctx)) ->
+      (forall ctx r q,
+        Root root (r, Quantified_inner q :: ctx) -> P (r, Quantified_inner q :: ctx) ->
+        Root root (Quantified r q, ctx) -> P (Quantified r q, ctx)) ->
+      (forall ctx r1 r2,
+        Root root (r1, Seq_left r2 :: ctx) -> P (r1, Seq_left r2 :: ctx) ->
+        Root root (r2, Seq_right r1 :: ctx) -> P (r2, Seq_right r1 :: ctx) ->
+        Root root (Seq r1 r2, ctx) -> P (Seq r1 r2, ctx)) ->
+      (forall ctx name r,
+        Root root (r, Group_inner name :: ctx) -> P (r, Group_inner name :: ctx) ->
+        Root root (Group name r , ctx) -> P (Group name r , ctx)) ->
+      (forall ctx,
+        Root root (InputStart, ctx) -> P (InputStart, ctx)) ->
+      (forall ctx,
+        (Root root (InputEnd, ctx) -> P (InputEnd, ctx))) ->
+      (forall ctx,
+        (Root root (WordBoundary, ctx) -> P (WordBoundary, ctx))) ->
+      (forall ctx,
+        (Root root (NotWordBoundary, ctx) -> P (NotWordBoundary, ctx))) ->
+      (forall ctx r,
+        Root root (r, Lookahead_inner :: ctx) -> P (r, Lookahead_inner :: ctx) ->
+        Root root (Lookahead r, ctx) -> P (Lookahead r, ctx)) ->
+      (forall ctx r,
+        Root root (r, NegativeLookahead_inner :: ctx) -> P (r, NegativeLookahead_inner :: ctx) ->
+        Root root (NegativeLookahead r, ctx) -> P (NegativeLookahead r, ctx)) ->
+      (forall ctx r,
+        Root root (r, Lookbehind_inner :: ctx) -> P (r, Lookbehind_inner :: ctx) ->
+        Root root (Lookbehind r, ctx) -> P (Lookbehind r, ctx)) ->
+      (forall ctx r,
+        Root root (r, NegativeLookbehind_inner :: ctx) -> P (r, NegativeLookbehind_inner :: ctx) ->
+        Root root (NegativeLookbehind r, ctx) -> P (NegativeLookbehind r, ctx)) ->
+      forall r ctx, Root root (r, ctx) -> P (r, ctx).
+    Proof. induction r; try eauto. Qed.
+End Induction.
 

@@ -80,11 +80,11 @@ Section EarlyErrors.
   | Pass_NegativeLookbehind: forall r ctx, Pass_Regex r (NegativeLookbehind_inner :: ctx) -> Pass_Regex (Patterns.NegativeLookbehind r) ctx.
 
   Lemma countLeftCapturingParensBefore_contextualized: forall ctx f r,
-    Root r f ctx ->
+    Root r (f, ctx) ->
     Pass_Regex r nil ->
     (countLeftCapturingParensBefore f ctx) + (countLeftCapturingParensWithin f ctx) <= countLeftCapturingParensWithin r nil.
   Proof.
-    unfold Root.
+    unfold Root; cbn.
     induction ctx; intros f r R_r EEP_r.
     - rewrite -> Zipper.Zip.id in R_r. subst. cbn. lia.
     - unfold countLeftCapturingParensBefore,countLeftCapturingParensWithin in *.
@@ -356,7 +356,7 @@ Section EarlyErrors.
               | _, _ => Success false
               end))
           = @Success _ SyntaxError false ->
-      Root root r ctx ->
+      Root root (r, ctx) ->
       earlyErrors_rec r ctx = Success false ->
       Pass_Regex r ctx.
     Proof.

@@ -367,11 +367,11 @@ Module Semantics. Section main.
     let d: MatcherContinuation := fun (y: MatchState) =>
       (* a. Assert: y is a MatchState. *)
       (* b. If min = 0 and y's endIndex = x's endIndex, return failure. *)
-      if (min =? 0)%nat && (MatchState.endIndex y =? MatchState.endIndex x)%Z
+      if (min == 0)%nat && (MatchState.endIndex y =? MatchState.endIndex x)%Z
         then failure else
       (* c. If min = 0, let min2 be 0; otherwise let min2 be min - 1. *)
       let min2 :=
-        if (min =? 0)%nat then 0
+        if (min == 0)%nat then 0
         else min - 1
       in
       (* d. If max = +∞, let max2 be +∞; otherwise let max2 be max - 1. *)
@@ -401,7 +401,7 @@ Module Semantics. Section main.
       (* a. Let z be c(x). *)
       let! z =<< c x in
       (* b. If z is not failure, return z. *)
-      if z is not failure
+      if z != failure
         then z else
       (* c. Return m(xr, d).*)
       m xr d
@@ -409,7 +409,7 @@ Module Semantics. Section main.
     (* 10. Let z be m(xr, d). *)
     let! z =<< m xr d in
     (* 11. If z is not failure, return z. *)
-    if z is not failure
+    if z != failure
       then z else
     (* 12. Return c(x). *)
     c x
@@ -434,7 +434,7 @@ Module Semantics. Section main.
         (* c. Let r be m1(x, c). *)
         let! r =<< m1 x c in
         (* d. If r is not failure, return r. *)
-        if r is not failure then
+        if r != failure then
           r
         else
         (* e. Return m2(x, c). *)
@@ -585,7 +585,7 @@ Module Semantics. Section main.
           (* d. Let r be m(x, d). *)
           let! r =<< m x d in
           (* e. If r is failure, return failure. *)
-          if r is failure then
+          if r == failure then
             failure
           else
           (* f. Let y be r's MatchState. *)
@@ -618,7 +618,7 @@ Module Semantics. Section main.
           (* d. Let r be m(x, d). *)
           let! r =<< m x d in
           (* e. If r is not failure, return failure. *)
-          if r is not failure then
+          if r != failure then
             failure
           else
           c x): Matcher
@@ -640,7 +640,7 @@ Module Semantics. Section main.
           (* d. Let r be m(x, d). *)
           let! r =<< m x d in
           (* e. If r is failure, return failure. *)
-          if r is failure then
+          if r == failure then
             failure
           else
           (* f. Let y be r's MatchState. *)
@@ -673,7 +673,7 @@ Module Semantics. Section main.
           (* d. Let r be m(x, d). *)
           let! r =<< m x d in
           (* e. If r is not failure, return failure. *)
-          if r is not failure then
+          if r != failure then
             failure
           else
           c x): Matcher

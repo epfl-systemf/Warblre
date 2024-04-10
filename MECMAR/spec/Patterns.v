@@ -482,7 +482,6 @@ End Zipper.
 Section Induction.
     Context `{ci: CharacterInstance}.
     Import Patterns.
-    Print Regex_ind.
 
     Lemma Node_ind: forall root (P : (Regex * RegexContext) -> Prop),
       (forall ctx, 

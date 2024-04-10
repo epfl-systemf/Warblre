@@ -1,9 +1,9 @@
 From Coq Require Import Bool ZArith.
 From Warblre Require Import Tactics Specialize Focus Result Base Patterns StaticSemantics Notation Semantics Coercions.
-Import Result.Notations.
 
+Import Result.Notations. Local Open Scope result_flow.
 Import Coercions.
-  Import Notation.
+Import Notation.
 
 (* Notation for MatchStates which goes nicely with the normalization tactic *)
 Notation "s '[@' n '$' c ']'" := (match_state s n c) (at level 50, left associativity).
@@ -28,36 +28,56 @@ Module Definitions.
     Definition continuation `{CharacterInstance} (x: MatchState) (c: MatcherContinuation) (m: Matcher) (min: non_neg_integer) (max: non_neg_integer_or_inf) 
       (greedy: bool) (parenIndex parenCount: non_neg_integer) (fuel: nat): MatcherContinuation :=
         fun y : MatchState =>
-          if (min =? 0) && (MatchState.endIndex y =? MatchState.endIndex x)%Z
+          if (min == 0) && (MatchState.endIndex y =? MatchState.endIndex x)%Z
           then None
           else
-           Semantics.repeatMatcher' m (if min =? 0 then 0 else min - 1)
+           Semantics.repeatMatcher' m (if min == 0 then 0 else min - 1)
              (if (max =? +∞)%NoI then +∞ else (max - 1)%NoI) greedy y c parenIndex parenCount fuel.
   End RepeatMatcher.
 
   Module PositiveLookaround.
     Definition matcher `{CharacterInstance} (m: Matcher): MatchState -> MatcherContinuation -> MatchResult :=
       fun (x : MatchState) (c : MatcherContinuation) =>
-       match m x (fun y : MatchState => (Success (Some y))) with
-       | Success v =>
-           if v is not (Some _)
-           then Success None
-           else
-            match v with
-            | Some y =>
-                c (match_state (MatchState.input x) (MatchState.endIndex x) (MatchState.captures y))
-            | None => match_assertion_failed
-            end
-       | Failure f => Failure f
-       end.
+        let d: MatcherContinuation := fun y => y in
+        let! r =<< m x d in
+        if r == failure then failure
+        else
+        destruct! (Some y) <- r in
+        let cap := MatchState.captures y in
+        let input := MatchState.input x in
+        let xe := MatchState.endIndex x in
+        let z := match_state input xe cap in
+        c z.
+
+    (* Check this definition *)
+    Lemma lookahead_correctness `{CI: CharacterInstance}: forall r ctx rer dir m,
+      Semantics.compileSubPattern r (Lookahead_inner :: ctx) rer forward = Success m ->
+      Semantics.compileSubPattern (Patterns.Lookahead r) ctx rer dir = Success (matcher m).
+    Proof. intros ? ? ? ? ? H. cbn. rewrite -> H. reflexivity. Qed.
+    Lemma lookbehind_correctness `{CI: CharacterInstance}: forall r ctx rer dir m,
+      Semantics.compileSubPattern r (Lookbehind_inner :: ctx) rer backward = Success m ->
+      Semantics.compileSubPattern (Patterns.Lookbehind r) ctx rer dir = Success (matcher m).
+    Proof. intros ? ? ? ? ? H. cbn. rewrite -> H. reflexivity. Qed.
+
   End PositiveLookaround.
 
   Module NegativeLookaround.
     Definition matcher `{CharacterInstance} (m: Matcher): MatchState -> MatcherContinuation -> MatchResult :=
       fun (x : MatchState) (c : MatcherContinuation) =>
-       match m x (fun y : MatchState => (Success (Some y))) with
-       | Success v => if v is not None then Success None else c x
-       | Failure f => Failure f
-       end.
+        let d: MatcherContinuation := fun y => y in
+        let! r =<< m x d in
+        if r != failure then failure
+        else
+        c x.
+
+    (* Check this definition *)
+    Lemma negativeLookahead_correctness `{CI: CharacterInstance}: forall r ctx rer dir m,
+      Semantics.compileSubPattern r (NegativeLookahead_inner :: ctx) rer forward = Success m ->
+      Semantics.compileSubPattern (Patterns.NegativeLookahead r) ctx rer dir = Success (matcher m).
+    Proof. intros ? ? ? ? ? H. cbn. rewrite -> H. reflexivity. Qed.
+    Lemma negativeLookbehind_correctness `{CI: CharacterInstance}: forall r ctx rer dir m,
+      Semantics.compileSubPattern r (NegativeLookbehind_inner :: ctx) rer backward = Success m ->
+      Semantics.compileSubPattern (Patterns.NegativeLookbehind r) ctx rer dir = Success (matcher m).
+    Proof. intros ? ? ? ? ? H. cbn. rewrite -> H. reflexivity. Qed.
   End NegativeLookaround.
 End Definitions.

@@ -86,3 +86,8 @@ Module Result.
   End Notations.
 End Result.
 Export Result(Result, Success, Failure).
+
+From Warblre Require Import Typeclasses.
+#[refine] Instance eqdec_result {T F: Type} `{EqDec T} `{EqDec F}: EqDec (Result T F) := {}. decide equality; apply EqDec.eq_dec. Defined.
+
+

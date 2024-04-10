@@ -1,4 +1,4 @@
-From Warblre Require Import Result.
+From Warblre Require Import Typeclasses Result.
 
 Module SyntaxError.
   (* https://github.com/coq/coq/issues/7424 *)
@@ -13,6 +13,7 @@ Module CompileError.
   | AssertionFailed.
 End CompileError.
 Notation CompileError := CompileError.type.
+#[refine] Instance eqdec_compileError: EqDec CompileError := {}. decide equality. Defined.
 
 Module MatchError.
   Inductive type :=
@@ -20,6 +21,7 @@ Module MatchError.
   | AssertionFailed.
 End MatchError.
 Notation MatchError := MatchError.type.
+#[refine] Instance eqdec_matchError: EqDec MatchError := {}. decide equality. Defined.
 
 #[export]
 Instance syntax_assertion_error: Result.AssertionError SyntaxError := { f := SyntaxError.AssertionFailed }.
@@ -29,6 +31,5 @@ Instance compile_assertion_error: Result.AssertionError CompileError := { f := C
 Instance match_assertion_error: Result.AssertionError MatchError := { f := MatchError.AssertionFailed }.
 
 Notation compile_assertion_failed := (Failure CompileError.AssertionFailed).
-Notation failure := None (only parsing).
 Notation out_of_fuel := (Failure MatchError.OutOfFuel).
 Notation match_assertion_failed := (Failure MatchError.AssertionFailed).

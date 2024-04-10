@@ -477,7 +477,7 @@ The abstract operation MakeMatchIndicesIndexPairArray takes arguments S (a Strin
             (* c. Let r be matcher(input, inputIndex). *)
             let! r:(option MatchState) =<< matcher input inputIndex in
             (* d. If r is failure, then *)
-            if r is (failure) then
+            if r == (failure) then
               (* i. If sticky is true, then *)
               if sticky then
                 (* 1. Perform ? Set(R, "lastIndex", +0𝔽, true). *)

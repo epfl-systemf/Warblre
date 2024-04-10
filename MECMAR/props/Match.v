@@ -1,5 +1,5 @@
 From Coq Require Import PeanoNat ZArith Bool Lia Program.Equality List.
-From Warblre Require Import List Tactics Specialize Focus Result Base Patterns StaticSemantics Notation Semantics Definitions EarlyErrors Compile RegExp.
+From Warblre Require Import List Tactics Retrieve Specialize Focus Result Base Patterns StaticSemantics Notation Semantics Definitions EarlyErrors Compile RegExp.
 
 Import Result.Notations.
 Import Semantics.
@@ -9,13 +9,6 @@ Module Correctness.
   Import Patterns.
   Import Notation.
   Import Semantics.
-
-  Ltac clean := repeat
-  (   unfold wrap_option,CaptureRange_or_undefined in *
-  ||  lazymatch goal with
-      | [ Eq: Success _ = Success _ |-_] => injection Eq as Eq
-      end).
-
 
   (** Progress: We say that a MatchState (wrapped in Result) ry has progressed w.r.t to another MatchState x if:
       - ry = Success y, x and y share the same input string and either
@@ -191,7 +184,7 @@ Module Correctness.
           let Iterx := fresh "Iter_" endIndex in
           let VCL := fresh "VCL_" captures in
           let VCF := fresh "VCF_" captures in
-          destruct H as [ OI [ Iterx [ VCL VCF ]]]
+          destruct H as [ OI [ Iterx [ VCL VCF ]]]; rewrite <- OI in *; clear OI
         | [ |- Valid _ _ _ ] =>
           unfold Valid; split_conjs
 
@@ -315,72 +308,67 @@ Module Correctness.
     (* Solves the current goal by 1. normalizing progress 2. leveraging assumptions and reflexivity *)
     Ltac solve := solve [ normalize; solvers ].
 
-    Ltac saturate_step := normalize; match goal with
-    | [ H1: progress ?dir ?x (Success (Some ?y)), H2: progress ?dir ?y (Success ?z) |- _ ] =>
-      let H := fresh "ps_trans_" H1 H2 in
-      pose proof Progress.trans as H;
-      specialize H with (1 := H1) (2 := H2);
-      check_not_duplicated H
+    Local Ltac saturate_step dir x e := match goal with
+    | [ H: progress dir x (Success (Some e)) |- _ ] => apply H
+    | [ H1: progress dir x (Success (Some ?y)), H2: progress dir ?y (Success ?z) |- _ ] =>
+      lazymatch goal with
+      | [ _: progress dir x (Success (Some z)) |- _ ] => fail
+      | [ |- _ ] =>
+          let H := fresh "ps_trans_" H1 H2 in
+          pose proof (Progress.trans _ _ _ _ H1 H2) as H
+      end
     end.
 
     (* Saturates the progress hypotheses by transitivity. Then attemps to solve goals using assumptions and reflexivity. *)
-    Ltac saturate := repeat (normalize; saturate_step); normalize; try solvers.
+    Ltac saturate := normalize; match goal with
+    | [ |- progress ?dir ?x (Success (Some ?x)) ] => apply refl
+    | [ |- progress ?dir ?x (Success (Some ?y)) ] => repeat (saturate_step dir x y; normalize) (*; normalize; try solvers *)
+    end.
   End Progress.
 
 
   Module MatcherInvariant. Section main.
     Context `{ci: CharacterInstance}.
 
-    (* For all matcher m *)
-    Definition matcher_invariant (m: Matcher) (dir: Direction) (rer: RegExp) :=
-        (* State x and continuation c *)
-        forall x c,
-        (* such that x is valid *)
-        MatchState.Valid (MatchState.input x) rer x ->
-        (* Then either *)
-          (* The match fails *)
-          (m x c = failure) \/
-          (* or *)
-          (* m did some work, yielding a new state y, which was passed to the continuation *)
-          (exists y, MatchState.Valid (MatchState.input x) rer y /\ progress dir x (Success (Some y)) /\ c y = m x c).
+    Section Definitions.
+      (* A matcher m satisfies the invariant if *)
+      Definition matcher_invariant (m: Matcher) (dir: Direction) (rer: RegExp) :=
+          (* For all state x and continuation c *)
+          forall x c,
+          (* Such that x is valid *)
+          MatchState.Valid (MatchState.input x) rer x ->
+          (* Then either *)
+            (* The match fails *)
+            (m x c = failure) \/
+            (* or *)
+            (* m did some work, yielding a new state y, which *)
+            (exists y,
+              (* Is valid *)
+              MatchState.Valid (MatchState.input x) rer y /\
+              (* Is a progress w.r.t x *)
+              progress dir x (Success (Some y)) /\
+              (* Was passed to the continuation to conclude *)
+              c y = m x c).
 
-    Definition fuelBound (min: non_neg_integer) (x: MatchState) (dir: Direction) := min + (MatchState.remainingChars x dir)  + 1.
+      (* Variant of the matcher_invariant, whose invariant only holds for specific states x satisfying P *)
+      Definition conditional_matcher_invariant (P: MatchState -> Prop) (m: Matcher) (dir: Direction) (rer: RegExp) :=
+          forall x c,
+          P x ->
+          MatchState.Valid (MatchState.input x) rer x ->
+            (m x c = failure) \/
+            (exists y, MatchState.Valid (MatchState.input x) rer y /\ progress dir x (Success (Some y)) /\ c y = m x c).
+    End Definitions.
 
-    Lemma repeatMatcherFuel_satisfies_bound: forall min x rer dir, MatchState.Valid (MatchState.input x) rer x -> fuelBound min x dir <= repeatMatcherFuel min x.
-    Proof. intros. unfold fuelBound,repeatMatcherFuel in *. destruct H as [ ? [ [ Bounds_Ei_x_low Bounds_Ei_x_high ] VC_x ] ]. destruct dir; cbn; lia. Qed.
-
-    Lemma fuelDecreases_min: forall dir min min' x x' b,
-      min' < min -> progress dir x (Success (Some x')) -> fuelBound min x dir <= S b -> fuelBound min' x' dir <= b.
-    Proof.
-      intros. unfold fuelBound,MatchState.remainingChars in *. inversion H0; destruct dir; inversion H6; subst.
-      - rewrite -> H3 in *. lia.
-      - lia.
-    Qed.
-
-    Lemma fuelDecreases_progress: forall dir rer min x x' b,
-      progress dir x (Success (Some x')) ->
-      ((MatchState.endIndex x) =? (MatchState.endIndex x'))%Z = false ->
-      MatchState.Valid (MatchState.input x) rer x ->
-      MatchState.Valid (MatchState.input x) rer x' ->
-      fuelBound min x dir <= S b ->
-      fuelBound min x' dir <= b.
-    Proof.
-      intros dir rer min x x' b P_x_x' Neq_Eis [ ? [ [ Bei_x_l Bei_x_h ] VC_x ] ] [ ? [ [ B_Ei_x'_l B_Ei_x'_h ] VC_x' ] ] Ineq_fuel.
-      dependent destruction P_x_x'. rename H into Eq_inp_x_x', H0 into Dp_x_x'.
-      unfold fuelBound, MatchState.remainingChars in *.
-      rewrite <- Eq_inp_x_x' in *.
-      spec_reflector Z.eqb_spec.
-      dependent destruction Dp_x_x'; lia.
-    Qed.
-
+    (** Some (internal) tactics to reason with the matcher_invariant. You should most likely use the 'API' defined later. *)
     Ltac base_reasoning := autounfold with result_wrappers in *; Result.inject_all; subst; repeat lazymatch goal with
     | [ |- ?x = ?x \/ _ ] => left; reflexivity
     | [ |- Failure _ = Success None \/ _ ] => right
     end.
 
-    Ltac search := base_reasoning; lazymatch goal with
+    Ltac search := intros; base_reasoning; lazymatch goal with
     | [ H: ?c ?y = ?r |- _ \/ (exists x, MatchState.Valid _ _ x /\ progress ?dir _ _ /\ ?c x = ?r) ] => right; search
     | [ |- _ \/ (exists x, MatchState.Valid _ _ x /\ progress ?dir _ _ /\ ?c x = ?c ?y) ] => right; search
+    | [ H: ?P |- ?P \/ _ ] => left; apply H
     | [ H: ?P |- _ \/ ?P ] => right; apply H
     | [ H: ?c ?y = ?r |- exists x, MatchState.Valid _ _ x /\ progress ?dir _ _ /\ ?c x = ?r ] =>
       exists y; split; [ | split ];
@@ -400,36 +388,11 @@ Module Correctness.
         let c := fresh "c" in
         let Vx := fresh "V_" x in
         intros x c Vx; destruct m eqn:H; cbn in H; focus § _ [] _ § auto destruct in H
+    | [ |- ?res = _ \/ (exists y : MatchState, MatchState.Valid (MatchState.input ?x) _ y /\ progress _ ?x (Success (Some y)) /\ ?c y = ?res)] =>
+        destruct res eqn:H; cbn in H; focus § _ [] _ § auto destruct in H
     | [ H: ?m ?x ?c = ?res |- ?res = _ \/ (exists y : MatchState, MatchState.Valid (MatchState.input ?x) _ y /\ progress _ ?x (Success (Some y)) /\ ?c y = ?res)] =>
         cbn in H; focus § _ [] _ § auto destruct in H
     end; autounfold with result_wrappers in *; repeat match goal with [ H: Success _ = Success _ |- _ ] => injection H as H end.
-    Tactic Notation "run" "matcher" "as" ident(H) := eval_matcher H.
-
-    Ltac quick_math := repeat (
-      boolean_simplifier ||
-      spec_reflector Nat.eqb_spec ||
-      spec_reflector Nat.leb_spec0 ||
-      spec_reflector Z.eqb_spec ||
-      spec_reflector Z.ltb_spec0 ||
-      spec_reflector Z.leb_spec0 ||
-      normalize_Z_comp).
-
-    Lemma characterSetMatcher: forall rer A invert dir,
-      matcher_invariant (characterSetMatcher rer A invert dir) dir rer.
-    Proof.
-      intros rer A invert dir. unfold characterSetMatcher.
-      run matcher as Matching; autounfold with result_wrappers in *.
-      1-3: search.
-      - search. +  Zhelper. MatchState.solve_with lia. + apply Progress.step. lia.
-      - search. +  Zhelper. MatchState.solve_with lia. + apply Progress.step. lia.
-      - base_reasoning. 
-        apply List.Indexing.Int.failure_bounds in AutoDest_0.
-        quick_math.
-        destruct V_x as [ Eq_str [ [ ? ? ] _ ]].
-        destruct dir; cbn in *.
-        + replace (Z.min (MatchState.endIndex x) (MatchState.endIndex x + 1)) with (MatchState.endIndex x) in * by lia. lia.
-        + replace (Z.min (MatchState.endIndex x) (MatchState.endIndex x - 1)) with (MatchState.endIndex x - 1)%Z in * by lia. lia.
-    Qed.
 
     Lemma mi_application_match: forall (m: Matcher) dir rer x c z
       (MI: matcher_invariant m dir rer)
@@ -516,121 +479,21 @@ Module Correctness.
       | _ => check_trimmed H
       end.
 
+    (** 'API' for the tactics we just defined, and some other useful lemmas *)
+    Ltac quick_math := repeat (
+      boolean_simplifier ||
+      spec_reflector Nat.eqb_spec ||
+      spec_reflector Nat.leb_spec0 ||
+      spec_reflector Z.eqb_spec ||
+      spec_reflector Z.ltb_spec0 ||
+      spec_reflector Z.leb_spec0 ||
+      normalize_Z_comp).
+
+    Tactic Notation "run" "matcher" "as" ident(H) := eval_matcher H.
     Tactic Notation "apply_mi" constr(H) := (apply_mi_in_goal H idtac).
     Tactic Notation "apply_mi" constr(H) "by" tactic1(By) := (apply_mi_in_goal H By).
     Tactic Notation "apply_mi" constr(H) "in" hyp(In) "as" simple_intropattern(As) := (apply_mi_in_hyp H In As idtac).
     Tactic Notation "apply_mi" constr(H) "in" hyp(In) "as" simple_intropattern(As) "by" tactic1(By) := (apply_mi_in_hyp H In As By).
-
-    Ltac repeatMatcher_as_matcher := lazymatch goal with
-    | [ _: context[ repeatMatcher' ?m ?min ?max ?greedy ?x ?c ?parenIndex ?parenCount ?fuel ] |- _ ] =>
-        replace (repeatMatcher' m min max greedy x c parenIndex parenCount fuel) with (Definitions.RepeatMatcher.matcher m min max greedy parenIndex parenCount fuel x c) in * by reflexivity
-    end.
-
-    Lemma repeatMatcher': forall greedy parenIndex parenCount m rer dir,
-      Captures.Valid rer parenIndex parenCount ->
-      matcher_invariant m dir rer ->
-      forall fuel min x,
-        fuelBound min x dir <= fuel ->
-      forall max c res,
-        Definitions.RepeatMatcher.matcher m min max greedy parenIndex parenCount fuel x c = res ->
-        (* such that x is valid *)
-        MatchState.Valid (MatchState.input x) rer x ->
-        (* Then either *)
-          (* The match fails *)
-          (res = failure) \/
-          (* or *)
-          (* m did some work, yielding a new state y, which was passed to the continuation *)
-          (exists y, MatchState.Valid (MatchState.input x) rer y /\ progress dir x (Success (Some y)) /\ c y = res).
-    Proof.
-      intros greedy parenIndex parenCount m rer dir V_captures MI_m. induction fuel.
-      - intros min x Ineq_fuel. exfalso. unfold fuelBound,MatchState.remainingChars in Ineq_fuel. lia.
-      - intros min x Ineq_fuel max c res Eq_res V_x.
-        run matcher as Matching; try search.
-        + apply_mi MI_m in Eq_res as [ ? | (y0 & ? & ? & Matching) ] by MatchState.solve; [ search | ].
-          repeatMatcher_as_matcher.
-          focus § _ [] _ § auto destruct in Matching; [ search | ].
-          specialize IHfuel with (2 := Matching). fforward IHfuel by try MatchState.solve.
-          1: {
-            apply fuelDecreases_min with (x := x) (min := min); [ | Progress.solve | assumption ].
-            quick_math. lia.
-          }
-          destruct IHfuel as [ ? | (y1 & V_y1 & P_y0_y1 & Eq_res) ]; [ search | right ].
-          search.
-        + apply_mi MI_m in Eq_res as [ ? | (y0 & ? & ? & Matching) ] by MatchState.solve; [ search | ].
-          repeatMatcher_as_matcher.
-          focus § _ [] _ § auto destruct in Matching; [ search | ].
-          specialize IHfuel with (2 := Matching). fforward IHfuel by try MatchState.solve.
-          1: {
-            quick_math; subst.
-            apply fuelDecreases_progress with (x := x) (rer := rer) ; [ Progress.solve | quick_math; congruence | MatchState.solve | MatchState.solve | assumption ].
-          }
-          destruct IHfuel as [ ? | (y1 & V_y1 & P_y0_y1 & Eq_res) ]; [ search | right ].
-          search.
-        + apply_mi MI_m in AutoDest_3 as [ ? | (y0 & ? & ? & Matching) ] by MatchState.solve; [ search | ].
-          repeatMatcher_as_matcher.
-          focus § _ [] _ § auto destruct in Matching; [ search | ].
-          specialize IHfuel with (2 := Matching). fforward IHfuel by try MatchState.solve.
-          1: {
-            quick_math; subst.
-            apply fuelDecreases_progress with (x := x) (rer := rer) ; [ Progress.solve | quick_math; congruence | MatchState.solve | MatchState.solve | assumption ].
-          }
-          destruct IHfuel as [ ? | (y1 & V_y1 & P_y0_y1 & ?) ]; [ search | right ].
-          search.
-        + apply_mi MI_m in AutoDest_3 as (y0 & V_y0 & P_x_y0 & Matching) by MatchState.solve.
-          repeatMatcher_as_matcher.
-          focus § _ [] _ § auto destruct in Matching.
-          specialize IHfuel with (2 := Matching). fforward IHfuel by try MatchState.solve.
-          1: {
-            quick_math; subst.
-            apply fuelDecreases_progress with (x := x) (rer := rer) ; [ Progress.solve | quick_math; congruence | MatchState.solve | MatchState.solve | assumption ].
-          }
-          destruct IHfuel as [ ? | (y1 & V_y1 & P_y0_y1 & ?) ]; [ search | right ].
-          search.
-        + Search Captures.Valid. unfold Captures.Valid in V_captures.
-          apply List.Update.Nat.Batch.failure_bounds in AutoDest_0. (* TODO: use pinpoint *)
-          destruct V_x as [ _ [ _ [ VCL_x _ ]]]. rewrite -> VCL_x in *. repeat rewrite Nat.add_sub in *. contradiction.
-    Qed.
-
-    Lemma repeatMatcher: forall m min max greedy parenIndex parenCount dir rer,
-      Captures.Valid rer parenIndex parenCount ->
-      matcher_invariant m dir rer ->
-      matcher_invariant (fun x c => repeatMatcher m min max greedy x c parenIndex parenCount) dir rer.
-    Proof.
-      intros m min max greedy parenIndex parenCount dir rer V_captures MI_m x c V_x.
-      apply (repeatMatcher' _ _ _ _ _ _ V_captures MI_m (repeatMatcherFuel min x) _ x ltac:(eauto using repeatMatcherFuel_satisfies_bound) _ _ _ ltac:(apply eq_refl) V_x).
-    Qed.
-
-    Lemma positiveLookaroundMatcher: forall m rer dir dir',
-      matcher_invariant m dir' rer ->
-      matcher_invariant (Definitions.PositiveLookaround.matcher m) dir rer.
-    Proof.
-      intros m rer dir dir' MI_m. unfold Definitions.PositiveLookaround.matcher.
-      run matcher as Matching; autounfold with result_wrappers in *;
-        match goal with | [ H: m _ _ = _ _ |- _ ] => rename H into Eq_m end.
-      - search.
-      - apply_mi MI_m in Eq_m as (? & ? & _ & [=->]) by assumption. search.
-      - apply_mi MI_m in Eq_m as (? & ? & _ & [=->]) by assumption. search.
-      - apply_mi MI_m in Eq_m as (? & _ & _ & ?) by assumption. discriminate.
-    Qed.
-
-    Lemma negativeLookaroundMatcher: forall m rer dir dir',
-      matcher_invariant m dir' rer ->
-      matcher_invariant (Definitions.NegativeLookaround.matcher m) dir rer.
-    Proof.
-      intros m rer dir dir' MI_m. unfold Definitions.NegativeLookaround.matcher.
-      run matcher as Matching; autounfold with result_wrappers in *.
-      - search.
-      - search.
-      - search.
-      - match goal with | [ H: m _ _ = _ _ |- _ ] => rename H into Eq_m end.
-        apply_mi MI_m in Eq_m as (? & _ & _ & ?) by assumption. discriminate.
-    Qed.
-
-    Lemma captured_range_diff: forall str rer x i r,
-      MatchState.Valid str rer x ->
-      List.Indexing.Nat.indexing (MatchState.captures x) i = Success (Some r) ->
-      (0 <= (CaptureRange.endIndex r) - (CaptureRange.startIndex r))%Z.
-    Proof. intros. MatchState.normalize. specialize (VCF_captures_x _ _ H0). dependent destruction VCF_captures_x. lia. Qed.
 
     Lemma directional_min_rewrite: forall i r dir,
       (0 <= r)%Z ->
@@ -650,60 +513,230 @@ Module Correctness.
           end; reflexivity.
     Qed.
 
-    Lemma backreferenceMatcher: forall rer n dir,
-      (positive_to_non_neg n) <= RegExp.capturingGroupsCount rer ->
-      matcher_invariant (backreferenceMatcher rer n dir) dir rer.
+    (** We now prove that all construced matchers satisfy the (conditional) matcher invariant *)
+
+    Lemma characterSetMatcher: forall rer A invert dir,
+      matcher_invariant (characterSetMatcher rer A invert dir) dir rer.
     Proof.
-      intros rer n dir Eq_rer. unfold backreferenceMatcher.
+      intros rer A invert dir. unfold characterSetMatcher.
       run matcher as Matching; autounfold with result_wrappers in *.
-      - search.
-      - search.
-      - search.
-      - search.
-        + destruct dir; cbn in *; MatchState.solve_with ltac:(cbn in *; lia).
-        + apply Progress.step. eapply captured_range_diff; eassumption.
-      - search.
-      - search.
-        + destruct dir; cbn in *; MatchState.solve_with ltac:(cbn in *; lia).
-        + apply Progress.step. eapply captured_range_diff; eassumption.
-      - (* An out-of-bound happend while indexing the input string: we prove it is actually impossible. *)
-        injection Matching as ->.
-
-        (* The maximal offset (r = endIndex - startIndex) is positive *)
-        remember (CaptureRange.endIndex t - CaptureRange.startIndex t)%Z as r.
-        assert (0 <= r)%Z as Pos_r. { subst r. eapply captured_range_diff; eassumption. }
-
-        (* The end and start of the range and the current index, are in bounds *)
-        destruct V_x as (_ & ? & _ & V_range).
-        match goal with
-        | [ H: List.Indexing.Nat.indexing (MatchState.captures x) _ = Success (Some _) |- _ ] =>
-            specialize (V_range _ _ H); dependent destruction V_range
-        end.
-        unfold IteratorOn in *.
-
-        (* Get rid of Z.min *)
-        rewrite -> directional_min_rewrite  in * by assumption.
-
-        (* There must be an offset i (0 <= i < r) where the indexing fails *)
-        match goal with | [ H: List.Exists.exist _ _ = Failure _ |- _ ] => rename H into Indexing_failure end.
-        apply List.Exists.failure_kind in Indexing_failure.
-        destruct Indexing_failure as [ i [ j [ Eq_indexed Indexing_failure ]]].
-        pose proof (List.Range.Int.Bounds.indexing _ _ _ _ Eq_indexed) as ->. apply List.Indexing.Int.success_bounds in Eq_indexed.
-        rewrite -> List.Range.Int.Bounds.length in *. cbn in *.
-
-        (* Conclude by case analysis *)
-        focus § _ [] _ § auto destruct in Indexing_failure; injection Indexing_failure as ->;
-          match goal with
-          | [ H: List.Indexing.Int.indexing _ _ = Failure _ |- _ ] =>
-              apply List.Indexing.Int.failure_bounds in H as [Indexing_failure | Indexing_failure]
-          end; destruct dir.
-        all: cbn in *; lia.
-      - (* The capture group does not exist; we prove it is actually impossible. *)
-        injection Matching as ->.
-        match goal with | [ H: List.Indexing.Nat.indexing _ _ = Failure _ |- _ ] => rename H into Eq_failure end.
-        apply List.Indexing.Nat.failure_bounds in Eq_failure.
-        destruct V_x as (_ & _ & ? & _). pose proof (NonNegInt.pos n). lia.
+      1-3: search.
+      - search. +  Zhelper. MatchState.solve_with lia. + apply Progress.step. lia.
+      - search. +  Zhelper. MatchState.solve_with lia. + apply Progress.step. lia.
+      - Result.inject_all; subst.
+        ltac2:(retrieve (List.Indexing.Int.indexing _ _ = Failure _) as H).
+        apply List.Indexing.Int.failure_bounds in H.
+        quick_math.
+        destruct V_x as [ Eq_str [ [ ? ? ] _ ]]. rewrite -> directional_min_rewrite in * by lia.
+        destruct dir; cbn in *; lia.
     Qed.
+
+    Section RepeatMatcher.
+      (* Leverage additional definitions to make the terms more readable, by collapsing big terms into definitions *)
+      Ltac fold_matchers := lazymatch goal with
+      | [ _: context[ repeatMatcher' ?m ?min ?max ?greedy ?x ?c ?parenIndex ?parenCount ?fuel ] |- _ ] =>
+          replace (repeatMatcher' m min max greedy x c parenIndex parenCount fuel) with (Definitions.RepeatMatcher.matcher m min max greedy parenIndex parenCount fuel x c) in * by reflexivity
+      | [ _: context[ fun y : MatchState =>
+                if
+                 ?min == 0 &&
+                 (MatchState.endIndex y =? MatchState.endIndex ?x)%Z
+                then Success None
+                else
+                 repeatMatcher' ?m (if ?min == 0 then 0 else ?min - 1)
+                   (if (?max =? +∞)%NoI then +∞ else (?max - 1)%NoI)
+                   ?greedy y ?c ?parenIndex ?parenCount ?fuel ] |- _ ] =>
+                replace (fun y : MatchState =>
+                if
+                 min == 0 &&
+                 (MatchState.endIndex y =? MatchState.endIndex x)%Z
+                then Success None
+                else
+                 repeatMatcher' m (if min == 0 then 0 else min - 1)
+                   (if (max =? +∞)%NoI then +∞ else (max - 1)%NoI)
+                   greedy y c parenIndex parenCount fuel) with (Definitions.RepeatMatcher.continuation x c m min max greedy parenIndex parenCount fuel) in * by reflexivity
+      end.
+
+      (* A more precise bound on the amount of fuel required for the repeatMatcher to terminate *)
+      (* Here, we additionally have access to the direction of the matcher, which allows for a more precise bound *)
+      Definition fuelBound (min: non_neg_integer) (x: MatchState) (dir: Direction) := min + (MatchState.remainingChars x dir)  + 1.
+
+      (* This new bound is always lower than the original bound *)
+      Lemma repeatMatcherFuel_satisfies_bound: forall min x rer dir, MatchState.Valid (MatchState.input x) rer x -> fuelBound min x dir <= repeatMatcherFuel min x.
+      Proof. intros. unfold fuelBound,repeatMatcherFuel in *. destruct H as [ ? [ [ Bounds_Ei_x_low Bounds_Ei_x_high ] VC_x ] ]. destruct dir; cbn; lia. Qed.
+
+      Lemma fuelDecreases_min: forall dir min min' x x' b,
+        min' < min -> progress dir x (Success (Some x')) -> fuelBound min x dir <= S b -> fuelBound min' x' dir <= b.
+      Proof.
+        intros. unfold fuelBound,MatchState.remainingChars in *. inversion H0; destruct dir; inversion H6; subst.
+        - rewrite -> H3 in *. lia.
+        - lia.
+      Qed.
+
+      Lemma fuelDecreases_progress: forall dir rer min x x' b,
+        progress dir x (Success (Some x')) ->
+        ((MatchState.endIndex x) =? (MatchState.endIndex x'))%Z = false ->
+        MatchState.Valid (MatchState.input x) rer x ->
+        MatchState.Valid (MatchState.input x) rer x' ->
+        fuelBound min x dir <= S b ->
+        fuelBound min x' dir <= b.
+      Proof.
+        intros dir rer min x x' b P_x_x' Neq_Eis [ ? [ [ Bei_x_l Bei_x_h ] VC_x ] ] [ ? [ [ B_Ei_x'_l B_Ei_x'_h ] VC_x' ] ] Ineq_fuel.
+        dependent destruction P_x_x'. rename H into Eq_inp_x_x', H0 into Dp_x_x'.
+        unfold fuelBound, MatchState.remainingChars in *.
+        rewrite <- Eq_inp_x_x' in *.
+        spec_reflector Z.eqb_spec.
+        dependent destruction Dp_x_x'; lia.
+      Qed.
+
+      Lemma repeatMatcher': forall greedy parenIndex parenCount m rer dir,
+        Captures.Valid rer parenIndex parenCount ->
+        matcher_invariant m dir rer ->
+        forall fuel min max,
+          conditional_matcher_invariant (fun x => fuelBound min x dir <= fuel) (Definitions.RepeatMatcher.matcher m min max greedy parenIndex parenCount fuel) dir rer.
+      Proof.
+        intros greedy parenIndex parenCount m rer dir V_captures MI_m.
+        induction fuel; intros min max x c Ineq_fuel V_x.
+        - exfalso. unfold fuelBound,MatchState.remainingChars in Ineq_fuel. lia.
+        - assert (forall caps indices res,
+            List.Update.Nat.Batch.update undefined (MatchState.captures x) indices = Success caps ->
+            m (match_state (MatchState.input x) (MatchState.endIndex x) caps) (Definitions.RepeatMatcher.continuation x c m min max greedy parenIndex parenCount fuel) = res ->
+            res = failure \/
+            (exists y : MatchState,
+               MatchState.Valid (MatchState.input x) rer y /\
+               progress dir x (Success (Some y)) /\ c y = res)
+          ) as Ind. {
+            intros caps indices res Eq_caps Matching.
+            apply_mi MI_m in Matching as [ ? | (y0 & ? & ? & Matching) ] by MatchState.solve; [ search | ].
+            unfold Definitions.RepeatMatcher.continuation in Matching.
+            fold_matchers.
+            focus § _ [] _ § auto destruct in Matching; [ search | ].
+            unfold conditional_matcher_invariant in IHfuel.
+            lazymatch type of Matching with 
+            | _ _ ?n_min ?n_max _ _ _ _ ?y ?k = _ => specialize IHfuel with (min := n_min) (max := n_max) (x := y) (c := k)
+            end.
+            rewrite <- Matching. clear Matching.
+            fforward IHfuel by try MatchState.solve.
+            1: {
+              destruct (min =?= 0).
+              - subst. boolean_simplifier. quick_math. apply fuelDecreases_progress with (x := x) (rer := rer); try assumption. 
+                + Progress.solve.
+                + quick_math. easy.
+              - rewrite <- EqDec.inversion_false in *. rewrite -> n. apply fuelDecreases_min with (x := x) (min := min); try assumption. 
+                + rewrite -> EqDec.inversion_false in *. lia.
+                + Progress.solve.
+            }
+            destruct IHfuel as [ ? | (y1 & V_y1 & P_y0_y1 & Eq_res) ]; search.
+          }
+          run matcher as Matching; try search.
+          (* Most cases are 'just' a recursive call; use Ind *)
+          1-6: fold_matchers; Result.inject_all; subst; eapply Ind; eassumption.
+          + (* Capture reset failed due to OOB update => prove this actually cannot happen. *)
+            ltac2:(retrieve (List.Update.Nat.Batch.update _ (MatchState.captures x) _ = Failure _) as Falsum).
+            apply List.Update.Nat.Batch.failure_bounds in Falsum.
+            destruct V_x as [ _ [ _ [ VCL_x _ ]]]. rewrite -> VCL_x in *. repeat rewrite Nat.add_sub in *.
+            unfold Captures.Valid in V_captures. contradiction.
+      Qed.
+
+      Lemma repeatMatcher: forall m min max greedy parenIndex parenCount dir rer,
+        Captures.Valid rer parenIndex parenCount ->
+        matcher_invariant m dir rer ->
+        matcher_invariant (fun x c => repeatMatcher m min max greedy x c parenIndex parenCount) dir rer.
+      Proof.
+        intros m min max greedy parenIndex parenCount dir rer V_captures MI_m x c V_x.
+        apply (repeatMatcher' _ _ _ _ _ _ V_captures MI_m (repeatMatcherFuel min x) _ _ x _ ltac:(cbn; eauto using repeatMatcherFuel_satisfies_bound) V_x).
+      Qed.
+    End RepeatMatcher.
+
+    Section Lookaround.
+      Lemma positiveLookaroundMatcher: forall m rer dir dir',
+        matcher_invariant m dir' rer ->
+        matcher_invariant (Definitions.PositiveLookaround.matcher m) dir rer.
+      Proof.
+        intros m rer dir dir' MI_m. unfold Definitions.PositiveLookaround.matcher.
+        run matcher as Matching; autounfold with result_wrappers in *;
+          match goal with | [ H: m _ _ = _ _ |- _ ] => rename H into Eq_m end.
+        - search.
+        - apply_mi MI_m in Eq_m as (? & ? & _ & [=->]) by assumption. search.
+        - apply_mi MI_m in Eq_m as (? & ? & _ & [=->]) by assumption. search.
+        - apply_mi MI_m in Eq_m as (? & _ & _ & ?) by assumption. discriminate.
+      Qed.
+
+      Lemma negativeLookaroundMatcher: forall m rer dir dir',
+        matcher_invariant m dir' rer ->
+        matcher_invariant (Definitions.NegativeLookaround.matcher m) dir rer.
+      Proof.
+        intros m rer dir dir' MI_m. unfold Definitions.NegativeLookaround.matcher.
+        run matcher as Matching; autounfold with result_wrappers in *.
+        - search.
+        - search.
+        - search.
+        - match goal with | [ H: m _ _ = _ _ |- _ ] => rename H into Eq_m end.
+          apply_mi MI_m in Eq_m as (? & _ & _ & ?) by assumption. discriminate.
+      Qed.
+    End Lookaround.
+
+    Section Backreference.
+      Lemma captured_range_diff: forall str rer x i r,
+        MatchState.Valid str rer x ->
+        List.Indexing.Nat.indexing (MatchState.captures x) i = Success (Some r) ->
+        (0 <= (CaptureRange.endIndex r) - (CaptureRange.startIndex r))%Z.
+      Proof. intros. MatchState.normalize. specialize (VCF_captures_x _ _ H0). dependent destruction VCF_captures_x. lia. Qed.
+
+      Lemma backreferenceMatcher: forall rer n dir,
+        (positive_to_non_neg n) <= RegExp.capturingGroupsCount rer ->
+        matcher_invariant (backreferenceMatcher rer n dir) dir rer.
+      Proof.
+        intros rer n dir Eq_rer. unfold backreferenceMatcher.
+        run matcher as Matching; autounfold with result_wrappers in *.
+        - search.
+        - search.
+        - search.
+        - search.
+          + destruct dir; cbn in *; MatchState.solve_with ltac:(cbn in *; lia).
+          + apply Progress.step. eapply captured_range_diff; eassumption.
+        - search.
+        - search.
+          + destruct dir; cbn in *; MatchState.solve_with ltac:(cbn in *; lia).
+          + apply Progress.step. eapply captured_range_diff; eassumption.
+        - (* An out-of-bound happend while indexing the input string: we prove it is actually impossible. *)
+          injection Matching as ->.
+
+          (* The maximal offset (r = endIndex - startIndex) is positive *)
+          remember (CaptureRange.endIndex t - CaptureRange.startIndex t)%Z as r.
+          assert (0 <= r)%Z as Pos_r. { subst r. eapply captured_range_diff; eassumption. }
+
+          (* The end and start of the range and the current index, are in bounds *)
+          destruct V_x as (_ & ? & _ & V_range).
+          match goal with
+          | [ H: List.Indexing.Nat.indexing (MatchState.captures x) _ = Success (Some _) |- _ ] =>
+              specialize (V_range _ _ H); dependent destruction V_range
+          end.
+          unfold IteratorOn in *.
+
+          (* Get rid of Z.min *)
+          rewrite -> directional_min_rewrite  in * by assumption.
+
+          (* There must be an offset i (0 <= i < r) where the indexing fails *)
+          match goal with | [ H: List.Exists.exist _ _ = Failure _ |- _ ] => rename H into Indexing_failure end.
+          apply List.Exists.failure_kind in Indexing_failure.
+          destruct Indexing_failure as [ i [ j [ Eq_indexed Indexing_failure ]]].
+          pose proof (List.Range.Int.Bounds.indexing _ _ _ _ Eq_indexed) as ->. apply List.Indexing.Int.success_bounds in Eq_indexed.
+          rewrite -> List.Range.Int.Bounds.length in *. cbn in *.
+
+          (* Conclude by case analysis *)
+          focus § _ [] _ § auto destruct in Indexing_failure; injection Indexing_failure as ->;
+            match goal with
+            | [ H: List.Indexing.Int.indexing _ _ = Failure _ |- _ ] =>
+                apply List.Indexing.Int.failure_bounds in H as [Indexing_failure | Indexing_failure]
+            end; destruct dir.
+          all: cbn in *; lia.
+        - (* The capture group does not exist; we prove it is actually impossible. *)
+          injection Matching as ->.
+          match goal with | [ H: List.Indexing.Nat.indexing _ _ = Failure _ |- _ ] => rename H into Eq_failure end.
+          apply List.Indexing.Nat.failure_bounds in Eq_failure.
+          destruct V_x as (_ & _ & ? & _). pose proof (NonNegInt.pos n). lia.
+      Qed.
+    End Backreference.
 
     Inductive Guard := guard.
     Ltac node_induction :=
@@ -723,16 +756,23 @@ Module Correctness.
         end
       end; intros _.
 
-
     Ltac compileSubPattern_helper := repeat match goal with
     | [ IH: forall _ _, compileSubPattern ?r _ _ _ = Success _ -> _, H: compileSubPattern ?r _ _ _ = Success _  |- _ ] =>
         specialize IH with (1 := H)
     end.
 
     Lemma isWordChar_failure: forall rer x f, isWordChar rer (MatchState.input x) (MatchState.endIndex x) = Failure f -> ~ MatchState.Valid (MatchState.input x) rer x.
-    Proof. unfold isWordChar. cbn. intros rer x f H Falsum. focus § _ [] _ § auto destruct in H. apply List.Indexing.Int.failure_bounds in AutoDest_0. quick_math. MatchState.solve_with lia. Qed.
+    Proof.
+      unfold isWordChar. cbn. intros rer x f H Falsum.
+      focus § _ [] _ § auto destruct in H. ltac2:(retrieve (List.Indexing.Int.indexing _ _ = Failure _) as H').
+      apply List.Indexing.Int.failure_bounds in H'. quick_math. MatchState.solve_with lia.
+    Qed.
     Lemma isWordChar_failure_min: forall rer x f, isWordChar rer (MatchState.input x) (MatchState.endIndex x - 1)%Z = Failure f -> ~ MatchState.Valid (MatchState.input x) rer x.
-    Proof. unfold isWordChar. cbn. intros rer x f H Falsum. focus § _ [] _ § auto destruct in H. apply List.Indexing.Int.failure_bounds in AutoDest_0. quick_math. MatchState.solve_with lia. Qed.
+    Proof.
+      unfold isWordChar. cbn. intros rer x f H Falsum.
+      focus § _ [] _ § auto destruct in H. ltac2:(retrieve (List.Indexing.Int.indexing _ _ = Failure _) as H').
+      apply List.Indexing.Int.failure_bounds in H'. quick_math. MatchState.solve_with lia.
+    Qed.
 
     Ltac pinpoint_failure := repeat match goal with
       | [ H: _ = Failure _ |- _ ] => progress (focus § _ [] _ § auto destruct in H); injection H as ->
@@ -770,8 +810,10 @@ Module Correctness.
           destruct esc; focus § _ [] _ § auto destruct in Eq_m; injection Eq_m as <-; apply characterSetMatcher.
         + (* Named backref *)
           focus § _ [] _ § auto destruct in Eq_m; injection Eq_m as <-.
+          ltac2:(retrieve (List.Unique.unique _ = Success _) as H0).
+          ltac2:(retrieve (NonNegInt.to_positive _ = Success _) as H1).
           apply backreferenceMatcher. quick_math. cbn in *.
-          apply List.Unique.success in AutoDest_0. destruct s. cbn in *.
+          apply List.Unique.success in H0. destruct s. cbn in *.
           assert (List.Indexing.Nat.indexing (groupSpecifiersThatMatch (AtomEsc (GroupEsc id)) ctx id) 0 = Success (r, l)) as Eq_indexed. {
             match goal with | [ H: _ = (r, l) :: nil |- _ ] => setoid_rewrite -> H end.
             reflexivity.
@@ -782,7 +824,7 @@ Module Correctness.
           apply Zipper.Walk.soundness in Eq_indexed. eapply Zipper.Down.same_root_down in Eq_indexed; [ | eapply IH ]. cbn in *.
           pose proof (EarlyErrors.countLeftCapturingParensBefore_contextualized _ _ _ Eq_indexed EE_root).
           subst. unfold countLeftCapturingParensBefore,countLeftCapturingParensWithin in *. cbn in *.
-          apply NonNegInt.to_positive_soundness in AutoDest_1.
+          apply NonNegInt.to_positive_soundness in H1.
           lia.
       - (* Character class *)
         focus § _ [] _ § auto destruct in Eq_m; auto using Compile.compileCharacterClass.
@@ -790,7 +832,7 @@ Module Correctness.
       - (* Disjunction *)
         focus § _ [] _ § auto destruct in Eq_m. injection Eq_m as <-.
         compileSubPattern_helper.
-        run matcher as Matching; rewrite <- Matching, <- ?AutoDest_1 in *; auto.
+        run matcher as Matching; try ltac2:(retrieve (s _ _ = _) as H0); rewrite <- Matching, <- ?H0 in *; auto.
       - (* Quantifier *)
         focus § _ [] _ § auto destruct in Eq_m. injection Eq_m as <-. apply repeatMatcher.
         + intros i v Eq_indexed.
@@ -819,7 +861,8 @@ Module Correctness.
           apply_mi IH0 in Matching as [? | (y & V_y & P_y & Eq_s)] by assumption.
           * subst. left. reflexivity.
           * focus § _ [] _ § auto destruct in Eq_s.
-            focus § _ [] _ § auto destruct in AutoDest_1.
+            ltac2:(retrieve ((if _ then _ else _) = Success _) as H0).
+            focus § _ [] _ § auto destruct in H0.
             search.
         + (* Failure occured => toward contradiction *)
           apply_mi IH0 in Matching as (y & V_y & P_y & Eq_f) by assumption.
@@ -866,6 +909,9 @@ Module Correctness.
     Qed.
   End main. End MatcherInvariant.
 
+  (** We can now show the core properties of the spec. *)
+
+  (* The initial state generated by compilePattern is always valid (under mild assumptions) *)
   Lemma initialState_validity `{ci: CharacterInstance}: forall input i rer,
     i <= (length input) ->
     MatchState.Valid input rer (match_state input (Z.of_nat i) (repeat None (capturingGroupsCount rer))).
@@ -880,6 +926,7 @@ Module Correctness.
         constructor.
   Qed.
 
+  (** Monotony: when a match is found, its end position is always greater than the starting point. *)
   Theorem monotony `{ci: CharacterInstance}: forall r rer input i m,
     EarlyErrors.Pass_Regex r nil ->
     countLeftCapturingParensWithin r nil = RegExp.capturingGroupsCount rer ->
@@ -888,7 +935,7 @@ Module Correctness.
   Proof.
     intros r rer input i m EE_root Eq_rer Eq_m.
     unfold compilePattern in *.
-    focus § _ [] _ § auto destruct in Eq_m. injection Eq_m as <-.
+    focus § _ [] _ § auto destruct in Eq_m. injection Eq_m as <-. ltac2:(retrieve (compileSubPattern r _ _ _ = Success _) as H0).
     cbn. focus § _ _ _ [] § auto destruct.
     - constructor.
     - boolean_simplifier. spec_reflector Nat.leb_spec0.
@@ -899,7 +946,7 @@ Module Correctness.
       }
       (* Use the matcher invariant *)
       pose proof (MatcherInvariant.compileSubPattern) as H.
-      specialize H with (1 := Eq_rer) (2 := EE_root) (3 := ltac:(apply Zipper.Root.id)) (4 := AutoDest_).
+      specialize H with (1 := Eq_rer) (2 := EE_root) (3 := ltac:(apply Zipper.Root.id)) (4 := H0).
       specialize (H x (fun y => y) V_x).
       (* Match either failed or succeeded *)
       destruct H as [ -> | (y & ? & ? & <-) ].
@@ -909,6 +956,22 @@ Module Correctness.
         Progress.solve.
   Qed.
 
+  (* Another variant, which doesn't use progress *)
+  Theorem monotony' `{ci: CharacterInstance}: forall r rer input i m z,
+    EarlyErrors.Pass_Regex r nil ->
+    countLeftCapturingParensWithin r nil = RegExp.capturingGroupsCount rer ->
+    compilePattern r rer = Success m ->
+    m input i = Success (Some z) ->
+    (Z.of_nat i <= MatchState.endIndex z)%Z.
+  Proof.
+    intros r rer input i m z EE_r Eq_rer Eq_m Eq_z.
+    pose proof (monotony r rer input i m EE_r Eq_rer Eq_m) as P.
+    dependent destruction P; autounfold with result_wrappers in *; try congruence.
+    dependent destruction H0.
+    cbn in *. rewrite -> Eq_z in *. injection x as [=->]. assumption.
+  Qed.
+
+  (** Termination: the matching process never runs out of fuel, i.e. out_of_fuel is never returned *)
   Theorem termination `{ci: CharacterInstance}: forall r rer input i m,
     EarlyErrors.Pass_Regex r nil ->
     countLeftCapturingParensWithin r nil = RegExp.capturingGroupsCount rer ->
@@ -917,7 +980,7 @@ Module Correctness.
   Proof.
     intros r rer input i m EE_root Eq_rer Eq_m.
     unfold compilePattern in *.
-    focus § _ [] _ § auto destruct in Eq_m. injection Eq_m as <-.
+    focus § _ [] _ § auto destruct in Eq_m. injection Eq_m as <-. ltac2:(retrieve (compileSubPattern r _ _ _ = Success _) as H0).
     cbn. focus § _ (_ [] _) § auto destruct.
     boolean_simplifier. spec_reflector Nat.leb_spec0.
     (* Assert that the start state is valid *)
@@ -927,7 +990,7 @@ Module Correctness.
     }
     (* Use the matcher invariant *)
     pose proof (MatcherInvariant.compileSubPattern) as H.
-    specialize H with (1 := Eq_rer) (2 := EE_root) (3 := ltac:(apply Zipper.Root.id)) (4 := AutoDest_).
+    specialize H with (1 := Eq_rer) (2 := EE_root) (3 := ltac:(apply Zipper.Root.id)) (4 := H0).
     specialize (H x (fun y => y) V_x).
     (* Match either failed or succeeded *)
     destruct H as [ -> | (y & ? & ? & <-) ].
@@ -937,16 +1000,17 @@ Module Correctness.
       easy.
   Qed.
 
+  (** No failure: no assertion is ever triggered, and no unspecified behavior occurs, i.e. match_assertion_failed is never returned *)
   Theorem no_failure `{ci: CharacterInstance}: forall r rer input i m,
     EarlyErrors.Pass_Regex r nil ->
     countLeftCapturingParensWithin r nil = RegExp.capturingGroupsCount rer ->
     compilePattern r rer = Success m ->
-    (i < length input) ->
+    (i <= length input) ->
     (m input i) <> match_assertion_failed.
   Proof.
     intros r rer input i m EE_root Eq_rer Eq_m Bound_i.
     unfold compilePattern in *.
-    focus § _ [] _ § auto destruct in Eq_m. injection Eq_m as <-.
+    focus § _ [] _ § auto destruct in Eq_m. injection Eq_m as <-. ltac2:(retrieve (compileSubPattern r _ _ _ = Success _) as H0).
     cbn. focus § _ (_ [] _) § auto destruct.
     - boolean_simplifier. spec_reflector Nat.leb_spec0. lia.
     - boolean_simplifier. spec_reflector Nat.leb_spec0.
@@ -957,7 +1021,7 @@ Module Correctness.
       }
       (* Use the matcher invariant *)
       pose proof (MatcherInvariant.compileSubPattern) as H.
-      specialize H with (1 := Eq_rer) (2 := EE_root) (3 := ltac:(apply Zipper.Root.id)) (4 := AutoDest_).
+      specialize H with (1 := Eq_rer) (2 := EE_root) (3 := ltac:(apply Zipper.Root.id)) (4 := H0).
       specialize (H x (fun y => y) V_x).
       (* Match either failed or succeeded *)
       destruct H as [ -> | (y & ? & ? & <-) ].

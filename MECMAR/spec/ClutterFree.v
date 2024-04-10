@@ -21,20 +21,20 @@ Module ClutterFree.
   Definition regex_match `{ci: CharacterInstance} (r: Regex) (rer: RegExp) (input: list Character) (start: non_neg_integer)
       (P0: countLeftCapturingParensWithin r nil = RegExp.capturingGroupsCount rer)
       (P1: EarlyErrors.Pass_Regex r nil)
-      (P2: 0 <= start <= (length input)):
+      (P2: start <= (length input)):
       { x: option MatchState | exists m, Semantics.compilePattern r rer = Success m /\ m input start = Success x } :=
     let (m, Eq_m) := (regex_compile r rer P0 P1) in
     match m input start as res return
       m input start = res -> { x: option MatchState | exists m, Semantics.compilePattern r rer = Success m /\ m input start = Success x }
     with
     | Success v => fun eq => exist _ v (ex_intro _ m (conj Eq_m eq))
-    | out_of_fuel => fun eq => match (Correctness.Termination.compilePattern r rer input start m) Eq_m eq with end
-    | match_assertion_failed => fun eq => match (Correctness.Safety.compilePattern r rer input start m) P1 P0 P2 Eq_m eq with end
+    | out_of_fuel => fun eq => match (Correctness.termination r rer input start m) P1 P0 Eq_m eq with end
+    | match_assertion_failed => fun eq => match (Correctness.no_failure r rer input start m) P1 P0 Eq_m P2 eq with end
     end eq_refl.
 
   Definition regex_end_to_end `{ci: CharacterInstance} (r: Regex) (rer: RegExp) (input: list Character) (start: non_neg_integer)
       (P0: countLeftCapturingParensWithin r nil = RegExp.capturingGroupsCount rer)
-      (P1: 0 <= start <= (length input)): option MatchState :=
+      (P1: start <= (length input)): option MatchState :=
     match StaticSemantics.earlyErrors r nil as ee return
       StaticSemantics.earlyErrors r nil = ee -> option MatchState
     with

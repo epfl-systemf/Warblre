@@ -1,6 +1,8 @@
+(dirs :standard _objects)
 (include_subdirs qualified)
 
 (coq.theory
  (name Warblre)
  (package Warblre)
- (synopsis "ECMAScript's regexes"))
+ (synopsis "ECMAScript's regexes")
+ (theories Ltac2))

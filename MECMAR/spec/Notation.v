@@ -1,5 +1,5 @@
 From Coq Require Import ZArith List.
-From Warblre Require Import Result Numeric Characters Errors List.
+From Warblre Require Import Typeclasses Result Numeric Characters Errors List.
 
 (** 22.2.2.1 Notation *)
 (* The descriptions below use the following internal data structures: *)
@@ -16,6 +16,7 @@ Module Notation.
   End CaptureRange.
   Notation CaptureRange := CaptureRange.type.
   Notation capture_range := CaptureRange.make.
+  #[refine] Instance eqdec_captureRange: EqDec CaptureRange := {}. decide equality; apply EqDec.eq_dec. Defined.
 
   (*  - A MatchState is an ordered triple (input, endIndex, captures) where input is a List of characters
         representing the String being matched, endIndex is an integer, and captures is a List of values, one for
@@ -36,16 +37,14 @@ Module Notation.
   End main. End MatchState.
   Notation MatchState := MatchState.type.
   Notation match_state := MatchState.make.
-
-(*   Arguments MatchState.input {_} {_}.
-  Arguments MatchState.endIndex {_} {_}.
-  Arguments MatchState.captures {_} {_}. *)
+  #[refine] Instance eqdec_matchState `{CharacterInstance}: EqDec MatchState := {}. decide equality; apply EqDec.eq_dec. Defined.
 
   Section main.
     Context `{CharacterInstance}.
 
     (* - A MatchResult is either a MatchState or the special token failure that indicates that the match failed. *)
     Definition MatchResult := Result (option MatchState) MatchError.
+    Instance eqdec_matchResult`{CharacterInstance}: EqDec MatchResult := eqdec_result.
 
     (*  - A MatcherContinuation is an Abstract Closure that takes one MatchState argument and returns a
           MatchResult result. The MatcherContinuation attempts to match the remaining portion (specified by the
@@ -66,4 +65,5 @@ Module Notation.
     Definition Matcher := MatchState -> MatcherContinuation -> MatchResult.
   End main.
   Notation undefined := None (only parsing).
+  Notation failure := (@None MatchState) (only parsing).
 End Notation.

@@ -129,7 +129,7 @@ Qed.
 Lemma capture_reset_validity:
   forall (r:Regex) (root:Regex) (ctx:RegexContext) (rer:RegExp)
     (RER_ADEQUACY: countLeftCapturingParensWithin root nil = RegExp.capturingGroupsCount rer)
-    (ROOT: Root root r ctx)
+    (ROOT: Root root (r, ctx))
     (EARLY_ERRORS: EarlyErrors.Pass_Regex root nil),
     Captures.Valid rer (countLeftCapturingParensBefore r ctx) (countLeftCapturingParensWithin r ctx).
 Proof.
@@ -211,7 +211,7 @@ Lemma repeat_matcher_min_0:
     (x:MatchState) (c:MatcherContinuation) (max:non_neg_integer_or_inf) (fuel:nat)
     (VALID: Valid (input x) rer x)
     (RER_ADEQUACY: countLeftCapturingParensWithin root nil = RegExp.capturingGroupsCount rer)
-    (ROOT: Root root (Quantified r q) ctx)
+    (ROOT: Root root (Quantified r q, ctx))
     (EARLY_ERRORS: EarlyErrors.Pass_Regex root nil)
     (SN: strictly_nullable_matcher s rer),
     repeatMatcher' s 0 max
@@ -272,7 +272,7 @@ Lemma repeat_matcher_sn:
     (x:MatchState) (c:MatcherContinuation)
     (VALID: Valid (input x) rer x)
     (RER_ADEQUACY: countLeftCapturingParensWithin root nil = RegExp.capturingGroupsCount rer)
-    (ROOT: Root root (Quantified r q) ctx)
+    (ROOT: Root root (Quantified r q, ctx))
     (EARLY_ERRORS: EarlyErrors.Pass_Regex root nil)
     (FUEL: fuel > min)
     (SN: strictly_nullable_matcher s rer),
@@ -332,13 +332,13 @@ Theorem strictly_nullable_analysis_correct:
     (STRICTLY_NULLABLE: strictly_nullable r = true)
     (COMPILE: compileSubPattern r ctx rer dir = Success m)
     (RER_ADEQUACY: countLeftCapturingParensWithin root nil = RegExp.capturingGroupsCount rer)
-    (ROOT: Root root r ctx)
+    (ROOT: Root root (r, ctx))
     (EARLY_ERRORS: EarlyErrors.Pass_Regex root nil),
     strictly_nullable_matcher m rer.
 Proof.
   intros r. induction r; intros root ctx rer dir m STRICTLY_NULLABLE COMPILE RER_ADEQUACY ROOT EARLY_ERRORS;
     try solve[inversion STRICTLY_NULLABLE]; unfold strictly_nullable_matcher; intros x c VALID;
-    (* eapply compiledSubPattern_matcher_invariant with (str:=input x) in COMPILE as MATCHER_INV; eauto; *)
+    (* eapply MatcherInvariant.compileSubPattern with (str:=input x) in COMPILE as MATCHER_INV; eauto; *)
     simpl in COMPILE.
   (* empty *)
   - inversion COMPILE as [H]. clear H COMPILE.
@@ -363,7 +363,7 @@ Proof.
     +                           (* Matcher 1 succeeded *)
       rewrite <- EQUAL.
       destruct (c y) as [res|] eqn:CONT.
-      * cbn. destruct res as [res|]; auto. right.
+      * cbn. destruct res as [ res| ]; cbn; auto. right.
         exists y. split; auto.
       * right. exists y. split; auto.
   (* quantifier *)
@@ -472,7 +472,7 @@ Proof.
     destruct v1; destruct v2; eauto.
   (* Lookahead *)
   - destruct (compileSubPattern r (Lookahead_inner :: ctx) rer forward) eqn:SNM; try solve[inversion COMPILE].
-    eapply compiledSubPattern_matcher_invariant in SNM as LOOK_INV; eauto.
+    eapply MatcherInvariant.compileSubPattern in SNM as LOOK_INV; eauto.
     inversion COMPILE as [M]. clear COMPILE M m.
     specialize (LOOK_INV x (fun y => y) VALID). destruct LOOK_INV as [NONE | [y [VALIDy [PROGRESS EQUAL]]]].
     { rewrite NONE. auto. }
@@ -481,7 +481,7 @@ Proof.
     apply valid_trans with (x:=x) (y:=y); auto.
   (* NegativeLookahead *)
   - destruct (compileSubPattern r (NegativeLookahead_inner :: ctx) rer forward) eqn:SNM; try solve[inversion COMPILE].
-    eapply compiledSubPattern_matcher_invariant in SNM as LOOK_INV; eauto.
+    eapply MatcherInvariant.compileSubPattern in SNM as LOOK_INV; eauto.
     inversion COMPILE as [M]. clear COMPILE M m.
     specialize (LOOK_INV x (fun y => y) VALID). destruct LOOK_INV as [NONE | [y [VALIDy [PROGRESS EQUAL]]]].
     2: { rewrite <- EQUAL. auto. }
@@ -489,7 +489,7 @@ Proof.
     right. exists x. split; auto.
   (* Lookbehind *)
   - destruct (compileSubPattern r (Lookbehind_inner :: ctx) rer backward) eqn:SNM; try solve[inversion COMPILE].
-    eapply compiledSubPattern_matcher_invariant in SNM as LOOK_INV; eauto.
+    eapply MatcherInvariant.compileSubPattern in SNM as LOOK_INV; eauto.
     inversion COMPILE as [M]. clear COMPILE M m.
     specialize (LOOK_INV x (fun y => y) VALID). destruct LOOK_INV as [NONE | [y [VALIDy [PROGRESS EQUAL]]]].
     { rewrite NONE. auto. }
@@ -498,7 +498,7 @@ Proof.
     apply valid_trans with (x:=x) (y:=y); auto.
     (* NegativeLookbehind *)
   - destruct (compileSubPattern r (NegativeLookbehind_inner :: ctx) rer backward) eqn:SNM; try solve[inversion COMPILE].
-    eapply compiledSubPattern_matcher_invariant in SNM as LOOK_INV; eauto.
+    eapply MatcherInvariant.compileSubPattern in SNM as LOOK_INV; eauto.
     inversion COMPILE as [M]. clear COMPILE M m.
     specialize (LOOK_INV x (fun y => y) VALID). destruct LOOK_INV as [NONE | [y [VALIDy [PROGRESS EQUAL]]]].
     2: { rewrite <- EQUAL. auto. }
@@ -514,7 +514,7 @@ Lemma strictly_nullable_repeatmatcher':
     (STRICTLY_NULLABLE: strictly_nullable r = true)
     (COMPILE: compileSubPattern r ctx rer dir = Success m)
     (RER_ADEQUACY: countLeftCapturingParensWithin root nil = RegExp.capturingGroupsCount rer)
-    (ROOT: Root root r ctx)
+    (ROOT: Root root (r, ctx))
     (EARLY_ERRORS: EarlyErrors.Pass_Regex root nil),
   forall (x:MatchState) (c:MatcherContinuation)
     (VALID: Valid (input x) rer x),
@@ -551,7 +551,7 @@ Theorem strictly_nullable_same_matcher:
     (COMPILESTAR: compileSubPattern (Quantified r (Greedy Star)) ctx rer dir = Success mstar)
     (COMPILEEMPTY: compileSubPattern Empty ctx rer dir = Success mempty)
     (RER_ADEQUACY: countLeftCapturingParensWithin root nil = RegExp.capturingGroupsCount rer)
-    (ROOT: Root root r (Quantified_inner (Greedy Star) :: ctx))
+    (ROOT: Root root (r, Quantified_inner (Greedy Star) :: ctx))
     (EARLY_ERRORS: EarlyErrors.Pass_Regex root nil),
   forall (x:MatchState) (c:MatcherContinuation) (VALID: Valid (input x) rer x),
     mstar x c = mempty x c.

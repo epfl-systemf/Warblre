@@ -1,5 +1,5 @@
 From Coq Require Import Bool PeanoNat Structures.OrderedType FSets.FSetAVL NArith ZArith.
-From Warblre Require Import Typeclasses Tactics Numeric Characters Patterns RegExp StaticSemantics Semantics List Result Notation Frontend.
+From Warblre Require Import Typeclasses Tactics Numeric Characters Patterns RegExpRecord StaticSemantics Semantics List Result Notation Frontend.
 
 Module UInt16.
   Parameter type: Type.
@@ -50,9 +50,9 @@ Module UInt16.
   Parameter to_upper_case: CodePoint -> list CodePoint.
   Parameter code_points_to_string: list CodePoint -> list type.
 
-  Definition canonicalize (rer: RegExp) (ch: type): type :=
+  Definition canonicalize (rer: RegExpRecord) (ch: type): type :=
     (* 2. If rer.[[IgnoreCase]] is false, return ch. *)
-    if (RegExp.ignoreCase rer == false) then ch
+    if (RegExpRecord.ignoreCase rer == false) then ch
     else
     (* 3. Assert: ch is a UTF-16 code unit. *)
     (*+ TODO: what to do? *)
@@ -125,9 +125,9 @@ Module Unicode.
   Parameter CodePoint: Type.
   Parameter case_fold: type -> type.
 
-  Definition canonicalize (rer: RegExp) (ch: type): type :=
+  Definition canonicalize (rer: RegExpRecord) (ch: type): type :=
     (* 1. If rer.[[Unicode]] is true and rer.[[IgnoreCase]] is true, then *)
-    if (RegExp.ignoreCase rer == true) then
+    if (RegExpRecord.ignoreCase rer == true) then
       (* a. a. If the file CaseFolding.txt of the Unicode Character Database provides a simple or common case folding mapping for ch, return the result of applying that mapping to ch. *)
       (* b. Return ch. *)
       case_fold ch

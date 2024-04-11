@@ -1,13 +1,14 @@
 From Warblre Require Import Numeric.
 
 (** 22.2.2.1.1 RegExp Records *)
-Module RegExp.
-  Record RegExp := reg_exp {
+Module RegExpRecord.
+  Record type := make {
     ignoreCase: bool;
     multiline: bool;
     dotAll: bool;
     unicode: bool;
     capturingGroupsCount: non_neg_integer;
   }.
-End RegExp.
-Export RegExp.
+End RegExpRecord.
+Notation RegExpRecord := RegExpRecord.type.
+Notation reg_exp_record := RegExpRecord.make.

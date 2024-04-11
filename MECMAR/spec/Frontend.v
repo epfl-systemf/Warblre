@@ -1,5 +1,5 @@
 From Coq Require Import List.
-From Warblre Require Import RegExp Base Notation Patterns StaticSemantics Semantics Result List.
+From Warblre Require Import RegExpRecord Base Notation Patterns StaticSemantics Semantics Result List.
 
 Import Result.Notations.
 Local Open Scope result_flow.
@@ -80,12 +80,12 @@ Section Frontend.
         v: bool;
         y: bool;
         }.
-  (* TODO: add a function that generates the RegExp record from flags when this record is complete (it should hold some of the RegExpFlags) *)
+  (* TODO: add a function that generates the RegExpRecord record from flags when this record is complete (it should hold some of the RegExpFlags) *)
   
   Record RegExpInstance :=
     mkre {
         OriginalFlags: RegExpFlags;
-        RegExpRecord: RegExp;
+        fRegExpRecord: RegExpRecord;
         RegExpMatcher: list Character -> non_neg_integer -> MatchResult;
         lastIndex: integer;
         pattern: Patterns.Regex;
@@ -94,7 +94,7 @@ Section Frontend.
   
 
   Definition setlastindex (r:RegExpInstance) (index:integer) : RegExpInstance :=
-    mkre (OriginalFlags r) (RegExpRecord r) (RegExpMatcher r) index (pattern r).
+    mkre (OriginalFlags r) (fRegExpRecord r) (RegExpMatcher r) index (pattern r).
                                
   (* 22.2.7.5 Match Records
 A Match Record is a Record value used to encapsulate the start and end indices of a regular expression match or capture. *)
@@ -125,7 +125,7 @@ A Match Record is a Record value used to encapsulate the start and end indices o
     (* Let capturingGroupsCount be CountLeftCapturingParensWithin(parseResult). *)
     let capturingGroupsCount := countLeftCapturingParensWithin pattern nil in
     (* Let rer be the RegExp Record { [[IgnoreCase]]: i, [[Multiline]]: m, [[DotAll]]: s, [[Unicode]]: u, [[UnicodeSets]]: v, [[CapturingGroupsCount]]: capturingGroupsCount }. *)
-    let rer := reg_exp (i flags) (m flags) (s flags) (u flags) capturingGroupsCount in
+    let rer := reg_exp_record (i flags) (m flags) (s flags) (u flags) capturingGroupsCount in
     (* Set obj.[[RegExpMatcher]] to CompilePattern of parseResult with argument rer. *)
     let! matcher =<< Semantics.compilePattern pattern rer in
     (* Perform ? Set(obj, "lastIndex", +0𝔽, true) *)
@@ -429,7 +429,7 @@ The abstract operation MakeMatchIndicesIndexPairArray takes arguments S (a Strin
   (* 22.2.7.2 RegExpBuiltinExec ( R, S ) *)
   (* TODO: here S does not describe the input in its string form, but already as a list of characters *)
   (* this will need to changr as we implement unicode and the two ways to go from a string to a list of characters *)
-  (* The abstract operation RegExpBuiltinExec takes arguments R (an initialized RegExp instance) and S (a String) and returns either a normal completion containing either an Array exotic object or null, or a throw completion. It performs the following steps when called: *)
+  (* The abstract operation RegExpBuiltinExec takes arguments R (an initialized RegExpRecord instance) and S (a String) and returns either a normal completion containing either an Array exotic object or null, or a throw completion. It performs the following steps when called: *)
 
   Definition RegExpBuiltinExec (R:RegExpInstance) (S:list Character): Result.Result ExecResult MatchError :=
     (* 1. Let length be the length of S. *)
@@ -513,7 +513,7 @@ The abstract operation MakeMatchIndicesIndexPairArray takes arguments S (a Strin
       (* 17. Let n be the number of elements in r.[[Captures]]. *)
       let n := List.length (MatchState.captures r) in
       (* 18. Assert: n = R.[[RegExpRecord]].[[CapturingGroupsCount]]. *)
-      assert! (Nat.eqb (n) (RegExp.capturingGroupsCount (RegExpRecord R)));
+      assert! (Nat.eqb (n) (RegExpRecord.capturingGroupsCount (fRegExpRecord R)));
   (* 19. Assert: n < 2^32 - 1. *)
   (* assert! (n <? 4294967295)%nat; *)
   (* 22. Perform ! CreateDataPropertyOrThrow(A, "index", 𝔽(lastIndex)). *)
@@ -578,7 +578,7 @@ This method searches string for an occurrence of the regular expression pattern 
 
   (* 22.2.6.12 RegExp.prototype [ @@search ] ( string ) *)
   Definition PrototypeSearch (R:RegExpInstance) (S:list Character) : Result.Result (integer * RegExpInstance) MatchError :=
-    (* NOTE: The "lastIndex" and "global" properties of this RegExp object are ignored when performing the search. The "lastIndex" property is left unchanged. *)
+    (* NOTE: The "lastIndex" and "global" properties of this RegExpRecord object are ignored when performing the search. The "lastIndex" property is left unchanged. *)
     (* 1. Let rx be the this value. *)
     let rx := R in
     (* 2. If rx is not an Object, throw a TypeError exception. *)

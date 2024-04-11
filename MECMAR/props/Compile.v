@@ -1,5 +1,5 @@
 From Coq Require Import PeanoNat ZArith Bool Lia Program.Equality List.
-From Warblre Require Import List Tactics Specialize Focus Result Base Patterns StaticSemantics Notation Semantics Definitions EarlyErrors RegExp.
+From Warblre Require Import List Tactics Specialize Focus Result Base Patterns StaticSemantics Notation Semantics Definitions EarlyErrors RegExpRecord.
 
 Import Result.Notations.
 Import Semantics.
@@ -93,7 +93,7 @@ Section Compile.
     Qed.
 
     Lemma compileSubPattern: forall r ctx rer dir,
-      countLeftCapturingParensWithin (zip r ctx) nil = RegExp.capturingGroupsCount rer ->
+      countLeftCapturingParensWithin (zip r ctx) nil = RegExpRecord.capturingGroupsCount rer ->
       EarlyErrors.Pass_Regex r ctx ->
       compileSubPattern r ctx rer dir <> compile_assertion_failed.
     Proof.
@@ -132,7 +132,7 @@ Section Compile.
     Qed.
 
     Lemma compilePattern: forall r rer,
-      countLeftCapturingParensWithin r nil = RegExp.capturingGroupsCount rer ->
+      countLeftCapturingParensWithin r nil = RegExpRecord.capturingGroupsCount rer ->
       EarlyErrors.Pass_Regex r nil ->
       compilePattern r rer <> compile_assertion_failed.
     Proof.
@@ -142,7 +142,7 @@ Section Compile.
     Qed.
 
     Theorem compilePattern_success: forall r rer,
-      countLeftCapturingParensWithin r nil = RegExp.capturingGroupsCount rer ->
+      countLeftCapturingParensWithin r nil = RegExpRecord.capturingGroupsCount rer ->
       EarlyErrors.Pass_Regex r nil ->
       exists m, Semantics.compilePattern r rer = Success m.
     Proof.

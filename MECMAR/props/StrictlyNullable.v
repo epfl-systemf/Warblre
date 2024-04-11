@@ -1,5 +1,5 @@
 From Coq Require Import PeanoNat ZArith Bool Lia List.
-From Warblre Require Import Tactics Focus Result Base Patterns StaticSemantics Notation List Semantics Match EarlyErrors RegExp.
+From Warblre Require Import Tactics Focus Result Base Patterns StaticSemantics Notation List Semantics Match EarlyErrors RegExpRecord.
 
 Import Notation.
 Import Patterns.
@@ -36,7 +36,7 @@ Fixpoint strictly_nullable (r:Regex) : bool :=
 
 (** * Strictly Nullable Matchers  *)
 
-Definition strictly_nullable_matcher (m:Matcher) (rer:RegExp) : Prop :=
+Definition strictly_nullable_matcher (m:Matcher) (rer:RegExpRecord) : Prop :=
   (* for any valid state x and continuation c and string str *)
   forall x c (VALID: Valid (input x) rer x),
     (* Then either the match fails *)
@@ -106,7 +106,7 @@ Proof.
 Qed.
 
 Lemma valid_trans:
-  forall (x y:MatchState) (rer:RegExp)
+  forall (x y:MatchState) (rer:RegExpRecord)
     (VALIDx: Valid (input x) rer x)
     (VALIDy: Valid (input x) rer y),
     Valid (input x) rer (match_state (input x) (endIndex x) (captures y)).
@@ -117,7 +117,7 @@ Proof.
 Qed.
 
 Lemma valid_input:
-  forall (x y:MatchState) (rer:RegExp)
+  forall (x y:MatchState) (rer:RegExpRecord)
     (VALIDy: Valid (input x) rer y),
     Valid (input y) rer y.
 Proof.
@@ -127,8 +127,8 @@ Qed.
 
 (* Capture Reset lemmas *)
 Lemma capture_reset_validity:
-  forall (r:Regex) (root:Regex) (ctx:RegexContext) (rer:RegExp)
-    (RER_ADEQUACY: countLeftCapturingParensWithin root nil = RegExp.capturingGroupsCount rer)
+  forall (r:Regex) (root:Regex) (ctx:RegexContext) (rer:RegExpRecord)
+    (RER_ADEQUACY: countLeftCapturingParensWithin root nil = RegExpRecord.capturingGroupsCount rer)
     (ROOT: Root root (r, ctx))
     (EARLY_ERRORS: EarlyErrors.Pass_Regex root nil),
     Captures.Valid rer (countLeftCapturingParensBefore r ctx) (countLeftCapturingParensWithin r ctx).
@@ -142,7 +142,7 @@ Proof.
 Qed.
 
 Lemma capture_reset_success:
-  forall (r:Regex) (ctx:RegexContext) (rer:RegExp)
+  forall (r:Regex) (ctx:RegexContext) (rer:RegExpRecord)
     (x:MatchState) (VALID: Valid (input x) rer x)
     (CAP_VALID: Captures.Valid rer (countLeftCapturingParensBefore r ctx) (countLeftCapturingParensWithin r ctx)),
   exists capupd, List.Update.Nat.Batch.update None (captures x) (List.Range.Nat.Bounds.range (countLeftCapturingParensBefore r ctx) (countLeftCapturingParensBefore r ctx + countLeftCapturingParensWithin r ctx)) = Success capupd.
@@ -155,7 +155,7 @@ Proof.
 Qed.
 
 Lemma quant_capture_reset_success:
-  forall (r:Regex) (ctx:RegexContext) (rer:RegExp) (q:Quantifier)
+  forall (r:Regex) (ctx:RegexContext) (rer:RegExpRecord) (q:Quantifier)
     (x:MatchState) (VALID: Valid (input x) rer x)
     (CAP_VALID: Captures.Valid rer (countLeftCapturingParensBefore r ctx) (countLeftCapturingParensWithin r ctx)),
   exists capupd, List.Update.Nat.Batch.update None (captures x) (List.Range.Nat.Bounds.range (countLeftCapturingParensBefore r ctx) (countLeftCapturingParensBefore r ctx + countLeftCapturingParensWithin r (Quantified_inner q::ctx))) = Success capupd.
@@ -169,7 +169,7 @@ Qed.
 
 
 Lemma capture_reset_preserve_validity:
-  forall (r:Regex) (ctx:RegexContext) (rer:RegExp)
+  forall (r:Regex) (ctx:RegexContext) (rer:RegExpRecord)
     (x:MatchState) (VALID: Valid (input x) rer x)
     (xupd: list (option CaptureRange))
     (UPD: List.Update.Nat.Batch.update None (captures x) (List.Range.Nat.Bounds.range (countLeftCapturingParensBefore r ctx) (countLeftCapturingParensBefore r ctx + countLeftCapturingParensWithin r ctx)) = Success xupd),
@@ -185,7 +185,7 @@ Proof.
 Qed.
 
 Lemma quant_capture_reset_preserve_validity:
-  forall (r:Regex) (ctx:RegexContext) (rer:RegExp) (q:Quantifier)
+  forall (r:Regex) (ctx:RegexContext) (rer:RegExpRecord) (q:Quantifier)
     (x:MatchState) (VALID: Valid (input x) rer x)
     (xupd: list (option CaptureRange))
     (UPD: List.Update.Nat.Batch.update None (captures x) (List.Range.Nat.Bounds.range (countLeftCapturingParensBefore r ctx) (countLeftCapturingParensBefore r ctx + countLeftCapturingParensWithin r (Quantified_inner q::ctx))) = Success xupd),
@@ -207,10 +207,10 @@ Qed.
 (* analysis correctness lemmas for the repeat matcher *)
 (* when min=0, we directly get the termination of repeatmatcher since we are repeating a strictly nullable matcher *)
 Lemma repeat_matcher_min_0:
-  forall (r:Regex) (root:Regex) (s:Matcher) (q:Quantifier) (rer:RegExp) (ctx:RegexContext)
+  forall (r:Regex) (root:Regex) (s:Matcher) (q:Quantifier) (rer:RegExpRecord) (ctx:RegexContext)
     (x:MatchState) (c:MatcherContinuation) (max:non_neg_integer_or_inf) (fuel:nat)
     (VALID: Valid (input x) rer x)
-    (RER_ADEQUACY: countLeftCapturingParensWithin root nil = RegExp.capturingGroupsCount rer)
+    (RER_ADEQUACY: countLeftCapturingParensWithin root nil = RegExpRecord.capturingGroupsCount rer)
     (ROOT: Root root (Quantified r q, ctx))
     (EARLY_ERRORS: EarlyErrors.Pass_Regex root nil)
     (SN: strictly_nullable_matcher s rer),
@@ -267,11 +267,11 @@ Qed.
 (* when min>0, we can proceed by induction on min until we reach min=0, the previous case *)
 (* during all the mandatroy repetitions, we keep being valid and at the same index in the string *)
 Lemma repeat_matcher_sn:
-  forall (r:Regex) (root:Regex) (s:Matcher) (q:Quantifier) (rer:RegExp) (ctx:RegexContext)
+  forall (r:Regex) (root:Regex) (s:Matcher) (q:Quantifier) (rer:RegExpRecord) (ctx:RegexContext)
     (min:nat) (max:non_neg_integer_or_inf) (fuel:nat)
     (x:MatchState) (c:MatcherContinuation)
     (VALID: Valid (input x) rer x)
-    (RER_ADEQUACY: countLeftCapturingParensWithin root nil = RegExp.capturingGroupsCount rer)
+    (RER_ADEQUACY: countLeftCapturingParensWithin root nil = RegExpRecord.capturingGroupsCount rer)
     (ROOT: Root root (Quantified r q, ctx))
     (EARLY_ERRORS: EarlyErrors.Pass_Regex root nil)
     (FUEL: fuel > min)
@@ -328,10 +328,10 @@ Qed.
 
 (* main analysis correctness teorem *)
 Theorem strictly_nullable_analysis_correct:
-  forall (r:Regex) (root:Regex) (ctx:RegexContext) (rer:RegExp) (dir:Direction) (m:Matcher)
+  forall (r:Regex) (root:Regex) (ctx:RegexContext) (rer:RegExpRecord) (dir:Direction) (m:Matcher)
     (STRICTLY_NULLABLE: strictly_nullable r = true)
     (COMPILE: compileSubPattern r ctx rer dir = Success m)
-    (RER_ADEQUACY: countLeftCapturingParensWithin root nil = RegExp.capturingGroupsCount rer)
+    (RER_ADEQUACY: countLeftCapturingParensWithin root nil = RegExpRecord.capturingGroupsCount rer)
     (ROOT: Root root (r, ctx))
     (EARLY_ERRORS: EarlyErrors.Pass_Regex root nil),
     strictly_nullable_matcher m rer.
@@ -433,7 +433,7 @@ Proof.
     destruct (endIndex x =? 0)%Z eqn:START.
     (* start of line *)
     { right. exists x. auto. }
-    destruct (RegExp.multiline rer) eqn:MULTI.
+    destruct (RegExpRecord.multiline rer) eqn:MULTI.
     (* not multi line *)
     2: { left. auto. }
     (* accessing the string cannot fail *)
@@ -449,7 +449,7 @@ Proof.
     destruct (endIndex x =? (length (input x)))%Z eqn:END.
     (* end of line *)
     { right. exists x. auto. }
-    destruct (RegExp.multiline rer) eqn:MULTI.
+    destruct (RegExpRecord.multiline rer) eqn:MULTI.
     (* not multi line *)
     2: { left. auto. }
     (* accessing the string cannot fail *)
@@ -510,10 +510,10 @@ Qed.
 (** * Repeating a strictly nullable matcher does nothing *)
 
 Lemma strictly_nullable_repeatmatcher':
-  forall (r:Regex) (root:Regex) (ctx:RegexContext) (rer:RegExp) (dir:Direction) (m:Matcher)
+  forall (r:Regex) (root:Regex) (ctx:RegexContext) (rer:RegExpRecord) (dir:Direction) (m:Matcher)
     (STRICTLY_NULLABLE: strictly_nullable r = true)
     (COMPILE: compileSubPattern r ctx rer dir = Success m)
-    (RER_ADEQUACY: countLeftCapturingParensWithin root nil = RegExp.capturingGroupsCount rer)
+    (RER_ADEQUACY: countLeftCapturingParensWithin root nil = RegExpRecord.capturingGroupsCount rer)
     (ROOT: Root root (r, ctx))
     (EARLY_ERRORS: EarlyErrors.Pass_Regex root nil),
   forall (x:MatchState) (c:MatcherContinuation)
@@ -546,11 +546,11 @@ Qed.
 (** * Transformation correctness: Switching a strictly nullable regex starred for a n empty is correct  *)
 
 Theorem strictly_nullable_same_matcher:
-  forall (r:Regex) (root:Regex) (ctx:RegexContext) (rer:RegExp) (dir:Direction) (mstar:Matcher) (mempty:Matcher)
+  forall (r:Regex) (root:Regex) (ctx:RegexContext) (rer:RegExpRecord) (dir:Direction) (mstar:Matcher) (mempty:Matcher)
     (STRICTLY_NULLABLE: strictly_nullable r = true)
     (COMPILESTAR: compileSubPattern (Quantified r (Greedy Star)) ctx rer dir = Success mstar)
     (COMPILEEMPTY: compileSubPattern Empty ctx rer dir = Success mempty)
-    (RER_ADEQUACY: countLeftCapturingParensWithin root nil = RegExp.capturingGroupsCount rer)
+    (RER_ADEQUACY: countLeftCapturingParensWithin root nil = RegExpRecord.capturingGroupsCount rer)
     (ROOT: Root root (r, Quantified_inner (Greedy Star) :: ctx))
     (EARLY_ERRORS: EarlyErrors.Pass_Regex root nil),
   forall (x:MatchState) (c:MatcherContinuation) (VALID: Valid (input x) rer x),

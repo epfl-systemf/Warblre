@@ -59,7 +59,7 @@ let test_regex_using_record regex input at rer =
   match compilePattern regex rer with
   | Success matcher ->
     let ls_input = Interop.Utf16.string_to_utf16 input in
-    pretty_print_result input at (matcher (Obj.magic ls_input) at) (Extracted.RegExp.unicode rer)
+    pretty_print_result input at (matcher (Obj.magic ls_input) at) (Extracted.RegExpRecord.unicode rer)
     
   | Failure AssertionFailed -> Printf.printf "Assertion error during compilation \n"
 
@@ -67,11 +67,11 @@ let test_regex_using_record regex input at rer =
 let test_regex regex input at ?(ignoreCase=false) ?(multiline=false) ?(dotAll=false) ?(unicode=false) () =
   let groups = (countGroups regex) in
   let rer = Extracted.({
-    RegExp.ignoreCase = ignoreCase;
-    RegExp.multiline = multiline;
-    RegExp.dotAll = dotAll;
-    RegExp.unicode = unicode;
-    RegExp.capturingGroupsCount = groups;
+    RegExpRecord.ignoreCase = ignoreCase;
+    RegExpRecord.multiline = multiline;
+    RegExpRecord.dotAll = dotAll;
+    RegExpRecord.unicode = unicode;
+    RegExpRecord.capturingGroupsCount = groups;
   }) in
   test_regex_using_record regex input at rer
 
@@ -83,22 +83,22 @@ let compare_regexes_using_record regex1 regex2 input at rer: unit =
     let res2 = (m2 (Obj.magic ls_input) at) in
     if res1 = res2 then
       (Printf.printf "The two regexes resulted in identical matches.\n";
-      pretty_print_result input at res1 (Extracted.RegExp.unicode rer))
+      pretty_print_result input at res1 (Extracted.RegExpRecord.unicode rer))
     else
       (Printf.printf "The two regexes resulted in different matches.\n";
-      pretty_print_result input at res1 (Extracted.RegExp.unicode rer);
-      pretty_print_result input at res2 (Extracted.RegExp.unicode rer))
-    
+      pretty_print_result input at res1 (Extracted.RegExpRecord.unicode rer);
+      pretty_print_result input at res2 (Extracted.RegExpRecord.unicode rer))
+
   | Failure AssertionFailed, _ -> Printf.printf "Assertion error during compilation \n"
   | _, Failure AssertionFailed -> Printf.printf "Assertion error during compilation \n"
 
 let compare_regexes r1 r2 input at ?(ignoreCase=false) ?(multiline=false) ?(dotAll=false) ?(unicode=false) () =
   let groups = (countGroups r1) in
   let rer = Extracted.({
-    RegExp.ignoreCase = ignoreCase;
-    RegExp.multiline = multiline;
-    RegExp.dotAll = dotAll;
-    RegExp.unicode = unicode;
-    RegExp.capturingGroupsCount = groups;
+    RegExpRecord.ignoreCase = ignoreCase;
+    RegExpRecord.multiline = multiline;
+    RegExpRecord.dotAll = dotAll;
+    RegExpRecord.unicode = unicode;
+    RegExpRecord.capturingGroupsCount = groups;
   }) in
   compare_regexes_using_record r1 r2 input at rer

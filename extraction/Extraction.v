@@ -51,5 +51,5 @@ Extract Constant Unicode.UnicodeProperty => "Interop.Unicode.unicodeProperty".
 Extract Constant Unicode.unicode_property_eqdec => "Interop.Unicode.up_eq".
 Extract Constant Unicode.code_points_for => "Interop.Unicode.code_points_for".
 
-Extraction "Extracted.ml" RegExp.RegExp  ECMA.ECMA ECMA.ECMA_u.
+Extraction "Extracted.ml" RegExpRecord.RegExpRecord  ECMA.ECMA ECMA.ECMA_u.
 

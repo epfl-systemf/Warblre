@@ -1,5 +1,5 @@
 From Coq Require Import PeanoNat ZArith Bool Lia Program.Equality List Program.Wf.
-From Warblre Require Import RegExp Tactics Focus Result Base Patterns StaticSemantics Notation List Typeclasses.
+From Warblre Require Import RegExpRecord Tactics Focus Result Base Patterns StaticSemantics Notation List Typeclasses.
 
 Import Result.Notations.
 Import Result.Notations.Boolean.
@@ -79,7 +79,7 @@ Module Semantics. Section main.
   (** 22.2.2.7 Runtime Semantics: CompileAtom *)
 
   (** 22.2.2.7.1 CharacterSetMatcher ( rer, A, invert, direction ) *)
-  Definition characterSetMatcher (rer: RegExp) (A: CharSet) (invert: bool) (direction: Direction): Matcher :=
+  Definition characterSetMatcher (rer: RegExpRecord) (A: CharSet) (invert: bool) (direction: Direction): Matcher :=
     (* 1. Return a new Matcher with parameters (x, c) that captures rer, A, invert, and direction and performs the following steps when called: *)
     fun (x: MatchState) (c: MatcherContinuation) =>
       (* a. Assert: x is a MatchState. *)
@@ -125,7 +125,7 @@ Module Semantics. Section main.
   (** End --- 22.2.2.7.1 CharacterSetMatcher ( rer, A, invert, direction ) *)
 
   (** 22.2.2.7.2 BackreferenceMatcher ( rer, n, direction ) *)
-  Definition backreferenceMatcher (rer: RegExp) (n: positive_integer) (direction: Direction): Matcher :=
+  Definition backreferenceMatcher (rer: RegExpRecord) (n: positive_integer) (direction: Direction): Matcher :=
     (* 1. Assert: n ≥ 1. *)
     (* 2. Return a new Matcher with parameters (x, c) that captures rer, n, and direction and performs the following steps when called: *)
     fun (x: MatchState) (c: MatcherContinuation) =>
@@ -200,7 +200,7 @@ Module Semantics. Section main.
   (** End --- 22.2.2.9.1 CharacterRange ( A, B ) *)
 
   (** 22.2.2.9.2 WordCharacters ( rer ) *)
-  Definition wordCharacters {F: Type} {_: Result.AssertionError F} (rer: RegExp): Result CharSet F :=
+  Definition wordCharacters {F: Type} {_: Result.AssertionError F} (rer: RegExpRecord): Result CharSet F :=
     (* 1. Let basicWordChars be the CharSet containing every character in the ASCII word characters. *)
     let basicWordChars := Characters.ascii_word_characters in
     (* 2. Let extraWordChars be the CharSet containing all characters c such that c is not in basicWordChars but Canonicalize(rer, c) is in basicWordChars. *)
@@ -210,11 +210,11 @@ Module Semantics. Section main.
     ) in
     (* 3. Assert: extraWordChars is empty unless rer.[[Unicode]] is true and rer.[[IgnoreCase]] is true. *)
     (*+ TODO: check interpretation and whether we want to keep it *)
-    (* assert! (CharSet.is_empty extraWordChars) || ((RegExp.unicode rer is true) && (RegExp.ignoreCase rer is true)) ; *)
+    (* assert! (CharSet.is_empty extraWordChars) || ((RegExpRecord.unicode rer is true) && (RegExpRecord.ignoreCase rer is true)) ; *)
     (* 4. Return the union of basicWordChars and extraWordChars. *)
     CharSet.union basicWordChars extraWordChars.
 
-  Definition compileToCharSet_ClassAtom_0 (self: ClassAtom) (rer: RegExp) : Result CharSet CompileError := match self with
+  Definition compileToCharSet_ClassAtom_0 (self: ClassAtom) (rer: RegExpRecord) : Result CharSet CompileError := match self with
   (** ClassAtom :: SourceCharacter *)
   (*+ Doesn't really follow the spec, as it poorly mimics ClassAtomNoDash :: SourceCharacter but not one of ... *)
   | SourceCharacter chr =>
@@ -260,7 +260,7 @@ Module Semantics. Section main.
   | ClassEsc (CCharacterClassEsc (UnicodePropNeg _)) => Result.assertion_failed
   end.
 
-  Definition compileToCharSet_ClassAtom (self: ClassAtom) (rer: RegExp) : Result CharSet CompileError := match self with
+  Definition compileToCharSet_ClassAtom (self: ClassAtom) (rer: RegExpRecord) : Result CharSet CompileError := match self with
   (** CharacterClassEscape :: D *)
   | ClassEsc (CCharacterClassEsc esc_D) =>
       (* 1. Return the CharSet containing all characters not in the CharSet returned by CharacterClassEscape :: d . *)
@@ -288,7 +288,7 @@ Module Semantics. Section main.
   | _ => compileToCharSet_ClassAtom_0 self rer
   end.
 
-  Fixpoint compileToCharSet (self: ClassRanges) (rer: RegExp): Result CharSet CompileError := match self with
+  Fixpoint compileToCharSet (self: ClassRanges) (rer: RegExpRecord): Result CharSet CompileError := match self with
   (** ClassRanges :: [empty] *)
   | EmptyCR =>
       (* 1. Return the empty CharSet. *)
@@ -324,7 +324,7 @@ Module Semantics. Section main.
     CompiledCharacterClass_invert: bool;
   }.
 
-  Definition compileCharacterClass (self: CharClass) (rer: RegExp): Result CompiledCharacterClass CompileError := match self with
+  Definition compileCharacterClass (self: CharClass) (rer: RegExpRecord): Result CompiledCharacterClass CompileError := match self with
   | NoninvertedCC crs =>
       let! a =<< compileToCharSet crs rer in
       Success (compiled_character_class a false)
@@ -335,7 +335,7 @@ Module Semantics. Section main.
   (** End --- 22.2.2.8 Runtime Semantics: CompileCharacterClass *)
 
   (** 22.2.2.4.1 IsWordChar ( rer, Input, e ) *)
-  Definition isWordChar (rer: RegExp) (input: list Character) (e: integer): Result bool MatchError :=
+  Definition isWordChar (rer: RegExpRecord) (input: list Character) (e: integer): Result bool MatchError :=
     (* 1. Let InputLength be the number of elements in Input. *)
     let inputLength := List.length input in
     (* 2. If e = -1 or e = InputLength, return false. *)
@@ -420,7 +420,7 @@ Module Semantics. Section main.
     repeatMatcher' m min max greedy x c parenIndex parenCount (repeatMatcherFuel min x).
   (** End --- 22.2.2.3.1 RepeatMatcher ( m, min, max, greedy, x, c, parenIndex, parenCount ) *)
 
-  Fixpoint compileSubPattern (self: Regex) (ctx: RegexContext) (rer: RegExp) (direction: Direction): Result Matcher CompileError := match self with
+  Fixpoint compileSubPattern (self: Regex) (ctx: RegexContext) (rer: RegExpRecord) (direction: Direction): Result Matcher CompileError := match self with
   (** Disjunction :: Alternative | Disjunction *)
   | Disjunction r1 r2 =>
       (* 1. Let m1 be CompileSubpattern of Alternative with arguments rer and direction. *)
@@ -499,7 +499,7 @@ Module Semantics. Section main.
           (* d. Let e be x's endIndex. *)
           let e := MatchState.endIndex x in
           (* e. If e = 0, or if rer.[[Multiline]] is true and the character Input[e - 1] is matched by LineTerminator, then *)
-          if! (e =? 0)%Z ||! ((RegExp.multiline rer is true) &&! (let! c =<< input[(e-1)%Z] in CharSet.contains Characters.line_terminators c)) then
+          if! (e =? 0)%Z ||! ((RegExpRecord.multiline rer is true) &&! (let! c =<< input[(e-1)%Z] in CharSet.contains Characters.line_terminators c)) then
             (* i. Return c(x). *)
             c x
           else
@@ -519,7 +519,7 @@ Module Semantics. Section main.
           (* e. Let InputLength be the number of elements in Input. *)
           let inputLength := List.length input in
           (* f. If e = InputLength, or if rer.[[Multiline]] is true and the character Input[e] is matched by LineTerminator, then *)
-          if! (e =? inputLength)%Z ||! ((RegExp.multiline rer is true) &&! (let! c =<< input[e] in CharSet.contains Characters.line_terminators c)) then
+          if! (e =? inputLength)%Z ||! ((RegExpRecord.multiline rer is true) &&! (let! c =<< input[e] in CharSet.contains Characters.line_terminators c)) then
             (* i. Return c(x). *)
             c x
           else
@@ -696,7 +696,7 @@ Module Semantics. Section main.
         (* 1. Let A be the CharSet of all characters. *)
         let A := Characters.all in
         (* 2. If rer.[[DotAll]] is not true, then *)
-        let A := if RegExp.dotAll rer is not true
+        let A := if RegExpRecord.dotAll rer is not true
           (* a. Remove from A all characters corresponding to a code point on the right-hand side of the LineTerminator production. *)
           then CharSet.remove_all A Characters.line_terminators
           else A
@@ -762,7 +762,7 @@ Module Semantics. Section main.
           (* 1. Let n be the CapturingGroupNumber of DecimalEscape. *)
           let n := de in
           (* 2. Assert: n ≤ rer.[[CapturingGroupsCount]]. *)
-          assert! (n <=? RegExp.capturingGroupsCount rer)%nat;
+          assert! (n <=? RegExpRecord.capturingGroupsCount rer)%nat;
           (* 3. Return BackreferenceMatcher(rer, n, direction).*)
           backreferenceMatcher rer n direction
 
@@ -822,7 +822,7 @@ Module Semantics. Section main.
   (** End --- 22.2.2.3 Runtime Semantics: CompileSubpattern *)
 
   (** 22.2.2.2 Runtime Semantics: CompilePattern *)
-  Definition compilePattern (r: Regex) (rer: RegExp): Result (list Character -> non_neg_integer -> MatchResult) CompileError :=
+  Definition compilePattern (r: Regex) (rer: RegExpRecord): Result (list Character -> non_neg_integer -> MatchResult) CompileError :=
     (* 1. Let m be CompileSubpattern of Disjunction with arguments rer and forward. *)
     let! m =<< compileSubPattern r nil rer forward in
     (* 2. Return a new Abstract Closure with parameters (Input, index) that captures rer and m and performs the following steps when called: *)
@@ -838,7 +838,7 @@ Module Semantics. Section main.
       in
       (* d. Let cap be a List of rer.[[CapturingGroupsCount]] undefined values, indexed 1 through rer.[[CapturingGroupsCount]]. *)
       (*+ The fact that the array starts at 1 is handled by the nat indexer *)
-      let cap := List.repeat undefined (RegExp.capturingGroupsCount rer) in
+      let cap := List.repeat undefined (RegExpRecord.capturingGroupsCount rer) in
       (* e. Let x be the MatchState (Input, index, cap). *)
       let x := match_state input (Z.of_nat index) cap in
       (* f. Return m(x, c). *)

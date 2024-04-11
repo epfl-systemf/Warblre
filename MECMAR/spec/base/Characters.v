@@ -1,5 +1,5 @@
 From Coq Require Import PeanoNat List ListSet Structures.OrderedType FSets.FSetAVL NArith.
-From Warblre Require Import RegExp Tactics List Result Numeric Typeclasses.
+From Warblre Require Import RegExpRecord Tactics List Result Numeric Typeclasses.
 
 Module HexDigit.
   Parameter type: Type.
@@ -90,7 +90,7 @@ Module Character.
     eq_dec: EqDec type;
     from_numeric_value: nat -> type;
     numeric_value: type -> nat;
-    canonicalize: RegExp -> type -> type;
+    canonicalize: RegExpRecord -> type -> type;
 
     numeric_pseudo_bij: forall c, from_numeric_value (numeric_value c) = c;
     numeric_round_trip_order: forall l r, l <= r -> (numeric_value (from_numeric_value l)) <= (numeric_value (from_numeric_value r));

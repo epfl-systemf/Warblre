@@ -16,7 +16,7 @@ Local Open Scope result_flow.
 
 (** * Stricly Nullable Static Analysis  *)
 Section StriclyNullable.
-  Context `{ci: CharacterInstance }.
+  Context {Character} `{ci: CharacterInstance Character}.
 (* A regex is stricly nullable when if it matches, it always matches the empty string. It cannot match characters *)
 (* The following function is a static under-approximation  of when is a regex striclty nullable. *)
 

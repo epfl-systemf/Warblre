@@ -6,7 +6,7 @@ From Warblre Require Import List Result Typeclasses Notation Numeric Characters.
   grammar cannot interpret the String as an expansion of Pattern *)
 
 Module Patterns. Section main.
-  Context `{CharacterInstance}.
+  Context {Character} `{ep: CharacterInstance Character}.
 
   (** GroupName :: *)
   Parameter GroupName: Type.
@@ -168,7 +168,7 @@ Module Patterns. Section main.
 End main. End Patterns.
 
 Section Zipper.
-  Context `{CharacterInstance}.
+  Context {Character} `{ep: CharacterInstance Character}.
   Import Patterns.
 
   Inductive RegexContextLayer :=
@@ -219,7 +219,7 @@ Notation RegexContext := (list RegexContextLayer).
 
 Module Zipper.
   Module Root. Section main.
-    Context `{CharacterInstance}.
+    Context {Character} `{ep: CharacterInstance Character}.
 
     Lemma id: forall r, Root r (r, nil).
     Proof. intros. reflexivity. Qed.
@@ -229,7 +229,7 @@ Module Zipper.
   End main. End Root.
 
   Module Zip. Section main.
-    Context `{CharacterInstance}.
+    Context {Character} `{ep: CharacterInstance Character}.
 
     Lemma id: forall r, zip r nil = r.
     Proof. intros. reflexivity. Qed.
@@ -254,7 +254,7 @@ Module Zipper.
   End main. End Zip.
 
   Section Down.
-    Context `{CharacterInstance}.
+    Context {Character} `{ep: CharacterInstance Character}.
     Import Patterns.
 
     Inductive Down: (Regex * RegexContext) -> (Regex * RegexContext) -> Prop :=
@@ -274,7 +274,7 @@ Module Zipper.
   Notation "'Down*'" := Down_Star.
 
   Module Down. Section main.
-    Context `{ci: CharacterInstance}.
+    Context {Character} `{ep: CharacterInstance Character}.
 
     Lemma same_root: forall root r0 ctx0 r1 ctx1, Down (r0, ctx0) (r1, ctx1) -> (Root root (r0, ctx0) <-> Root root (r1, ctx1)).
     Proof. unfold Root. intros. dependent destruction H; cbn; easy. Qed.
@@ -330,7 +330,7 @@ Module Zipper.
   End main. End Down.
 
   Module Walk. Section main.
-    Context `{ci: CharacterInstance}.
+    Context {Character} `{ep: CharacterInstance Character}.
     Import Patterns.
 
     Fixpoint walk (r: Regex) (ctx: RegexContext): list (Regex * RegexContext) :=
@@ -480,7 +480,7 @@ Module Zipper.
 End Zipper.
 
 Section Induction.
-    Context `{ci: CharacterInstance}.
+    Context {Character} `{ep: CharacterInstance Character}.
     Import Patterns.
 
     Lemma Node_ind: forall root (P : (Regex * RegexContext) -> Prop),

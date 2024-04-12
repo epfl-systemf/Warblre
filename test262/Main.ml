@@ -34,7 +34,7 @@ let warblre_exec (type a) regex (input: a list) unicode (p: a -> int) : Yojson.S
     add current name value
   in
 
-  let res = (if unicode then Warblre.Extracted.ECMA_u.coq_RegExpExec regex (Obj.magic input)  else Warblre.Extracted.ECMA.coq_RegExpExec regex (Obj.magic input)) in
+  let res = (if unicode then Warblre.Extracted.ECMA_u.coq_RegExpExec regex input  else Warblre.Extracted.ECMA.coq_RegExpExec regex input) in
   match res with
   | Warblre.Extracted.Result.Success (Null regex_new) ->
     `Assoc (("lastIndex", `Int (regex_new.lastIndex) ) :: ("result", `Null) :: [])

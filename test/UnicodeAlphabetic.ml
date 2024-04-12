@@ -1,6 +1,5 @@
-open! Warblre.Extracted.Patterns
-open Warblre.Helpers
-open Warblre.Notations
+open Warblre.Notations.UnicodeNotations
+open Warblre.Testing.UnicodeTester
 
 let%expect_test "ascii" =
   test_regex

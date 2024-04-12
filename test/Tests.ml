@@ -1,6 +1,5 @@
-open! Warblre.Extracted.Patterns
-open Warblre.Helpers
-open Warblre.Notations
+open Warblre.Notations.UnicodeNotations
+open Warblre.Testing.UnicodeTester
 
 let%expect_test "char_class_atom_0_pos" =
   test_regex
@@ -113,7 +112,7 @@ let%expect_test "negated_char_class_seq_0_pos_1" =
 
 let%expect_test "sequence" =
   test_regex
-    ((achar 'a') -- (achar 'b') -- (achar 'b'))
+    ((cchar 'a') -- (cchar 'b') -- (cchar 'b'))
     "abbb"
     0 ();
   [%expect {| Matched 3 characters ([0-3]) in 'abbb' (length=4) |}]
@@ -121,7 +120,7 @@ let%expect_test "sequence" =
 
 let%expect_test "greedy_star" = 
   test_regex
-    (!* (achar 'a'))
+    (!* (cchar 'a'))
     "aaaaa"
     0 ();
   [%expect {| Matched 5 characters ([0-5]) in 'aaaaa' (length=5) |}]
@@ -129,22 +128,22 @@ let%expect_test "greedy_star" =
 
 let%expect_test "lazy_star_0" = 
   test_regex
-    (!*? (achar 'a'))
+    (!*? (cchar 'a'))
     "aaaaa"
     0 ();
   [%expect {| Matched 0 characters ([0-0]) in 'aaaaa' (length=5) |}]
 
 let%expect_test "lazy_star_1" = 
   test_regex
-    (!*? (achar 'a') -- (achar 'b'))
+    (!*? (cchar 'a') -- (cchar 'b'))
     "aaaaab"
     0 ();
   [%expect {| Matched 6 characters ([0-6]) in 'aaaaab' (length=6) |}]
 
 let%expect_test "groups" =
   test_regex
-    (   group ( achar 'a')
-    ||  group ( achar 'b'))
+    (   group ( cchar 'a')
+    ||  group ( cchar 'b'))
     "ab"
     0 ();
   [%expect {|
@@ -155,8 +154,8 @@ let%expect_test "groups" =
 
 let%expect_test "capture_reset" =
   test_regex
-    !*( group (achar 'a')
-    ||  group (achar 'b'))
+    !*( group (cchar 'a')
+    ||  group (cchar 'b'))
     "ab"
     0 ();
   [%expect {|

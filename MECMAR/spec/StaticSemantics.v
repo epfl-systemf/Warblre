@@ -7,7 +7,7 @@ Import Result.Notations.Boolean.
 Local Open Scope result_flow.
 
 Section StaticSemantics.
-  Context `{CharacterInstance}.
+  Context {Character} `{ep: CharacterInstance Character}.
   Import Patterns.
 
   (** 22.2.1.9 Static Semantics: RegExpIdentifierCodePoints *)

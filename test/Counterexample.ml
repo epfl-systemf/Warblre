@@ -1,10 +1,9 @@
-open! Warblre.Extracted.Patterns
-open Warblre.Helpers
-open Warblre.Notations
+open Warblre.Notations.UnicodeNotations
+open Warblre.Testing.UnicodeTester
 
 let%expect_test "disjunction_commutativity" =
-  let r1 = (achar 'a') in
-  let r2 = ((achar 'a') -- (achar 'b')) in
+  let r1 = (cchar 'a') in
+  let r2 = ((cchar 'a') -- (cchar 'b')) in
   compare_regexes
     (r1 || r2)
     (r2 || r1)
@@ -30,8 +29,8 @@ let%expect_test "greedy_question_elimination" =
     Group 1: '' ([0-0]) |}]
 
 let%expect_test "lazy_question_elimination" =
-  let r = ?= (group (achar 'a')) in
-  let f = (!$ 1) -- (achar 'b') in
+  let r = ?= (group (cchar 'a')) in
+  let f = (!$ 1) -- (cchar 'b') in
   compare_regexes
     ( (!?? r) -- f )
     ( (epsilon || r) -- f )

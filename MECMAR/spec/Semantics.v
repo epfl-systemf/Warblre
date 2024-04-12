@@ -8,7 +8,7 @@ Local Open Scope result_flow.
 
 (** 22.2.2 Pattern Semantics *)
 Module Semantics. Section main.
-  Context `{ci: CharacterInstance}.
+  Context {Character} `{ep: CharacterInstance Character}.
   Import Patterns.
   Import Notation.
 

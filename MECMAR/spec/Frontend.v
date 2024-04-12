@@ -5,7 +5,7 @@ Import Result.Notations.
 Local Open Scope result_flow.
 
 Section Frontend.
-  Context `{CharacterInstance}.
+  Context {Character} `{ep: CharacterInstance Character}.
   Import Notation.
   Import Patterns.
   (* This module intentionally diverges from ECMAScript *)
@@ -90,12 +90,10 @@ Section Frontend.
         lastIndex: integer;
         pattern: Patterns.Regex;
       }.
-
   
-
   Definition setlastindex (r:RegExpInstance) (index:integer) : RegExpInstance :=
     mkre (OriginalFlags r) (fRegExpRecord r) (RegExpMatcher r) index (pattern r).
-                               
+                             
   (* 22.2.7.5 Match Records
 A Match Record is a Record value used to encapsulate the start and end indices of a regular expression match or capture. *)
   Record MatchRecord :=

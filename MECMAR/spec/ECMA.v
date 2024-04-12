@@ -49,7 +49,6 @@ Module UInt16.
   Parameter to_code_point: type -> CodePoint.
   Parameter to_upper_case: CodePoint -> list CodePoint.
   Parameter code_points_to_string: list CodePoint -> list type.
-
   Definition canonicalize (rer: RegExpRecord) (ch: type): type :=
     (* 2. If rer.[[IgnoreCase]] is false, return ch. *)
     if (RegExpRecord.ignoreCase rer == false) then ch
@@ -207,9 +206,8 @@ End AVL_Unicode_CharSet.
 
 Module Utf16CharCode.
   #[refine]
-  Instance instance: Character.class := {
+  Instance instance: Character.class UInt16.type := {
     (* The character type and its operations *)
-    type := UInt16.type;
     eq_dec := UInt16.eqdec_uint16;
     from_numeric_value := UInt16.from_numeric_value;
     numeric_value := UInt16.numeric_value;
@@ -232,9 +230,8 @@ End Utf16CharCode.
 
 Module UnicodeCharCode.
   #[refine]
-  Instance instance: Character.class := {
+  Instance instance: Character.class Unicode.type := {
     (* The character type and its operations *)
-    type := Unicode.type;
     eq_dec := Unicode.eqdec_uint16;
     from_numeric_value := Unicode.from_numeric_value;
     numeric_value := Unicode.numeric_value;
@@ -257,50 +254,24 @@ Module UnicodeCharCode.
 End UnicodeCharCode.
 
 Module Type Parameters.
-  Parameter char_instance: @Character.class.
-  Definition Character := @Character.type char_instance.
+  Parameter Character : Type.
+  Parameter char_instance: Character.class Character.
 End Parameters.
 
 Module Instance (parameters: Parameters).
+  (* Instanciation *)
   Definition char_instance := parameters.char_instance.
   Definition Character := parameters.Character.
 
-  Definition QuantifierPrefix := Patterns.QuantifierPrefix.
-  Definition Quantifier := Patterns.Quantifier.
-  Definition ClassAtom := @Patterns.ClassAtom char_instance.
-  Definition CharClass := @Patterns.CharClass char_instance.
-  Definition ClassRanges := @Patterns.ClassRanges char_instance.
-  Definition Regex := @Patterns.Regex char_instance.
+  (* Utils *)
+  Definition countGroups r := @StaticSemantics.countLeftCapturingParensWithin_impl _ char_instance r.
 
-  Definition MatchState := @Notation.MatchState char_instance.
-  Definition MatchResult := @Notation.MatchResult char_instance.
-
-  Definition compilePattern := @Semantics.compilePattern char_instance.
-
-  Definition countGroups r := @StaticSemantics.countLeftCapturingParensWithin char_instance r nil.
-
-  Definition RegExpFlags := RegExpFlags.
-  Definition groups_map := @groups_map char_instance.
-  Definition CaptureRange := Notation.CaptureRange.
-  Module CaptureRange := Notation.CaptureRange.
-
-  Definition RegExpInstance := @Frontend.RegExpInstance char_instance.
-  Definition setLastIndex := @setlastindex char_instance.
-  Definition RegExpInitialize := @Frontend.RegExpInitialize char_instance.
-  Definition ArrayExotic := @Frontend.ArrayExotic char_instance.
-  Definition RegExpExec := @Frontend.RegExpExec char_instance.
-
-  Definition PrototypeExec := @PrototypeExec char_instance.
-  Definition ExecResult := @Frontend.ExecResult char_instance.
-  Definition PrototypeSearch := @PrototypeSearch char_instance.
-  Definition PrototypeTest := @PrototypeTest char_instance.
-  Definition PrototypeMatch := @PrototypeMatch char_instance.
-  Definition ProtoMatchResult := @Frontend.ProtoMatchResult char_instance.
-  Definition PrototypeMatchAll := @PrototypeMatchAll char_instance.
+  (* API *)
+  Definition compilePattern := @Semantics.compilePattern _ char_instance.
 End Instance.
 
 Module ECMASig <: Parameters.
-  Definition char_instance: @Character.class := Utf16CharCode.instance.
+  Definition char_instance := Utf16CharCode.instance.
   Definition Character: Type := UInt16.type.
 End ECMASig.
 Module ECMA.
@@ -308,7 +279,7 @@ Module ECMA.
 End ECMA.
 
 Module ECMASig_u <: Parameters.
-  Definition char_instance: @Character.class := UnicodeCharCode.instance.
+  Definition char_instance := UnicodeCharCode.instance.
   Definition Character: Type := Unicode.type.
 End ECMASig_u.
 Module ECMA_u.

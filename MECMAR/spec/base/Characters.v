@@ -84,9 +84,8 @@ Module CharSet.
 End CharSet.
 
 Module Character.
-  Class class := make {
+  Class class type := make {
     (* The character type and its operations *)
-    type: Type;
     eq_dec: EqDec type;
     from_numeric_value: nat -> type;
     numeric_value: type -> nat;
@@ -115,16 +114,17 @@ Module Character.
     assumption.
   Qed.
 
+  Definition type {C} `{class C} := C.
 End Character.
 Notation CharacterInstance := @Character.class.
 Notation CharSet := (@CharSet.set_type _ Character.set_type).
-Notation Character := Character.type.
+(* Notation Character := Character.type. *)
 Notation UnicodeProperty := Character.unicode_property.
 
-Instance eqdec_Character `{ci: CharacterInstance}: EqDec Character := Character.eq_dec.
+Instance eqdec_Character {C} `{ci: CharacterInstance C}: EqDec C := Character.eq_dec.
 
 Module Characters. Section main.
-  Context `{CharacterInstance}.
+  Context {Character} `{ep: CharacterInstance Character}.
 
   Definition NULL: Character := Character.from_numeric_value 0.
   Definition BACKSPACE: Character := Character.from_numeric_value 8.

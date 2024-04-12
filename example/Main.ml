@@ -1,18 +1,15 @@
-open! Warblre
-open! Extracted
-open! Patterns
-open! Notations
-open! Helpers
+open Warblre.Notations.UnicodeNotations
+open Warblre.Testing.UnicodeTester
 
 let str =
   "aaaaabaπaac"
 
 let regex = 
-  Group (None, !* (
+  group !* (
     Disjunction(
       Disjunction (
-        Group (None, achar 'a'),
-        Group (None, achar 'b')),
-      (char ("π")))))
+        Group (None, cchar 'a'),
+        Group (None, cchar 'b')),
+      (char ("π"))))
 
 let () = test_regex regex str 0 ()

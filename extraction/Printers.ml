@@ -108,56 +108,92 @@ module Printer(E: Encoding.Character) = struct
       let (i1, i2) = t in
       start ^ pa i1 ^ sep ^ pb i2 ^ endd
 
-    let keyed_list_to_string (type a b) ?(prefix="\t#") ?(key_sep=":") ?(sep=" ") (pa: a -> string) (pb: b -> string) (l: (a * b) list) : string =
-      if List.length l = 0 then "[]" else
+    let keyed_list_to_string (type a b) ?(nil="[]") ?(prefix="\t#") ?(key_sep=":") ?(sep=" ") (pa: a -> string) (pb: b -> string) (l: (a * b) list) : string =
+      if List.length l = 0 then nil else
       prefix ^ String.concat sep (List.map (fun (k, v) -> pa k ^ key_sep ^ pb v) l)
 
-    let indexed_list_to_string (type a) ?(prefix="") ?(key_sep=":") ?(sep=" ") (p: a -> string) (l: a list) : string =
+    let indexed_list_to_string (type a) ?(nil="[]") ?(prefix="") ?(key_sep=":") ?(sep=" ") (p: a -> string) (l: a list) : string =
       let rec indexed (l: a list) (index: int) : (int * a) list =
         match l with
         | [] -> []
         | h :: t -> (index, h) :: (indexed t (index + 1))
       in
-      keyed_list_to_string ~prefix:prefix ~key_sep:key_sep ~sep:sep string_of_int p (indexed l 0)
+      keyed_list_to_string ~nil:nil ~prefix:prefix ~key_sep:key_sep ~sep:sep string_of_int p (indexed l 0)
 
-    let exec_array_exotic_to_string (a: Extracted.ExecArrayExotic.coq_type) : string =
-      let zip_with_opt (type a b) (l: a list) (r: b option list option) = match r with
-        | None -> List.map (fun l -> (l, None)) l
-        | Some r -> List.combine l r
-      in
-      let named_captures: ('a * ('a option * (int * int) option)) list option =
-        Option.map (fun l ->
-          List.map (fun ((n, l), r) -> (n, (l, r))) (zip_with_opt l (Option.map (List.map snd) a.indices_groups))
-        ) a.groups
-      in
-      String.concat "\n" (List.filter (fun s -> String.length s != 0) (
-        ("Start:" ^ "\027[20G" ^ string_of_int a.index) ::
-        ("Captures:" ^ (
-          indexed_list_to_string ~prefix:"\027[20G# " ~key_sep:"\027[32G: " ~sep:"\n\027[20G# " (
-            pair_to_string ~start:"" ~sep:"\027[64G" ~endd:"" (
-              option_to_string quoted) (
-              option_to_string ~none:"" (pair_to_string string_of_int string_of_int))))
-          (zip_with_opt a.array a.indices_array)) ::
-        (option_to_string ~none:"" ~some_prefix:"Named captures:"
-            (keyed_list_to_string ~prefix:"\027[20G# " ~key_sep:"\027[32G: " ~sep:"\n\027[20G# "
-              Encoding.Utf16.list_to_string
-              (pair_to_string ~start:"" ~sep:"\027[64G" ~endd:""
-                (option_to_string quoted)
-                (option_to_string ~none:"" (pair_to_string string_of_int string_of_int))))
-          named_captures) ::
-        []
-      ))
+    let exec_array_exotic_to_string (pretty: bool) (a: Extracted.ExecArrayExotic.coq_type) : string =
+      if pretty then
+        let zip_with_opt (type a b) (l: a list) (r: b option list option) = match r with
+          | None -> List.map (fun l -> (l, None)) l
+          | Some r -> List.combine l r
+        in
+        let named_captures: ('a * ('a option * (int * int) option)) list option =
+          Option.map (fun l ->
+            List.map (fun ((n, l), r) -> (n, (l, r))) (zip_with_opt l (Option.map (List.map snd) a.indices_groups))
+          ) a.groups
+        in
+        String.concat "\n" (List.filter (fun s -> String.length s != 0) (
+          ("Start:" ^ "\027[20G" ^ string_of_int a.index) ::
+          ("Captures:" ^ (
+            indexed_list_to_string ~prefix:"\027[20G# " ~key_sep:"\027[32G: " ~sep:"\n\027[20G# " (
+              pair_to_string ~start:"" ~sep:"\027[64G" ~endd:"" (
+                option_to_string quoted) (
+                option_to_string ~none:"" (pair_to_string string_of_int string_of_int))))
+            (zip_with_opt a.array a.indices_array)) ::
+          (option_to_string ~none:"" ~some_prefix:"Named captures:"
+              (keyed_list_to_string ~prefix:"\027[20G# " ~key_sep:"\027[32G: " ~sep:"\n\027[20G# "
+                Encoding.Utf16.list_to_string
+                (pair_to_string ~start:"" ~sep:"\027[64G" ~endd:""
+                  (option_to_string quoted)
+                  (option_to_string ~none:"" (pair_to_string string_of_int string_of_int))))
+            named_captures) ::
+          []
+        ))
+      else
+        String.concat "\n" (List.filter (fun s -> String.length s != 0) (
+          ("Start: " ^ string_of_int a.index) ::
+          ("Captures:" ^ (
+            indexed_list_to_string ~nil:"\n\tNone" ~prefix:"\n\t# " ~key_sep:" : " ~sep:"\n\t# "
+              (option_to_string quoted)
+            a.array)) ::
+          ("Named captures:" ^ (
+            option_to_string ~none:"\n\tNone" 
+              (keyed_list_to_string ~nil:"\n\tNone" ~prefix:"\n\t# " ~key_sep:" : " ~sep:"\n\t# "
+                Encoding.Utf16.list_to_string
+                (option_to_string quoted))
+            a.groups)) ::
+          ("Indices:" ^ (
+            option_to_string ~none:"\n\tNone" 
+              (indexed_list_to_string ~nil:"\n\tNone" ~prefix:"\n\t# " ~key_sep:" : " ~sep:"\n\t# "
+                (option_to_string ~none:"Undefined" (pair_to_string string_of_int string_of_int)))
+            a.indices_array)) ::
+          ("Named indices:" ^ (
+            option_to_string ~none:"\n\tNone" 
+              (keyed_list_to_string ~nil:"\n\tNone" ~prefix:"\n\t# " ~key_sep:" : " ~sep:"\n\t# "
+                Encoding.Utf16.list_to_string
+                (option_to_string ~none:"Undefined" (pair_to_string string_of_int string_of_int)))
+            a.indices_groups)) ::
+          (* (option_to_string ~none:"" ~some_prefix:"Named captures:"
+              (keyed_list_to_string ~prefix:"\027[20G# " ~key_sep:"\027[32G: " ~sep:"\n\027[20G# "
+                Encoding.Utf16.list_to_string
+                (pair_to_string ~start:"" ~sep:"\027[64G" ~endd:""
+                  (option_to_string quoted)
+                  (option_to_string ~none:"" (pair_to_string string_of_int string_of_int))))
+            named_captures) :: *)
+          []
+        ))
   end
   open Internal
 
   (*  With delimited=false, the delimiters (/.../) won't be printed.
     In strict mode, the regex will be printed as is.
-    In non-strict mode, an equivalent regex (through associativity) might be printed. *)
+    In non-strict mode, an equivalent regex (through associativity) might be printed.
+    Additionally, in non-strict mode, parentheses which are not required by most engines (but are mandated by the spec) are not printed. *)
   let regex_to_string ?(delimited=true) ?(strict=false) (r: character coq_Regex) : string =
     let next (i: int) : int = if strict then i + 1 else i in
+    let prio_if_strict (str: string) (at: int) (current: int) : string = if strict then prio str at current else str in
     let rec iter (r: character coq_Regex) (current: int) : string =
       match r with
-      | Empty -> ""
+      | Empty -> prio_if_strict "" 3 current
       | Char c -> char_lit_to_string c
       | Dot -> String.make 1 '.'
       | CharacterClass cc -> (match cc with
@@ -172,22 +208,33 @@ module Printer(E: Encoding.Character) = struct
       | Seq (r1, r2) -> prio ((iter r1 (next 1)) ^ (iter r2 1)) 1 current
       | Group (None, r1) -> "(" ^ iter r1 0 ^ ")"
       | Group (Some name, r1) -> "(?<" ^ Encoding.Utf16.list_to_string name ^  ">" ^ iter r1 0 ^ ")"
-      | InputStart -> "^"
-      | InputEnd -> "$"
-      | WordBoundary -> "\\b"
-      | NotWordBoundary -> "\\B"
-      | Lookahead (r1) -> "(?=" ^ iter r1 0 ^ ")"
-      | NegativeLookahead (r1) -> "(?!" ^ iter r1 0 ^ ")"
-      | Lookbehind (r1) -> "(?<=" ^ iter r1 0 ^ ")"
-      | NegativeLookbehind (r1) -> "(?<!" ^ iter r1 0 ^ ")"
+      | InputStart -> prio "^" 3 current
+      | InputEnd -> prio_if_strict "$" 3 current
+      | WordBoundary -> prio_if_strict "\\b" 3 current
+      | NotWordBoundary -> prio_if_strict "\\B" 3 current
+      | Lookahead (r1) -> prio_if_strict  ("(?=" ^ iter r1 0 ^ ")") 3 current
+      | NegativeLookahead (r1) -> prio_if_strict  ("(?!" ^ iter r1 0 ^ ")") 3 current
+      | Lookbehind (r1) -> prio_if_strict  ("(?<=" ^ iter r1 0 ^ ")") 3 current
+      | NegativeLookbehind (r1) -> prio_if_strict  ("(?<!" ^ iter r1 0 ^ ")") 3 current
     in
     let res = iter r 0 in
     if delimited then "/" ^ res ^ "/" else res
 
-  let exec_result_to_string (r: character Extracted.execResult) : string =
+  let exec_result_to_string ?(pretty=true) (r: character Extracted.execResult) : string =
     match r with
-    | Null _ -> "No Match"
-    | Exotic (a, _) -> Internal.exec_array_exotic_to_string a
+    | Null _ -> "No match"
+    | Exotic (a, _) -> Internal.exec_array_exotic_to_string pretty a
+
+  let flags_to_string (flags: Extracted.RegExpFlags.coq_type) : string =
+    let s = ref "" in
+    if (flags.d) then s := "d" ^ !s;
+    if (flags.g) then s := "g" ^ !s;
+    if (flags.i) then s := "i" ^ !s;
+    if (flags.m) then s := "m" ^ !s;
+    if (flags.s) then s := "s" ^ !s;
+    if (flags.u) then s := "u" ^ !s;
+    if (flags.y) then s := "y" ^ !s;
+    !s
 end
 
 module Utf16Printer = Printer(Encoding.Utf16)

@@ -395,6 +395,7 @@ Section BuiltinExec.
         Success (record :: next)
     end.
 
+  (* Triggers https://github.com/coq/coq/issues/18358 with coq < 8.20 *)
   Definition regExpBuiltinExec (R: RegExpInstance) (S: String): Result.Result ExecResult MatchError :=
     (* 1. Let length be the length of S. *)
     let length := String.length S in
@@ -420,6 +421,7 @@ Section BuiltinExec.
     (* 11. If fullUnicode is true, let input be StringToCodePoints(S). Otherwise, let input be a List whose elements are the code units that are the elements of S. *)
     let input := Character.from_string S in
     (* 12. NOTE: Each element of input is considered to be a character. *)
+    (* 13. Repeat, while matchSucceeded is false, *)
     (* We change the repeat loop to a recursive function with fuel *)
     let fix repeatloop (lastIndex:nat) (fuel:nat): Result LoopResult MatchError :=
       match fuel with
@@ -448,16 +450,16 @@ Section BuiltinExec.
               (* 2. Return null. *)
               Success (Terminates (Null R))
             else
-              (* ii. Set lastIndex to AdvanceStringIndex(S, lastIndex, fullUnicode). *)
-              let! lastIndex =<< advanceStringIndex S lastIndex fullUnicode in
-              out_of_fuel
-           (* e. Else *)
-            else
-              (* i. Assert: r is a MatchState. *)
-              assert! (r is (Some _));
-              destruct! Some r <- (r:option MatchState) in
-              (*   ii. Set matchSucceeded to true. *)
-              Success (Continues r lastIndex)
+            (* ii. Set lastIndex to AdvanceStringIndex(S, lastIndex, fullUnicode). *)
+            let! lastIndex =<< advanceStringIndex S lastIndex fullUnicode in
+            repeatloop lastIndex fuel'
+          (* e. Else *)
+          else
+            (* i. Assert: r is a MatchState. *)
+            assert! (r is (Some _));
+            destruct! Some r <- (r:option MatchState) in
+            (*   ii. Set matchSucceeded to true. *)
+            Success (Continues r lastIndex)
     end in
     (* we know that there are at most length+1 iterations, we can use that as fuel *)
     let! repeatresult =<< repeatloop lastIndex ((List.length input) +2) in

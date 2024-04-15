@@ -20,7 +20,6 @@ Infix "!=" := EqDec.neqb (at level 37, no associativity).
 From Coq Require Import ZArith.
 Instance eqdec_bool: EqDec bool := { eq_dec := Bool.bool_dec }.
 Instance eqdec_nat: EqDec nat := { eq_dec := Nat.eq_dec }.
-Instance eqdec_string: EqDec String.string := { eq_dec := String.string_dec }.
 #[refine] Instance eqdec_positive: EqDec positive := {}. decide equality. Defined.
 #[refine] Instance eqdec_Z: EqDec Z := {}. decide equality; apply EqDec.eq_dec. Defined.
 #[refine] Instance eqdec_option {T: Type} `{EqDec T}: EqDec (option T) := {}. decide equality; apply EqDec.eq_dec. Defined.

@@ -1,4 +1,10 @@
 module List = struct
+  let nth = List.nth
+
+  let length = List.length
+
+  let equal = List.equal
+
   let rec drop n ls = 
     if n <= 0 then
       ls
@@ -23,4 +29,10 @@ module List = struct
   let unique (type a) (ls: a list) = match ls with
     | h :: [] -> h
     | _ -> failwith "List is not a singleton"
+end
+
+module Option = struct
+  let combine l r = match (l ,r) with
+    | (Some l, Some r) -> Some ((l, r))
+    | _ -> None
 end

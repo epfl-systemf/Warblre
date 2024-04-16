@@ -8,7 +8,7 @@ module CharNotations (S: Encoding.Character) = struct
 
   let epsilon = Empty
   let group r = Group (None, r)
-  let ngroup p = Group (Some (fst p), (snd p))
+  let ngroup p = Group (Some (Encoding.Utf16.list_from_string (fst p)), (snd p))
 
   let (||) l r = Disjunction (l, r)
 
@@ -29,7 +29,7 @@ module CharNotations (S: Encoding.Character) = struct
   let (?<!) r = NegativeLookbehind r
 
   let (!$) n = assert(0 < n); AtomEsc (DecimalEsc n)
-  let (!&) n = AtomEsc (GroupEsc n)
+  let (!&) n = AtomEsc (GroupEsc (Encoding.Utf16.list_from_string n))
 
   let lchar (c: character list): character coq_Regex =
     match c with

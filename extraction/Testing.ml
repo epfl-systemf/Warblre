@@ -4,7 +4,7 @@ open Printers
 module Tester (E: Engine) = struct
   include E
   open Extracted.Notation
-  let to_string = let open Printer(E) in regex_to_string
+  open Printer(E)
 
   let pretty_print_result ls_input at (res: character coq_MatchResult) unicode =
     let input = list_to_string ls_input in
@@ -30,11 +30,10 @@ module Tester (E: Engine) = struct
     match compilePattern regex rer with
     | Success matcher ->
       let ls_input = list_from_string input in
-      Printf.printf "%s matched " (to_string regex);
+      Printf.printf "%s matched " (regex_to_string regex);
       pretty_print_result ls_input at (matcher ls_input at) true
       
     | Failure AssertionFailed -> Printf.printf "Assertion error during compilation \n"
-
 
   let test_regex regex input at ?(ignoreCase=false) ?(multiline=false) ?(dotAll=false) ?(unicode=false) () =
     let groups = (countGroups regex) in
@@ -47,6 +46,27 @@ module Tester (E: Engine) = struct
     }) in
     test_regex_using_record regex input at rer
 
+  let test_exec_using_flags regex flags at input =
+    match initialize regex flags with
+    | Success r ->
+      (match exec (setLastIndex r at) (Encoding.Utf16.list_from_string input) with
+      | Success res -> Printf.printf "Matching %s on '%s':\n%s\n" (regex_to_string regex) input (exec_result_to_string res)
+      | Failure AssertionFailed -> Printf.printf "Assertion failed during execution.\n"
+      | Failure OutOfFuel -> Printf.printf "Out of fuel during execution.\n")
+    | Failure _ -> Printf.printf "Assertion failed during initialization.\n"
+
+  let test_exec ?(d=false) ?(g=false) ?(i=false) ?(m=false) ?(s=false) ?(y=false) regex ?(at=0) input =
+    let flags = Extracted.({
+      RegExpFlags.d = d;
+      RegExpFlags.g = g;
+      RegExpFlags.i = i;
+      RegExpFlags.m = m;
+      RegExpFlags.s = s;
+      RegExpFlags.u = E.unicode;
+      RegExpFlags.y = y;
+    }) in
+    test_exec_using_flags regex flags at input
+
   let compare_regexes_using_record regex1 regex2 input at rer: unit =
     match compilePattern regex1 rer, compilePattern regex2 rer with
     | Success m1, Success m2 ->
@@ -58,9 +78,9 @@ module Tester (E: Engine) = struct
         pretty_print_result ls_input at res1 true)
       else
         (Printf.printf "The two regexes resulted in different matches.\n";
-        Printf.printf "%s matched " (to_string regex1);
+        Printf.printf "%s matched " (regex_to_string regex1);
         pretty_print_result ls_input at res1 true;
-        Printf.printf "%s matched " (to_string regex2);
+        Printf.printf "%s matched " (regex_to_string regex2);
         pretty_print_result ls_input at res2 true)
 
     | Failure AssertionFailed, _ -> Printf.printf "Assertion error during compilation \n"

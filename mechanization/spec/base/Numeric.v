@@ -24,6 +24,8 @@ Module NonNegInt.
     assert! (BinInt.Z.geb i 0);
     Success (BinInt.Z.to_nat i).
 
+  Definition to_int (i: non_neg_integer): integer := Z.of_nat i.
+
   Definition modulo (i: non_neg_integer) (modulus: non_neg_integer): non_neg_integer := Nat.modulo i modulus.
   #[global] Opaque modulo.
 

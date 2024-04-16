@@ -8,9 +8,7 @@ From Warblre Require Import List Result Typeclasses Notation Numeric Characters.
 Module Patterns. Section main.
   Context `{ep: CharacterInstance Σ}.
 
-  (** GroupName :: *)
-  Parameter GroupName: Type.
-  Parameter GroupName_eq_dec: forall (l r: GroupName), {l=r} + {l<>r}.
+  Definition GroupName := String.
 
   (** CharacterClassEscape :: *)
   Inductive CharacterClassEscape :=
@@ -139,7 +137,6 @@ Module Patterns. Section main.
   | NegativeLookbehind (r: Regex).
 
   Section EqDec.
-    #[export] Instance eqdec_GroupName: EqDec GroupName := { eq_dec := GroupName_eq_dec; }.
     #[export] #[refine] Instance eqdec_CharacterClassEscape: EqDec CharacterClassEscape := {}. decide equality; solve [ apply EqDec.eq_dec | apply (@EqDec.eq_dec _ Character.unicode_property_eqdec) ]. Defined.
     #[export] #[refine] Instance eqdec_ControlEscape: EqDec ControlEscape := {}. decide equality. Defined.
     #[export] #[refine] Instance eqdec_Hex4Digits: EqDec Hex4Digits := {}.

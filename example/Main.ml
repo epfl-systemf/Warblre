@@ -2,15 +2,14 @@ open Warblre.Notations.UnicodeNotations
 open Warblre.Testing.UnicodeTester
 
 let str =
-  "aaaaabaπaac"
+  "aaaaabaπaa🧭aaccaa"
 
 let regex = 
   group !* (
-    Disjunction(
-      Disjunction (
-        group (char "a"),
-        group (char "b")),
-      (char ("π"))))
+    ngroup ("G", char "a") ||
+    group (char "b") ||
+    (char "π") ||
+    (char "🧭"))
 
 let () =
-  test_regex regex str 0 ()
+  test_exec ~d:true regex ~at:0 str;

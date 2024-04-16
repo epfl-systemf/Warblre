@@ -1,5 +1,84 @@
-From Coq Require Import PeanoNat List ListSet Structures.OrderedType FSets.FSetAVL NArith.
+From Coq Require Import PeanoNat List ListSet Structures.OrderedType FSets.FSetAVL NArith Bool.
 From Warblre Require Import RegExpRecord Tactics List Result Numeric Typeclasses.
+
+Import Result.Notations.
+Local Open Scope result_flow.
+
+Module CodePoint.
+  Parameter type: Type.
+
+  Record record := make_record {
+    codePoint: type;
+    codeUnitCount: non_neg_integer;
+    isUnpairedSurrogate: bool;
+  }.
+
+  Parameter from_numeric_value: non_neg_integer -> type.
+End CodePoint.
+Notation CodePoint := CodePoint.type.
+Notation CodePointRecord := CodePoint.record.
+Notation code_point_record := CodePoint.make_record.
+
+Module CodeUnit.
+  Parameter type: Type.
+  Parameter numeric_value: type -> non_neg_integer.
+
+  Parameter is_leading_surrogate: type -> bool.
+  Parameter is_trailing_surrogate: type -> bool.
+
+  (** 11.1.3 Static Semantics: UTF16SurrogatePairToCodePoint ( lead, trail ) *)
+  Definition utf16SurrogatePairToCodePoint {F: Type} `{Result.AssertionError F} (lead trail: type): Result CodePoint F :=
+  (* Assert: lead is a leading surrogate and trail is a trailing surrogate. *)
+  assert! is_leading_surrogate lead && is_trailing_surrogate trail ;
+  (* 2. Let cp be (lead - 0xD800) × 0x400 + (trail - 0xDC00) + 0x10000. *)
+  let cp := (numeric_value lead - 0xD800) * 0x400 + (numeric_value trail - 0xDC00) + 0x10000 in
+  (* 3. Return the code point cp. *)
+  Success (CodePoint.from_numeric_value cp).
+End CodeUnit.
+Notation CodeUnit := CodeUnit.type.
+
+Module String.
+  Parameter type: Type.
+  Parameter eqdec: forall (l r: type), {l=r} + {l<>r}.
+  Parameter length: type -> non_neg_integer.
+  Parameter substring: type -> non_neg_integer -> non_neg_integer -> type.
+  Parameter codeUnitAt: type -> non_neg_integer -> CodeUnit.
+
+  Definition isEmpty (string: type) := length string == 0.
+
+  Definition codePointAt {F: Type} `{Result.AssertionError F} (string: type) (position: non_neg_integer): Result CodePointRecord F :=
+    (* 1. Let size be the length of string. *)
+    let size := length string in
+    (* 2. Assert: position ≥ 0 and position < size. *)
+    assert! (position >=? 0) && (position <? size) ;
+    (* 3. Let first be the code unit at index position within string. *)
+    let first := codeUnitAt string position in
+    (* 4. Let cp be the code point whose numeric value is the numeric value of first. *)
+    let cp := CodePoint.from_numeric_value (CodeUnit.numeric_value first) in
+    (* 5. If first is neither a leading surrogate nor a trailing surrogate, then *)
+    if negb (CodeUnit.is_leading_surrogate first) && negb (CodeUnit.is_trailing_surrogate first) then
+      (* a. Return the Record { [[CodePoint]]: cp, [[CodeUnitCount]]: 1, [[IsUnpairedSurrogate]]: false }. *)
+      Success (code_point_record cp 1 false)
+    else
+    (* 6. If first is a trailing surrogate or position + 1 = size, then *)
+    if CodeUnit.is_trailing_surrogate first || ((position + 1) == size) then
+      (* a. Return the Record { [[CodePoint]]: cp, [[CodeUnitCount]]: 1, [[IsUnpairedSurrogate]]: true }. *)
+      Success (code_point_record cp 1 true)
+    else
+    (* 7. Let second be the code unit at index position + 1 within string. *)
+    let second := codeUnitAt string (position + 1) in
+    (* 8. If second is not a trailing surrogate, then *)
+    if negb (CodeUnit.is_trailing_surrogate second) then
+      (* a. Return the Record { [[CodePoint]]: cp, [[CodeUnitCount]]: 1, [[IsUnpairedSurrogate]]: true }. *)
+      Success (code_point_record cp 1 true)
+    else
+    (* 9. Set cp to UTF16SurrogatePairToCodePoint(first, second). *)
+    let! cp =<< CodeUnit.utf16SurrogatePairToCodePoint first second in
+    (* 10. Return the Record { [[CodePoint]]: cp, [[CodeUnitCount]]: 2, [[IsUnpairedSurrogate]]: false }. *)
+    Success (code_point_record cp 2 true).
+End String.
+Notation String := String.type.
+#[export] Instance eqdec_String: EqDec String := { eq_dec := String.eqdec; }.
 
 Module HexDigit.
   Parameter type: Type.
@@ -54,33 +133,6 @@ Module CharSet.
     singleton_size: forall c, size (singleton c) = 1;
     singleton_unique: forall {F: Type} {af: Result.AssertionError F} c, @unique F af (singleton c) = Success c;
   }.
-
-  Module Parametrized.
-    Class class (type set_type: Type) := make {
-        empty: set_type;
-        from_list: list type -> set_type;
-        union: set_type -> set_type -> set_type;
-        singleton: type -> set_type;
-        size: set_type -> nat;
-        remove_all: set_type -> set_type -> set_type;
-        is_empty: set_type -> bool;
-
-        contains: set_type -> type -> bool;
-
-        range: type -> type -> set_type;
-
-        unique: forall {F: Type} {_: Result.AssertionError F}, set_type -> Result type F;
-        filter: set_type -> (type -> bool) -> set_type;
-        exist: set_type -> (type -> bool) -> bool;
-
-        singleton_size: forall c, size (singleton c) = 1;
-        singleton_unique: forall {F: Type} {af: Result.AssertionError F} c, @unique F af (singleton c) = Success c;
-      }.
-
-      Definition unparametrize {Character T: Type} (p: class Character T): @CharSet.class Character := @CharSet.make
-        Character T empty from_list union singleton size remove_all is_empty contains range (@unique Character T p) filter exist singleton_size (@singleton_unique Character T p).
-  End Parametrized.
-  Definition from_parametrized {Character T: Type} (p: Parametrized.class Character T): @class Character := @Parametrized.unparametrize Character T p.
 End CharSet.
 
 Module Character.
@@ -93,6 +145,8 @@ Module Character.
 
     numeric_pseudo_bij: forall c, from_numeric_value (numeric_value c) = c;
     numeric_round_trip_order: forall l r, l <= r -> (numeric_value (from_numeric_value l)) <= (numeric_value (from_numeric_value r));
+
+    from_string: String -> list type;
 
     set_type: CharSet.class type;
 

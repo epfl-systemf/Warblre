@@ -45,7 +45,6 @@ Module UInt16.
   Module Ordered := MOT_to_OT (MiniOrdered).
   #[export] Instance eqdec_uint16: EqDec type := { eq_dec := Ordered.eq_dec; }.
 
-  Parameter CodePoint: Type.
   Parameter to_code_point: type -> CodePoint.
   Parameter to_upper_case: CodePoint -> list CodePoint.
   Parameter code_points_to_string: list CodePoint -> list type.
@@ -75,6 +74,8 @@ Module UInt16.
   Parameter digits: list type.
   Parameter white_spaces: list type.
   Parameter ascii_word_characters: list type.
+
+  Parameter from_string: String -> list type.
 End UInt16.
 
 Module Unicode.
@@ -142,6 +143,8 @@ Module Unicode.
   Parameter digits: list type.
   Parameter white_spaces: list type.
   Parameter ascii_word_characters: list type.
+
+  Parameter from_string: String -> list type.
 End Unicode.
 
 Module AVL_UInt16_CharSet.
@@ -213,6 +216,8 @@ Module Utf16CharCode.
     numeric_value := UInt16.numeric_value;
     canonicalize := UInt16.canonicalize;
 
+    from_string := UInt16.from_string;
+
     set_type := AVL_UInt16_CharSet.instance;
 
     (* Some important (sets of) characters *)
@@ -236,6 +241,8 @@ Module UnicodeCharCode.
     from_numeric_value := Unicode.from_numeric_value;
     numeric_value := Unicode.numeric_value;
     canonicalize := Unicode.canonicalize;
+
+    from_string := Unicode.from_string;
 
     set_type := AVL_Unicode_CharSet.instance;
 
@@ -268,6 +275,10 @@ Module Engine (parameters: Parameters).
 
   (* API *)
   Definition compilePattern := @Semantics.compilePattern _ char_instance.
+
+  Definition initialize := @Frontend.regExpInitialize _ char_instance.
+  Definition setLastIndex := @Frontend.RegExpInstance.setLastIndex _ char_instance.
+  Definition exec := @Frontend.regExpExec _ char_instance.
 End Engine.
 
 Module Utf16Sig <: Parameters.

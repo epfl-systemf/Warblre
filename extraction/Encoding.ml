@@ -41,7 +41,7 @@ module Utf16 : Character with type character = Unsigned.UInt16.t = struct
     if code > 0xFFFF then
       (let shifted = (code - 0x10000) in
       let high = (shifted / 0x400) + 0xd800 in
-      let low = (shifted mod 0x400) + 0xdc0 in
+      let low = (shifted mod 0x400) + 0xdc00 in
       (Unsigned.UInt16.of_int high) :: (Unsigned.UInt16.of_int low) :: [])
     else
       (Unsigned.UInt16.of_int code) :: []

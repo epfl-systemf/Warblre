@@ -112,7 +112,7 @@ Section EarlyErrors.
     - let direct_recursion := solve [ exists (fun i => S (f' i)); setoid_rewrite -> Nat.succ_inj_wd; split; try assumption ] in
         destruct rh; try direct_recursion;
         destruct name as [ name | ]; try direct_recursion;
-        cbn; destruct (GroupName_eq_dec name (capturingGroupName gn)) eqn:Eq_gs_gn; try direct_recursion.
+        cbn; destruct (String.eqdec name (capturingGroupName gn)) eqn:Eq_gs_gn; try direct_recursion.
       exists (fun i => if Nat.eqb i 0 then 0 else S (f' (i - 1))).
       split.
       + intros i j H. destruct (Nat.eqb i 0) eqn:Eq_i; destruct (Nat.eqb j 0) eqn:Eq_j; spec_reflector Nat.eqb_spec; subst.
@@ -154,7 +154,7 @@ Section EarlyErrors.
     - discriminate.
     - cbn in H. destruct h as [ h_r h_ctx ].
       destruct h_r; try destruct name as [ name | ]; try solve [ cbn in H; apply (IHt' H) ].
-      destruct (GroupName_eq_dec name (capturingGroupName gn)).
+      destruct (String.eqdec name (capturingGroupName gn)).
       + cbn in H. subst. injection H as <-. split.
         * subst. cbn. lia.
         * exists h_ctx. symmetry. assumption.

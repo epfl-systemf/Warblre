@@ -20,6 +20,10 @@ Definition positive_to_non_neg (n: positive_integer): non_neg_integer := Pos.to_
 Definition positive_to_nat (n: positive_integer): nat := Pos.to_nat n.
 
 Module NonNegInt.
+  Definition from_int {F: Type} `{Result.AssertionError F} (i: integer) : Result non_neg_integer F :=
+    assert! (BinInt.Z.geb i 0);
+    Success (BinInt.Z.to_nat i).
+
   Definition modulo (i: non_neg_integer) (modulus: non_neg_integer): non_neg_integer := Nat.modulo i modulus.
   #[global] Opaque modulo.
 

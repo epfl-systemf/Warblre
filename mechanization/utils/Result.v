@@ -16,6 +16,8 @@ Module Result.
   | Failure f => Failure f
   end.
 
+  Definition map {S T F: Type} (r: Result S F) (f: S -> T): Result T F := bind r (fun s => Success (f s)).
+
   Lemma left_identity {S T F: Type}: forall (v: S) (f: S -> Result T F), bind (ret F v) f = f v.
   Proof. reflexivity. Qed.
 
@@ -60,7 +62,7 @@ Module Result.
 
     Notation "'destruct!' r '<-' y 'in' z" := (match y with
       | r => z
-      | _ =>assertion_failed (* Otherwise, consider the failure as an assertion failure *)
+      | _ => assertion_failed (* Otherwise, consider the failure as an assertion failure *)
       end)
       (at level 20, r pattern, y at level 100, z at level 200): result_flow.
 

@@ -1,5 +1,5 @@
 From Coq Require Import PeanoNat List Lia NArith Program.Equality.
-From Warblre Require Import Tactics List Result Focus Base Characters Patterns StaticSemantics.
+From Warblre Require Import Tactics List Result Focus Base Characters Patterns Node StaticSemantics.
 
 Section EarlyErrors.
   Context {Character} `{ep: CharacterInstance Character}.

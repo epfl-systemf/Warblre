@@ -25,6 +25,26 @@ Module List.
 
   Definition empty {T: Type} := @nil T.
 
+  Fixpoint take {A: Type} (l: list A) (len: nat) : list A :=
+    match len with
+    | 0%nat => nil
+    | S len' =>
+        match l with
+        | nil => nil
+        | e :: l' => e :: (take l' len')
+        end
+    end.
+
+  Fixpoint drop {A: Type} (l: list A) (count: nat) : list A :=
+    match count with
+    | 0%nat => l
+    | S len' =>
+        match l with
+        | nil => nil
+        | e :: l' => drop l' len'
+        end
+    end.
+
   Lemma rec_eq {T: Type}: forall (l: list T) a, a :: l = l -> False.
   Proof. intros l a H. apply (@f_equal _ _ (@length _) _ _) in H. cbn in H. apply Nat.neq_succ_diag_l in H. assumption. Qed.
   Ltac rec_eq := solve [ exfalso; apply rec_eq with (1 := ltac:(eassumption)) ].
@@ -43,6 +63,11 @@ Module List.
     assert (length p12 = 0)%nat as Eq_p12 by lia. assert (length p21 = 0)%nat as Eq_p21 by lia.
     rewrite -> length_zero_iff_nil in *. subst. reflexivity.
   Qed.
+
+  Module Slice.
+    (* From is inclusive, to is exclusive *)
+    Definition sublist {A: Type} (l: list A) (from to: nat) : list A := take (drop l from) (to - from).
+  End Slice.
 
   Module Unique.
     Definition unique {T F: Type} {_: Result.AssertionError F} (ls: list T): Result T F := match ls with

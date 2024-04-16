@@ -1,5 +1,5 @@
 From Coq Require Import PeanoNat List Bool.
-From Warblre Require Import Result List Base Result Patterns Characters Coercions Typeclasses.
+From Warblre Require Import Result List Base Result Patterns Node Characters Coercions Typeclasses.
 
 Import Coercions.
 Import Result.Notations.
@@ -282,4 +282,28 @@ Section StaticSemantics.
           end
     )) then true
     else earlyErrors_rec r ctx.
+
+  Section Extensions.
+    Definition all_groups_in (r: RegexNode) : list RegexNode :=
+      let (pattern, ctx) := r in
+      List.filter ( fun r => match r with
+        | (Group _ _, _) => true
+        | _ => false
+        end
+        ) (Zipper.Walk.walk pattern ctx).
+
+    (* Return the nth group INSIDE this node *)
+    Definition nth_group_in {F} `{Result.AssertionError F} (r: RegexNode) (n: non_neg_integer): Result.Result RegexNode F :=
+      let groups := all_groups_in r in
+      groups[n].
+
+    Definition nth_group {F} `{Result.AssertionError F} (r: Regex) (n: non_neg_integer): Result.Result RegexNode F :=
+      nth_group_in (r, nil) n.
+
+    Definition defines_groups_in {F} `{Result.AssertionError F} (r: RegexNode): bool :=
+      List.length (all_groups_in r) >=? 1.
+
+    Definition defines_groups {F} `{Result.AssertionError F} (r: Regex): bool :=
+      defines_groups_in (r, nil).
+  End Extensions.
 End StaticSemantics.

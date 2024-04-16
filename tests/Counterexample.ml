@@ -11,8 +11,8 @@ let%expect_test "disjunction_commutativity" =
     0 ();
   [%expect {|
     The two regexes resulted in different matches.
-    Matched 1 characters ([0-1]) in 'ab' (length=2)
-    Matched 2 characters ([0-2]) in 'ab' (length=2) |}]
+    /a|ab/ matched 1 characters ([0-1]) in 'ab' (length=2)
+    /ab|a/ matched 2 characters ([0-2]) in 'ab' (length=2) |}]
 
 let%expect_test "greedy_question_elimination" =
   let r = (group epsilon) in 
@@ -23,9 +23,9 @@ let%expect_test "greedy_question_elimination" =
     0 ();
   [%expect {|
     The two regexes resulted in different matches.
-    Matched 0 characters ([0-0]) in '' (length=0)
+    /()?/ matched 0 characters ([0-0]) in '' (length=0)
     Group 1: undefined
-    Matched 0 characters ([0-0]) in '' (length=0)
+    /()|/ matched 0 characters ([0-0]) in '' (length=0)
     Group 1: '' ([0-0]) |}]
 
 let%expect_test "lazy_question_elimination" =
@@ -38,6 +38,6 @@ let%expect_test "lazy_question_elimination" =
     0 ();
   [%expect {|
     The two regexes resulted in different matches.
-    No match on 'ab'
-    Matched 2 characters ([0-2]) in 'ab' (length=2)
+    /(?=(a))??\1b/ matched nothing on 'ab'
+    /(?:|(?=(a)))\1b/ matched 2 characters ([0-2]) in 'ab' (length=2)
     Group 1: 'a' ([0-1]) |}]

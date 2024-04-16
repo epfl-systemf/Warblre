@@ -1,14 +1,16 @@
 open Engines
+open Printers
 
 module Tester (E: Engine) = struct
   include E
   open Extracted.Notation
+  let to_string = let open Printer(E) in regex_to_string
 
   let pretty_print_result ls_input at (res: character coq_MatchResult) unicode =
     let input = list_to_string ls_input in
     match res with
     | Success (Some { MatchState.endIndex = i; MatchState.captures = captures; MatchState.input = _ }) -> 
-      Printf.printf "Matched %d characters ([%d-%d]) in '%s' (length=%d)\n" (i - at) at i input (List.length ls_input);
+      Printf.printf "%d characters ([%d-%d]) in '%s' (length=%d)\n" (i - at) at i input (List.length ls_input);
       let f id = 
         match List.nth captures (id - 1) with
         | None ->
@@ -18,7 +20,7 @@ module Tester (E: Engine) = struct
       in
       List.iter f (Extracted.List.Range.Nat.Length.range 1 (List.length captures))
 
-    | Success None -> Printf.printf "No match on '%s' \n" input
+    | Success None -> Printf.printf "nothing on '%s' \n" input
 
     | Failure OutOfFuel -> Printf.printf "Out of fuel on '%s' \n" input
 
@@ -28,6 +30,7 @@ module Tester (E: Engine) = struct
     match compilePattern regex rer with
     | Success matcher ->
       let ls_input = list_from_string input in
+      Printf.printf "%s matched " (to_string regex);
       pretty_print_result ls_input at (matcher ls_input at) true
       
     | Failure AssertionFailed -> Printf.printf "Assertion error during compilation \n"
@@ -51,11 +54,13 @@ module Tester (E: Engine) = struct
       let res1 = (m1 ls_input at) in
       let res2 = (m2 ls_input at) in
       if res1 = res2 then
-        (Printf.printf "The two regexes resulted in identical matches.\n";
+        (Printf.printf "The two regexes resulted in identical matches.\nMatched ";
         pretty_print_result ls_input at res1 true)
       else
         (Printf.printf "The two regexes resulted in different matches.\n";
+        Printf.printf "%s matched " (to_string regex1);
         pretty_print_result ls_input at res1 true;
+        Printf.printf "%s matched " (to_string regex2);
         pretty_print_result ls_input at res2 true)
 
     | Failure AssertionFailed, _ -> Printf.printf "Assertion error during compilation \n"

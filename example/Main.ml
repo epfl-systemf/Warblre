@@ -12,4 +12,5 @@ let regex =
         group (char "b")),
       (char ("π"))))
 
-let () = test_regex regex str 0 ()
+let () =
+  test_regex regex str 0 ()

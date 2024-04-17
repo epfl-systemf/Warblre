@@ -2,7 +2,7 @@ From Coq Require Import PeanoNat List Lia NArith Program.Equality.
 From Warblre Require Import Tactics List Result Focus Base Characters Patterns Node StaticSemantics.
 
 Section EarlyErrors.
-  Context {Character} `{ep: CharacterInstance Character}.
+  Context {Σ} `{ep: CharacterInstance Σ}.
     Import Patterns.
 
   Notation hex4digitsValue v := (let (_0, _1, _2, _3) := v in HexDigit.to_integer (_0 :: _1 :: _2 :: _3 :: nil)) (only parsing).

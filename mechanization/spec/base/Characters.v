@@ -118,13 +118,13 @@ Module Character.
 End Character.
 Notation CharacterInstance := @Character.class.
 Notation CharSet := (@CharSet.set_type _ Character.set_type).
-(* Notation Character := Character.type. *)
+Notation Character := Character.type.
 Notation UnicodeProperty := Character.unicode_property.
 
 Instance eqdec_Character {C} `{ci: CharacterInstance C}: EqDec C := Character.eq_dec.
 
 Module Characters. Section main.
-  Context {Character} `{ep: CharacterInstance Character}.
+  Context {Σ} `{ep: CharacterInstance Σ}.
 
   Definition NULL: Character := Character.from_numeric_value 0.
   Definition BACKSPACE: Character := Character.from_numeric_value 8.

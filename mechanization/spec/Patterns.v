@@ -6,7 +6,7 @@ From Warblre Require Import List Result Typeclasses Notation Numeric Characters.
   grammar cannot interpret the String as an expansion of Pattern *)
 
 Module Patterns. Section main.
-  Context {Character} `{ep: CharacterInstance Character}.
+  Context {Σ} `{ep: CharacterInstance Σ}.
 
   (** GroupName :: *)
   Parameter GroupName: Type.

@@ -116,15 +116,29 @@ Module Character.
 
   Definition type {C} `{class C} := C.
 End Character.
+#[global] Generalizable Variable Σ.
 Notation CharacterInstance := @Character.class.
 Notation CharSet := (@CharSet.set_type _ Character.set_type).
+(* 
+    In order to get an API which is usable from both Coq and OCaml, we use a weird aliasing trick:
+    The Character record (CharacterInstance) is parametrized on the type representing a character
+    (rather than making that type dependent on the record), but will only be referred to using the type function
+    (or rather the associated notation Character, defined just below).
+    This makes the API usable on both sides in the following sense:
+    - All datatypes parametrized on the character type (but not on the CharacterInstance itself) become parametrized
+      by CharacterInstance, since they refer to that type through the Character notation. Coq is very good at inferring
+      which CharacterInstance to use, but not so much at guessing the character type. This additional parametrization makes
+      it so that Coq is able to infer that record, which then makes it trivial to infer the character type.
+    - Since the type of characters is NOT a dependent type, the type is not extracted to Obj.t, hence the OCaml API
+      does not require a Obj.magic galore.
+*)
 Notation Character := Character.type.
 Notation UnicodeProperty := Character.unicode_property.
 
 Instance eqdec_Character {C} `{ci: CharacterInstance C}: EqDec C := Character.eq_dec.
 
 Module Characters. Section main.
-  Context {Σ} `{ep: CharacterInstance Σ}.
+  Context `{ep: CharacterInstance Σ}.
 
   Definition NULL: Character := Character.from_numeric_value 0.
   Definition BACKSPACE: Character := Character.from_numeric_value 8.

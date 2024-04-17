@@ -5,7 +5,7 @@ Import Result.Notations.
 Local Open Scope result_flow.
 
 Section Frontend.
-  Context {Σ} `{ep: CharacterInstance Σ}.
+  Context `{ep: CharacterInstance Σ}.
   Import Notation.
   Import Patterns.
   (* This module intentionally diverges from ECMAScript *)

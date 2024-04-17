@@ -5,7 +5,7 @@ Import Result.Notations.
 Import Semantics.
 
 Section Compile.
-  Context {Σ} `{ep: CharacterInstance Σ}.
+  Context `{ep: CharacterInstance Σ}.
     Import Patterns.
 
     Lemma wordCharacters {F: Type} {_: Result.AssertionError F}: forall rer f, wordCharacters rer <> Failure f.

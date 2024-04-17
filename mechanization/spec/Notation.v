@@ -27,7 +27,7 @@ Module Notation.
         capturing parentheses, or undefined if the nth set of capturing parentheses hasn't been reached yet. Due
         to backtracking, many States may be in use at any time during the matching process. *)
   Module MatchState. Section main.
-    Record type {Σ} `{ep: CharacterInstance Σ} := make {
+    Record type `{ep: CharacterInstance Σ} := make {
       input: list Character;
       endIndex: integer; (* one plus the index of the last input character matched so far *)
       captures: list (option CaptureRange);
@@ -37,14 +37,14 @@ Module Notation.
   End main. End MatchState.
   Notation MatchState := MatchState.type.
   Notation match_state := MatchState.make.
-  #[refine] Instance eqdec_matchState {Σ} `{ep: CharacterInstance Σ}: EqDec MatchState := {}. decide equality; try apply EqDec.eq_dec. Defined.
+  #[refine] Instance eqdec_matchState `{ep: CharacterInstance Σ}: EqDec MatchState := {}. decide equality; try apply EqDec.eq_dec. Defined.
 
   Section main.
-    Context {Σ} `{ep: CharacterInstance Σ}.
+    Context `{ep: CharacterInstance Σ}.
 
     (* - A MatchResult is either a MatchState or the special token failure that indicates that the match failed. *)
     Definition MatchResult := Result (option MatchState) MatchError.
-    Instance eqdec_matchResult {Σ} `{ep: CharacterInstance Σ}: EqDec MatchResult := eqdec_result.
+    Instance eqdec_matchResult `{ep: CharacterInstance Σ}: EqDec MatchResult := eqdec_result.
 
     (*  - A MatcherContinuation is an Abstract Closure that takes one MatchState argument and returns a
           MatchResult result. The MatcherContinuation attempts to match the remaining portion (specified by the

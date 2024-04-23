@@ -15,12 +15,12 @@ module Utf16Engine : Engine
   with type character = Unsigned.uint16
 = struct
   include Encoding.Utf16
-  include Extracted.ECMA
+  include Extracted.Utf16Engine
 end
 
 module UnicodeEngine : Engine
   with type character = int
 = struct
   include Encoding.Unicode
-  include Extracted.ECMA_u
+  include Extracted.UnicodeEngine
 end

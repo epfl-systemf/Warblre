@@ -1,9 +1,0 @@
-(executable
- (public_name fuzzer)
- (name main)
- (libraries Warblre))
-
-(env
-  (dev
-    (flags (:standard -w -33 -w -32 -w -27 -w -26))))
-

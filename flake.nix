@@ -1,8 +1,8 @@
 {
-  description = "A mechanization of the ECMAScript specification of regexes.";
+  description = "A mechanization of the specification of ECMAScript regexes.";
 
   inputs = {
-    nixpkgs.url = "github:nixos/nixpkgs/219951b495fc2eac67b1456824cc1ec1fd2ee659";
+    nixpkgs.url = "github:nixos/nixpkgs";
     flake-utils.url = "github:numtide/flake-utils";
   };
 
@@ -21,15 +21,9 @@
                 ocamlPackages.ocamlformat
                 ocamlPackages.ocaml-lsp
                 ocamlPackages.findlib
-                ocamlPackages.ppx_expect
-                ocamlPackages.menhir
-                ocamlPackages.yojson
                 ocamlPackages.integers
                 ocamlPackages.uucp
-                ocamlPackages.ansiterminal
-
-                nodejs_21
-                node2nix
+                ocamlPackages.ppx_expect
               ];
           };
         };

@@ -30,7 +30,6 @@
       "original": {
         "owner": "nixos",
         "repo": "nixpkgs",
-        "rev": "219951b495fc2eac67b1456824cc1ec1fd2ee659",
         "type": "github"
       }
     },

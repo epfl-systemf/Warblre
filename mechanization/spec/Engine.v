@@ -258,7 +258,7 @@ Module Type Parameters.
   Parameter char_instance: Character.class Character.
 End Parameters.
 
-Module Instance (parameters: Parameters).
+Module Engine (parameters: Parameters).
   (* Instanciation *)
   Definition char_instance := parameters.char_instance.
   Definition Character := parameters.Character.
@@ -268,20 +268,16 @@ Module Instance (parameters: Parameters).
 
   (* API *)
   Definition compilePattern := @Semantics.compilePattern _ char_instance.
-End Instance.
+End Engine.
 
-Module ECMASig <: Parameters.
+Module Utf16Sig <: Parameters.
   Definition char_instance := Utf16CharCode.instance.
   Definition Character: Type := UInt16.type.
-End ECMASig.
-Module ECMA.
-  Include Instance ECMASig.
-End ECMA.
+End Utf16Sig.
+Module Utf16Engine := Engine Utf16Sig.
 
-Module ECMASig_u <: Parameters.
+Module UnicodeSig <: Parameters.
   Definition char_instance := UnicodeCharCode.instance.
   Definition Character: Type := Unicode.type.
-End ECMASig_u.
-Module ECMA_u.
-  Include Instance ECMASig_u.
-End ECMA_u.
+End UnicodeSig.
+Module UnicodeEngine := Engine UnicodeSig.

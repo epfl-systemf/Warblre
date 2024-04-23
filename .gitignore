@@ -1,4 +1,9 @@
-complementary_material.tar
-pack.sh
-README.md
-shell.nix
+# Coq(ide) generated files
+.lia.cache
+\#*\#
+
+# Dune's build directory
+_build/
+
+# VsCode's configuration
+.vscode/

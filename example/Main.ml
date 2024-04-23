@@ -8,8 +8,8 @@ let regex =
   group !* (
     Disjunction(
       Disjunction (
-        Group (None, cchar 'a'),
-        Group (None, cchar 'b')),
+        group (char "a"),
+        group (char "b")),
       (char ("π"))))
 
 let () = test_regex regex str 0 ()

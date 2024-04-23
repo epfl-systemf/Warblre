@@ -1,7 +1,6 @@
 open Warblre.Notations.UnicodeNotations
 open Warblre.Testing.UnicodeTester
 
-
 let%expect_test "match_start_pos" =
   test_regex
     (InputStart -- cchar 'a')

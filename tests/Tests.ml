@@ -254,3 +254,11 @@ let%expect_test "c_escape_2" =
     "a"
     0 ();
   [%expect {| No match on 'a' |}]
+
+
+let%expect_test "dot_greek" =
+  test_regex
+    (!* Dot)
+    "αβγδεϝͷϛζͱηθιϳκλμνξοπϻϟϙρσͼτυφχψωϡͳϸ"
+    0 ();
+  [%expect {| Matched 36 characters ([0-36]) in 'αβγδεϝͷϛζͱηθιϳκλμνξοπϻϟϙρσͼτυφχψωϡͳϸ' (length=36) |}]

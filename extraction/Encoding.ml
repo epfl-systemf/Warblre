@@ -50,18 +50,6 @@ module Utf16 : Character with type character = Unsigned.UInt16.t = struct
 
   let char_to_int (c: character) = Unsigned.UInt16.to_int c
 
-  (* let clean_utf16 (str: Unsigned.uint16 list) = 
-    let rec iter (str: int list) =
-      match str with
-      | h :: l :: t when Utf8Utils.is_high_surrogate h && Utf8Utils.is_low_surrogate l -> (
-        (Unsigned.UInt16.of_int h) :: (Unsigned.UInt16.of_int l) :: (iter t)
-      )
-      | h :: t when Utf8Utils.is_normal h -> (Unsigned.UInt16.of_int h) :: (iter t)
-      | _ :: t -> (Unsigned.UInt16.of_int 0xFFFD) :: (iter t)
-      | [] -> []
-    in
-    iter (List.map Unsigned.UInt16.to_int str) *)
-
   let list_from_string (str: string): character list = 
     let is = List.init (String.length str) (fun i -> i) in
     Utils.List.flat_map (fun i ->

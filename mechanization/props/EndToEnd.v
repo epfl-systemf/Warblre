@@ -3,7 +3,7 @@ From Warblre Require Import Result Base Patterns Notation StaticSemantics Semant
 Import Result.Notations.
 Local Open Scope result_flow.
 
-Module ClutterFree.
+Module EndToEnd.
   Import Notation.
   Import Patterns.
 
@@ -42,4 +42,4 @@ Module ClutterFree.
     | Success true => fun _ => None
     | Failure SyntaxError.AssertionFailed => fun eq => match EarlyErrors.Safety_earlyErrors _ eq with end
     end eq_refl.
-End ClutterFree.
+End EndToEnd.

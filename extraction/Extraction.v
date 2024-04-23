@@ -1,8 +1,10 @@
-From Warblre Require Import Base Patterns Semantics ClutterFree Frontend ECMA.
+From Warblre Require Import Base Patterns Semantics Frontend Engine.
 From Coq Require Import ZArith.
 
 From Coq Require Extraction.
 Extraction Language OCaml.
+Set Warnings "-extraction-logical-axiom".
+
 
 From Coq Require extraction.ExtrOcamlBasic.
 From Coq Require extraction.ExtrOcamlString.
@@ -51,5 +53,5 @@ Extract Constant Unicode.UnicodeProperty => "Interop.UnicodeProperties.unicodePr
 Extract Constant Unicode.unicode_property_eqdec => "Interop.UnicodeProperties.up_eq".
 Extract Constant Unicode.code_points_for => "Interop.Unicode.code_points_for_property".
 
-Extraction "Extracted.ml"  ECMA.ECMA ECMA.ECMA_u.
+Extraction "Extracted.ml"  Engine.Utf16Engine Engine.UnicodeEngine.
 

@@ -1,4 +1,4 @@
 (executable
  (public_name example)
  (name main)
- (libraries Warblre))
+ (libraries warblre))

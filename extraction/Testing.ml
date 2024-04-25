@@ -1,10 +1,13 @@
 open Engines
 open Printers
 
-module Tester (E: Engine) = struct
-  include E
+module Tester (P: EngineParameters) = struct
+  open Engine(P)
   open Extracted.Notation
-  open Printer(E)
+  open Printer(P)
+
+  let list_to_string ls = P.Character.to_host (P.Character.list_to_string ls)
+  let list_from_string str = P.Character.list_from_string (P.Character.from_host str)
 
   let pretty_print_result ls_input at (res: character coq_MatchResult) unicode =
     let input = list_to_string ls_input in
@@ -62,7 +65,7 @@ module Tester (E: Engine) = struct
       RegExpFlags.i = i;
       RegExpFlags.m = m;
       RegExpFlags.s = s;
-      RegExpFlags.u = E.unicode;
+      RegExpFlags.u = P.unicode;
       RegExpFlags.y = y;
     }) in
     test_exec_using_flags regex flags at input
@@ -98,5 +101,5 @@ module Tester (E: Engine) = struct
     compare_regexes_using_record r1 r2 input at rer
 end
 
-module Utf16Tester = Tester(Engines.Utf16Engine)
-module UnicodeTester = Tester(Engines.UnicodeEngine)
+module Utf16Tester = Tester(Utf16Parameters)
+module UnicodeTester = Tester(UnicodeParameters)

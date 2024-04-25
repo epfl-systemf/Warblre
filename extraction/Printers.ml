@@ -1,8 +1,10 @@
-module Printer(E: Encoding.Character) = struct
-  open Extracted.Patterns
+open Engines
+open Patterns
+
+module Printer(P: EngineParameters) = struct
   open Extracted.Notation
 
-  type character = E.character
+  type character = P.character
 
   module Internal = struct
     module CS = Set.Make(Int)
@@ -16,18 +18,18 @@ module Printer(E: Encoding.Character) = struct
     let escaped = CS.of_list (List.map Char.code ('\\' :: '/' :: '-' :: '[' :: ']' :: '{' :: '}' :: '(' :: ')' :: '*' :: '+' :: '?' :: '$' :: '^' :: '|' :: '.' :: []))
 
     let escape (c: character) : string =
-      let str = E.list_to_string (c :: []) in
+      let str = P.Character.to_host (P.Character.list_to_string (c :: [])) in
       if String.length str != 1 then
         failwith "Unexpected escape corner case: '" ^ str ^ "'"
       else
         "\\" ^ str
 
     let char_lit_to_string (c: character) : string =
-      let i = E.char_to_int c in
+      let i = P.Character.numeric_value c in
       if CS.mem i escaped then
         escape c
       else
-        let str = E.list_to_string (c :: []) in
+        let str = P.Character.to_host (P.Character.list_to_string (c :: [])) in
         str
 
     let hex4digits_to_string (h: Extracted.HexDigit.coq_Hex4Digits) : string =
@@ -237,5 +239,5 @@ module Printer(E: Encoding.Character) = struct
     !s
 end
 
-module Utf16Printer = Printer(Encoding.Utf16)
-module UnicodePrinter = Printer(Encoding.Unicode)
+module Utf16Printer = Printer(Utf16Parameters)
+module UnicodePrinter = Printer(UnicodeParameters)

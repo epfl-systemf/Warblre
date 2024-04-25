@@ -1,7 +1,7 @@
 (** Defines notations to define regexes
     You should either import Utf16Notations or UnicodeNotations    
 *)
-open Extracted.Patterns
+open Patterns
 
 module CharNotations (S: Encoding.Character) = struct
   type character = S.character

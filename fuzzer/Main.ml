@@ -51,11 +51,11 @@ let string_of_command (command:string) : string =
    close_in chan;
    !output
 
-module Fuzzer (E: Engine) = struct
+module Fuzzer (P: EngineParameters) = struct
   open Warblre
   open Warblre.Extracted.Patterns
-  open E
-  open Printer(E)
+  open Engine(P)
+  open Printer(P)
 
   (* getting the Node result as a string, with a timeout in case of exponential complexity *)
   (* when the result is None, a Timeout occurred *)
@@ -150,10 +150,7 @@ module Fuzzer (E: Engine) = struct
 
   (** * Generating random regexes *)
 
-  let cchar (c: char): character coq_Regex =
-    match (chars_from_int (Char.code c)) with
-    | h :: [] -> Char h
-    | ls -> failwith (String.cat "Invalid character: " (list_to_string ls))
+  let cchar (c: char): character coq_Regex = Char (P.Character.from_numeric_value (Char.code c))
 
   let random_char () : char =
     let idx = Random.int (List.length alphabet) in
@@ -178,7 +175,7 @@ module Fuzzer (E: Engine) = struct
     if (Random.bool ()) then Greedy qp else Lazy qp
 
   let random_char_ranges () : character coq_ClassRanges =
-    let sc c = SourceCharacter (char_from_int (Char.code c)) in
+    let sc c = SourceCharacter (P.Character.from_numeric_value (Char.code c)) in
     List.fold_left (fun current _: character coq_ClassRanges ->
       if Random.bool() then
         let c = random_char() in
@@ -350,7 +347,7 @@ module Fuzzer (E: Engine) = struct
 
 end
 
-open Fuzzer(Warblre.Engines.UnicodeEngine)
+open Fuzzer(UnicodeParameters)
 let () =
   let test_count: int = 100 in
   let user_seed: int option = Some 89809344 in

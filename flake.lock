@@ -1,28 +1,5 @@
 {
   "nodes": {
-    "coq-master": {
-      "inputs": {
-        "flake-utils": [
-          "flake-utils"
-        ],
-        "nixpkgs": [
-          "nixpkgs"
-        ]
-      },
-      "locked": {
-        "lastModified": 1713708526,
-        "narHash": "sha256-NDjPSAHj/0oojciDO7XD5e8HO6e0hwZc3FzdJQCH40U=",
-        "owner": "coq",
-        "repo": "coq",
-        "rev": "88a27ca8095f1daa7ee2a49ae5e13bf2801e8adf",
-        "type": "github"
-      },
-      "original": {
-        "owner": "coq",
-        "repo": "coq",
-        "type": "github"
-      }
-    },
     "flake-utils": {
       "inputs": {
         "systems": "systems"
@@ -43,22 +20,22 @@
     },
     "nixpkgs": {
       "locked": {
-        "lastModified": 1713794880,
-        "narHash": "sha256-7rjWgBMEB4wnjvlbQTcC4EsBjtX54nnFcm2UmAkglkc=",
-        "owner": "nixos",
+        "lastModified": 1711668574,
+        "narHash": "sha256-u1dfs0ASQIEr1icTVrsKwg2xToIpn7ZXxW3RHfHxshg=",
+        "owner": "NixOS",
         "repo": "nixpkgs",
-        "rev": "d1b037e02b0bc018d45586584b50f95ceddc021d",
+        "rev": "219951b495fc2eac67b1456824cc1ec1fd2ee659",
         "type": "github"
       },
       "original": {
         "owner": "nixos",
+        "ref": "nixos-23.11",
         "repo": "nixpkgs",
         "type": "github"
       }
     },
     "root": {
       "inputs": {
-        "coq-master": "coq-master",
         "flake-utils": "flake-utils",
         "nixpkgs": "nixpkgs"
       }

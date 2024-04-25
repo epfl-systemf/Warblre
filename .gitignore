@@ -7,3 +7,7 @@ _build/
 
 # VsCode's configuration
 .vscode/
+
+# Direnv
+.direnv/
+.envrc

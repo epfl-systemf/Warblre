@@ -395,7 +395,6 @@ Section BuiltinExec.
         Success (record :: next)
     end.
 
-  (* Triggers https://github.com/coq/coq/issues/18358 with coq < 8.20 *)
   Definition regExpBuiltinExec (R: RegExpInstance) (S: String): Result.Result ExecResult MatchError :=
     (* 1. Let length be the length of S. *)
     let length := String.length S in
@@ -423,7 +422,7 @@ Section BuiltinExec.
     (* 12. NOTE: Each element of input is considered to be a character. *)
     (* 13. Repeat, while matchSucceeded is false, *)
     (* We change the repeat loop to a recursive function with fuel *)
-    let fix repeatloop (lastIndex:nat) (fuel:nat): Result LoopResult MatchError :=
+    let fix repeatloop (lastIndex: nat) (fuel: nat): Result LoopResult MatchError :=
       match fuel with
       | 0 => out_of_fuel
       | S fuel' =>
@@ -442,7 +441,10 @@ Section BuiltinExec.
           (* c. Let r be matcher(input, inputIndex). *)
           let! r:(option MatchState) =<< matcher input inputIndex in
           (* d. If r is failure, then *)
-          if r == (failure) then
+          (* TODO: change once fix is released *)
+          (* The more natural looking r == failure *)
+          (* Triggers https://github.com/coq/coq/issues/18358 with coq < 8.20 *)
+          if @EqDec.eq_dec _ eqdec_option r failure then
             (* i. If sticky is true, then *)
             if sticky then
               (* 1. Perform ? Set(R, "lastIndex", +0𝔽, true). *)

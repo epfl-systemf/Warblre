@@ -2,20 +2,14 @@
   description = "A mechanization of the specification of ECMAScript regexes.";
 
   inputs = {
-    nixpkgs.url = "github:nixos/nixpkgs";
+    nixpkgs.url = "github:nixos/nixpkgs/nixos-23.11";
     flake-utils.url = "github:numtide/flake-utils";
-    coq-master = {
-      url = "github:coq/coq";
-      inputs.flake-utils.follows = "flake-utils";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
   };
 
-  outputs = { self, nixpkgs, flake-utils, coq-master }@input: 
+  outputs = { self, nixpkgs, flake-utils }@input: 
     flake-utils.lib.eachDefaultSystem (system:
       let
         pkgs = import nixpkgs { inherit system; };
-        coq = coq-master.packages.${system};
       in {
         devShells = {
             default = pkgs.mkShell {

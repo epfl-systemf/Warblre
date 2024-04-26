@@ -18,7 +18,7 @@ module Printer(P: EngineParameters) = struct
     let escaped = CS.of_list (List.map Char.code ('\\' :: '/' :: '-' :: '[' :: ']' :: '{' :: '}' :: '(' :: ')' :: '*' :: '+' :: '?' :: '$' :: '^' :: '|' :: '.' :: []))
 
     let escape (c: character) : string =
-      let str = P.Character.to_host (P.Character.list_to_string (c :: [])) in
+      let str = P.String.to_host (P.String.list_to_string (c :: [])) in
       if String.length str != 1 then
         failwith "Unexpected escape corner case: '" ^ str ^ "'"
       else
@@ -29,7 +29,7 @@ module Printer(P: EngineParameters) = struct
       if CS.mem i escaped then
         escape c
       else
-        let str = P.Character.to_host (P.Character.list_to_string (c :: [])) in
+        let str = P.String.to_host (P.String.list_to_string (c :: [])) in
         str
 
     let hex4digits_to_string (h: Extracted.HexDigit.coq_Hex4Digits) : string =

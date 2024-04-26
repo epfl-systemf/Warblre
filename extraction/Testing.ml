@@ -6,8 +6,8 @@ module Tester (P: EngineParameters) = struct
   open Extracted.Notation
   open Printer(P)
 
-  let list_to_string ls = P.Character.to_host (P.Character.list_to_string ls)
-  let list_from_string str = P.Character.list_from_string (P.Character.from_host str)
+  let list_to_string ls = P.String.to_host (P.String.list_to_string ls)
+  let list_from_string str = P.String.list_from_string (P.String.from_host str)
 
   let pretty_print_result ls_input at (res: character coq_MatchResult) unicode =
     let input = list_to_string ls_input in

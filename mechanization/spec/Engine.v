@@ -8,23 +8,21 @@ Module Type EngineParameters.
   Parameter unicode : bool.
 
   Module Character.
-    Parameter eq: forall (l r: character), {l=r} + {l<>r}.
+    Parameter equal: forall (l r: character), {l=r} + {l<>r}.
     Parameter from_numeric_value: nat -> character.
     Parameter numeric_value: character -> nat.
     Parameter canonicalize: RegExpRecord -> character -> character.
 
     Axiom numeric_pseudo_bij: forall c, from_numeric_value (numeric_value c) = c.
     Axiom numeric_round_trip_order: forall l r, l <= r -> (numeric_value (from_numeric_value l)) <= (numeric_value (from_numeric_value r)).
+  End Character.
 
+  Module String.
     Parameter list_from_string: String -> list character.
     Parameter list_to_string: list character -> String.
     Parameter to_host: String -> host_string.
     Parameter from_host: host_string -> String.
-  End Character.
-
-  Parameter unicode_property: Type.
-  Parameter unicode_property_eqdec: forall (l r: unicode_property), {l=r} + {l<>r}.
-  Parameter code_points_for: unicode_property -> list character.
+  End String.
 
   (** CharSet *)
   Parameter char_set: Type.
@@ -55,6 +53,12 @@ Module Type EngineParameters.
     Parameter white_spaces: list character.
     Parameter ascii_word_characters: list character.
   End CharSets.
+
+  Parameter property: Type.
+  Module Property.
+    Parameter equal: forall (l r: property), {l=r} + {l<>r}.
+    Parameter code_points: property -> list character.
+  End Property.
 End EngineParameters.
 
 
@@ -63,13 +67,13 @@ Module Engine (parameters: EngineParameters).
 
   (* Instanciation *)
   Definition char_instance: CharacterInstance character := Character.make character
-    (EqDec.make _ parameters.Character.eq)
+    (EqDec.make _ parameters.Character.equal)
     parameters.Character.from_numeric_value
     parameters.Character.numeric_value
     parameters.Character.canonicalize
     parameters.Character.numeric_pseudo_bij
     parameters.Character.numeric_round_trip_order
-    parameters.Character.list_from_string
+    parameters.String.list_from_string
     (CharSet.make parameters.character parameters.char_set
       parameters.CharSet.empty
       parameters.CharSet.from_list
@@ -91,9 +95,9 @@ Module Engine (parameters: EngineParameters).
     parameters.CharSets.digits
     parameters.CharSets.white_spaces
     parameters.CharSets.ascii_word_characters
-    parameters.unicode_property
-    (EqDec.make _ parameters.unicode_property_eqdec)
-    parameters.code_points_for
+    parameters.property
+    (EqDec.make _ parameters.Property.equal)
+    parameters.Property.code_points
   .
 
   (* Utils *)

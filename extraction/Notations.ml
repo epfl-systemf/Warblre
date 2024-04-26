@@ -50,5 +50,5 @@ module UnicodeNotations = struct
   module Base = CharNotations(Encoding.Unicode)
   include Base
 
-  let uprop n = AtomEsc (ACharacterClassEsc (UnicodeProp (Obj.magic (Interop.UnicodeProperties.Predicate n))))
+  let uprop n = AtomEsc (ACharacterClassEsc (UnicodeProp (Obj.magic (Engines.UnicodeProperty.Predicate n))))
 end

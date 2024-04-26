@@ -25,8 +25,8 @@ module UInt16Character: Character with type t = Unsigned.UInt16.t = struct
     | { Extracted.RegExpRecord.ignoreCase = false; _ } -> ch
     | _ ->
       let cp = numeric_value ch in
-      let u = Interop.Utf16.to_upper_case cp in
-      let uStr = Interop.Utf16.code_points_to_string u in
+      let u = Encoding.UnicodeUtils.to_upper_case cp in
+      let uStr = Encoding.UnicodeUtils.str_to_utf16 u in
       match uStr with
       | cu :: [] ->
         if (numeric_value ch >= 128) && (numeric_value cu < 128) then ch
@@ -43,8 +43,19 @@ module IntCharacter: Character with type t = int = struct
   let canonicalize rer i =
     match rer with
     | { Extracted.RegExpRecord.ignoreCase = true; _ } ->
-          Interop.Unicode.case_fold i
+        Encoding.UnicodeUtils.simple_case_fold i
     | _ -> i
+end
+
+module CamlString = struct
+  type t = Unsigned.UInt16.t list
+  let equal = List.equal Unsigned.UInt16.equal
+  let length = List.length
+  let substring str s e = Utils.List.take (e - s) (Utils.List.drop s str)
+  let codeUnitAt str at = List.nth str at
+
+  let to_host = Encoding.Utf16.list_to_string
+  let from_host = Encoding.Utf16.list_from_string
 end
 
 module CharSet (C: Character) = struct
@@ -141,18 +152,17 @@ end
 module Utf16Parameters : EngineParameters 
   with type character = Unsigned.UInt16.t
 = struct
-  let unicode = false
-
   module Character = UInt16Character
   type character = Character.t
 
   module String = struct
     let list_from_string s = s
     let list_to_string s = s
-
-    let to_host = Encoding.Utf16.list_to_string
-    let from_host = Encoding.Utf16.list_from_string
+    let advanceStringIndex _ i = i + 1
+    let getStringIndex s i = i
+    include CamlString
   end
+  type string = String.t
 
   module CharSet = CharSet(Character)
   type char_set = CharSet.t
@@ -168,10 +178,8 @@ end
 
 module UnicodeParameters : EngineParameters 
   with type character = int
+  with type string = Unsigned.UInt16.t list
 = struct
-
-  let unicode = true
-
   module Character = IntCharacter
   type character = Character.t
 
@@ -179,9 +187,21 @@ module UnicodeParameters : EngineParameters
     let list_from_string str = Encoding.Unicode.list_from_string (Encoding.Utf16.list_to_string str)
     let list_to_string str = Encoding.Utf16.list_from_string (Encoding.Unicode.list_to_string str)
 
-    let to_host = Encoding.Utf16.list_to_string
-    let from_host = Encoding.Utf16.list_from_string
+    module Ops = Extracted.UnicodeOps(struct
+      type coq_Utf16CodeUnit = Unsigned.UInt16.t
+      type coq_Utf16String = Unsigned.UInt16.t list
+      let length = List.length
+      let codeUnitAt = List.nth
+      let is_leading_surrogate c = Encoding.UnicodeUtils.is_high_surrogate (Unsigned.UInt16.to_int c)
+      let is_trailing_surrogate c = Encoding.UnicodeUtils.is_low_surrogate (Unsigned.UInt16.to_int c)
+    end)
+    let advanceStringIndex s i = Utils.Result.get (Ops.advanceStringIndex s i)
+    let getStringIndex s i = Utils.Result.get (Ops.getStringIndex s i)
+
+
+    include CamlString
   end
+  type string = String.t
 
   module CharSet = CharSet(Character)
   type char_set = CharSet.t

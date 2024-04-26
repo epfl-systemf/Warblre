@@ -59,7 +59,7 @@ module Fuzzer (P: EngineParameters) = struct
 
   (* getting the Node result as a string, with a timeout in case of exponential complexity *)
   (* when the result is None, a Timeout occurred *)
-  let get_js_result (regex: character coq_Regex) (flags: Extracted.RegExpFlags.coq_type) (lastindex: int) (str: string) (f: frontend_function): string option =
+  let get_js_result (regex: (character, string) coq_Regex) (flags: Extracted.RegExpFlags.coq_type) (lastindex: int) (str: ocaml_string) (f: frontend_function): ocaml_string option =
     let js_regex = regex_to_string ~delimited:false ~strict:true regex in
     let js_regex = "'" ^ js_regex ^ "'" in (* adding quotes to escape special characters *)
     let js_flags = "'" ^ flags_to_string flags ^ "'" in
@@ -69,7 +69,7 @@ module Fuzzer (P: EngineParameters) = struct
                     ^ js_regex ^ " "
                     ^ js_flags ^ " "
                     ^ js_index ^ " "
-                    ^ "'"^str^"'" ^ " "
+                    ^ "'" ^ str ^ "'" ^ " "
                     ^ js_func in
     (* Printf.printf "%s\n%!" js_command; *)
     let result = string_of_command(js_command) in
@@ -89,15 +89,15 @@ module Fuzzer (P: EngineParameters) = struct
     | Failure _ -> failwith "Compile Error"
 
   (* exec *)
-  let reference_exec (r: character Extracted.RegExpInstance.coq_type) (str) : string =
+  let reference_exec (r: (character, string) Extracted.RegExpInstance.coq_type) (str) : ocaml_string =
     let res = get_success (exec r str) in
     exec_result_to_string ~pretty:false res
 
 
-  let get_reference_result (regex: character coq_Regex) (flags: Extracted.RegExpFlags.coq_type) (index: int) (str: string) (f: frontend_function) : string option =
+  let get_reference_result (regex: (character, string) coq_Regex) (flags: Extracted.RegExpFlags.coq_type) (index: int) (str: ocaml_string) (f: frontend_function) : ocaml_string option =
     let instance = get_success_compile (initialize regex flags) in
     let instance = setLastIndex instance index in
-    let list_input = Interop.Utf16.list_from_string str in
+    let list_input = P.String.from_host str in
     match f with
     | Exec -> Some (String.trim (reference_exec instance list_input))
     (* | Search -> Some (reference_search instance (Obj.magic list_input))
@@ -109,16 +109,16 @@ module Fuzzer (P: EngineParameters) = struct
 
   (** * Comparing 2 engine results *)
 
-  let print_op (o:string option) : string =
+  let print_op (o: ocaml_string option) : ocaml_string =
     match o with | None -> "None" | Some s -> s
 
-  let print_result (s:string option) : string =
+  let print_result (s: ocaml_string option) : ocaml_string =
     match s with
     | None -> "Timeout\n"
     | Some s -> s
 
   (* calling the two engines and failing if they disagree on the result *)
-  let compare_engines (regex: character coq_Regex) (flags: Extracted.RegExpFlags.coq_type) (index: int) (str: string) (f: frontend_function) : unit =
+  let compare_engines (regex: (character, string) coq_Regex) (flags: Extracted.RegExpFlags.coq_type) (index: int) (str: ocaml_string) (f: frontend_function) : unit =
     let sep = String.init 100 (fun _ -> '-') in
     Printf.printf "\027[36mJS Regex:\027[0m %s\n" (regex_to_string regex);
     Printf.printf "\027[36mString:\027[0m \"%s\"\n%!" str;
@@ -150,7 +150,7 @@ module Fuzzer (P: EngineParameters) = struct
 
   (** * Generating random regexes *)
 
-  let cchar (c: char): character coq_Regex = Char (P.Character.from_numeric_value (Char.code c))
+  let cchar (c: char): (character, string) coq_Regex = Char (P.Character.from_numeric_value (Char.code c))
 
   let random_char () : char =
     let idx = Random.int (List.length alphabet) in
@@ -174,9 +174,9 @@ module Fuzzer (P: EngineParameters) = struct
     let qp = random_qp () in
     if (Random.bool ()) then Greedy qp else Lazy qp
 
-  let random_char_ranges () : character coq_ClassRanges =
+  let random_char_ranges () : (character, string) coq_ClassRanges =
     let sc c = SourceCharacter (P.Character.from_numeric_value (Char.code c)) in
-    List.fold_left (fun current _: character coq_ClassRanges ->
+    List.fold_left (fun current _: (character, string) coq_ClassRanges ->
       if Random.bool() then
         let c = random_char() in
         ClassAtomCR (sc c, current)
@@ -195,11 +195,11 @@ module Fuzzer (P: EngineParameters) = struct
   *)
 
   (* Table used to generate regex without children (i.e. leafs of the AST) *)
-  let ticketTableNonRec: (int * (unit -> character coq_Regex)) list = [
+  let ticketTableNonRec: (int * (unit -> (character, string) coq_Regex)) list = [
     ( 1, fun _ -> Empty);
-    ( 1, fun _: character coq_Regex ->
+    ( 1, fun _: (character, string) coq_Regex ->
         let r = random_char_ranges () in
-        let cc: character coq_CharClass = if Random.bool() then NoninvertedCC (r) else InvertedCC(r) in
+        let cc: (character, string) coq_CharClass = if Random.bool() then NoninvertedCC (r) else InvertedCC(r) in
         CharacterClass (cc)
     ); 
     ( 3, fun _ -> let c = random_char() in cchar(c));
@@ -207,7 +207,7 @@ module Fuzzer (P: EngineParameters) = struct
     ( 1, fun _ -> Dot);
   ]
 
-  let ticketTableRec: (int * (int -> (int -> character coq_Regex) -> character coq_Regex)) list = [
+  let ticketTableRec: (int * (int -> (int -> (character, string) coq_Regex) -> (character, string) coq_Regex)) list = [
     ( 3, fun depth random_ast -> 
           let r1 = random_ast (depth-1) in
           let r2 = random_ast (depth-1) in
@@ -263,7 +263,7 @@ module Fuzzer (P: EngineParameters) = struct
     ticketTableRec
     ])
 
-  let rec random_ast (depth:int) : character coq_Regex =
+  let rec random_ast (depth:int) : (character, string) coq_Regex =
     if (depth = 0) then
       (* The regex cannot have further children -> use the "childless" table *)
       let rand = Random.int (Lookup.cardinal base_lookup) in
@@ -276,7 +276,7 @@ module Fuzzer (P: EngineParameters) = struct
       gen depth random_ast
 
   (* Replace each backreference number with a legal one, between 1 and the maximum group id  *)
-  let rec fill_backref (r: character coq_Regex) (maxgroup: int) : character coq_Regex =
+  let rec fill_backref (r: (character, string) coq_Regex) (maxgroup: int) : (character, string) coq_Regex =
     match r with
     | Empty | Char _ | Dot| CharacterClass _ -> r
     | AtomEsc (DecimalEsc _) ->
@@ -295,7 +295,7 @@ module Fuzzer (P: EngineParameters) = struct
     | NegativeLookbehind (r1) -> NegativeLookbehind (fill_backref r1 maxgroup)
 
   (* Generate an AST then fills the backreferences numbers *)
-  let random_regex (): character coq_Regex =
+  let random_regex (): (character, string) coq_Regex =
     let ast = random_ast (Random.int max_regex_depth) in
     let maxgroup = countGroups ast in
     fill_backref ast maxgroup
@@ -323,7 +323,7 @@ module Fuzzer (P: EngineParameters) = struct
 
   (** * Creating Random Strings  *)
 
-  let random_string () : string =
+  let random_string () : ocaml_string =
     let size = (Random.int max_string_length) in
     String.init size (fun _ -> random_char())
 

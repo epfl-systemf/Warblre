@@ -5,8 +5,6 @@ Parameter host_string: Type.
 
 Module Type EngineParameters.
   Parameter character : Type.
-  Parameter unicode : bool.
-
   Module Character.
     Parameter equal: forall (l r: character), {l=r} + {l<>r}.
     Parameter from_numeric_value: nat -> character.
@@ -17,11 +15,17 @@ Module Type EngineParameters.
     Axiom numeric_round_trip_order: forall l r, l <= r -> (numeric_value (from_numeric_value l)) <= (numeric_value (from_numeric_value r)).
   End Character.
 
+  Parameter string : Type.
   Module String.
-    Parameter list_from_string: String -> list character.
-    Parameter list_to_string: list character -> String.
-    Parameter to_host: String -> host_string.
-    Parameter from_host: host_string -> String.
+    Parameter equal: forall (l r: string), {l=r} + {l<>r}.
+    Parameter length: string -> non_neg_integer.
+    Parameter substring: string -> non_neg_integer -> non_neg_integer -> string.
+    Parameter advanceStringIndex: string -> non_neg_integer -> non_neg_integer.
+    Parameter getStringIndex: string -> non_neg_integer -> non_neg_integer.
+    Parameter list_from_string: string -> list character.
+    Parameter list_to_string: list character -> string.
+    Parameter to_host: string -> host_string.
+    Parameter from_host: host_string -> string.
   End String.
 
   (** CharSet *)
@@ -64,15 +68,22 @@ End EngineParameters.
 
 Module Engine (parameters: EngineParameters).
   Definition character := parameters.character.
+  Definition string := parameters.string.
 
   (* Instanciation *)
-  Definition char_instance: CharacterInstance character := Character.make character
+  Definition char_instance: CharacterInstance character string := Character.make character string
     (EqDec.make _ parameters.Character.equal)
     parameters.Character.from_numeric_value
     parameters.Character.numeric_value
     parameters.Character.canonicalize
     parameters.Character.numeric_pseudo_bij
     parameters.Character.numeric_round_trip_order
+    (String.make parameters.string
+      (EqDec.make _ parameters.String.equal)
+      parameters.String.length
+      parameters.String.substring
+      parameters.String.advanceStringIndex
+      parameters.String.getStringIndex)
     parameters.String.list_from_string
     (CharSet.make parameters.character parameters.char_set
       parameters.CharSet.empty
@@ -101,12 +112,13 @@ Module Engine (parameters: EngineParameters).
   .
 
   (* Utils *)
-  Definition countGroups r := @StaticSemantics.countLeftCapturingParensWithin_impl _ char_instance r.
+  Definition countGroups r := @StaticSemantics.countLeftCapturingParensWithin_impl _ _ char_instance r.
 
   (* API *)
-  Definition compilePattern := @Semantics.compilePattern _ char_instance.
+  Definition compilePattern := @Semantics.compilePattern _ _ char_instance.
 
-  Definition initialize := @Frontend.regExpInitialize _ char_instance.
-  Definition setLastIndex := @Frontend.RegExpInstance.setLastIndex _ char_instance.
-  Definition exec := @Frontend.regExpExec _ char_instance.
+  Definition initialize := @Frontend.regExpInitialize _ _ char_instance.
+  Definition setLastIndex := @Frontend.RegExpInstance.setLastIndex _ _ char_instance.
+  Definition exec := @Frontend.regExpExec _ _ char_instance.
+  Definition execArrayExotic := @Frontend.ExecArrayExotic _ _ char_instance.
 End Engine.

@@ -1,7 +1,10 @@
 type codepoint = int
 
-module Utf8Utils = struct
-  let from_int (u: int) : char list =
+module UnicodeUtils = struct
+  (* Unicode points are represented using int (rather than Uchar.t) as to represent invalid points *)
+  type uchar = int
+
+  let to_bytes (u: uchar) : char list =
     match u with
     | u when u < 0 -> assert false
     | u when u <= 0x007F -> Char.chr u :: []
@@ -11,13 +14,37 @@ module Utf8Utils = struct
     | _ -> failwith "Int is to big for a unicode character!"
 
     
-    let is_high_surrogate (c: int) = (0xd800 <= c) && (c <= 0xdbff)
-    let is_low_surrogate (c: int) = (0xdc00 <= c) && (c <= 0xdfff)
+    let is_high_surrogate (c: uchar) = (0xd800 <= c) && (c <= 0xdbff)
+    let is_low_surrogate (c: uchar) = (0xdc00 <= c) && (c <= 0xdfff)
     (* I.e. not a surrogate *)
-    let is_normal (c: int) = (0x0000 <= c && c < 0xd800) || (0xe000 <= c)
+    let is_normal (c: uchar) = (0x0000 <= c && c < 0xd800) || (0xe000 <= c)
 
-    let replacement_int = 0xFFFD
-    let replacement_uchar = Uchar.of_int replacement_int
+    let replacement_char = Uchar.of_int 0xFFFD
+
+    let to_utf16 (code: uchar) : Unsigned.UInt16.t list = 
+      if code > 0xFFFF then
+        (let shifted = (code - 0x10000) in
+        let high = (shifted / 0x400) + 0xd800 in
+        let low = (shifted mod 0x400) + 0xdc00 in
+        (Unsigned.UInt16.of_int high) :: (Unsigned.UInt16.of_int low) :: [])
+      else
+        (Unsigned.UInt16.of_int code) :: []
+    let str_to_utf16 (c: uchar list): Unsigned.UInt16.t list = List.flatten (List.map to_utf16 c)
+  
+    let to_upper_case (c: uchar): int list =
+      if Uchar.is_valid c then
+        match Uucp.Case.Map.to_upper (Uchar.of_int c) with
+          | `Self -> c :: []
+          | `Uchars ls -> List.map Uchar.to_int ls
+      else c :: []
+      
+    let simple_case_fold (c: uchar): uchar = 
+      if (Uchar.is_valid c) then
+        match Uucp.Case.Fold.fold (Uchar.of_int c) with
+          | `Self -> c
+          | `Uchars (cp :: []) -> Uchar.to_int cp
+          | `Uchars _ -> c
+      else c
 end
 
 module type Character = sig
@@ -37,14 +64,7 @@ module Utf16 : Character with type character = Unsigned.UInt16.t = struct
   type character = Unsigned.UInt16.t
   let cmp (l: character) (r: character): int = Unsigned.UInt16.compare l r
 
-  let chars_from_int (code: int) : character list = 
-    if code > 0xFFFF then
-      (let shifted = (code - 0x10000) in
-      let high = (shifted / 0x400) + 0xd800 in
-      let low = (shifted mod 0x400) + 0xdc00 in
-      (Unsigned.UInt16.of_int high) :: (Unsigned.UInt16.of_int low) :: [])
-    else
-      (Unsigned.UInt16.of_int code) :: []
+  let chars_from_int = UnicodeUtils.to_utf16
 
   let char_from_int c = Utils.List.unique (chars_from_int c)
 
@@ -64,13 +84,13 @@ module Utf16 : Character with type character = Unsigned.UInt16.t = struct
     let b = Buffer.create (List.length str) in
     let rec iter (str: int list) =
       match str with
-      | h :: l :: t when Utf8Utils.is_high_surrogate h && Utf8Utils.is_low_surrogate l -> (
+      | h :: l :: t when UnicodeUtils.is_high_surrogate h && UnicodeUtils.is_low_surrogate l -> (
         let i = 0x10000 + (h - 0xd800)*0x400 + (l - 0xdc00) in
-        assert (Utf8Utils.is_normal i);
+        assert (UnicodeUtils.is_normal i);
         Buffer.add_utf_8_uchar b (Uchar.of_int i);
         iter t
       )
-      | h :: t when Utf8Utils.is_normal h -> Buffer.add_utf_8_uchar b (Uchar.of_int h); iter t
+      | h :: t when UnicodeUtils.is_normal h -> Buffer.add_utf_8_uchar b (Uchar.of_int h); iter t
       | _ :: t -> Buffer.add_utf_8_uchar b (Uchar.of_int 0xFFFD); iter t
       | [] -> ()
     in
@@ -104,7 +124,7 @@ module Unicode : Character with type character = int = struct
         if Uchar.is_valid c then
           Buffer.add_utf_8_uchar b (Uchar.of_int c)
         else
-          Buffer.add_utf_8_uchar b Utf8Utils.replacement_uchar
+          Buffer.add_utf_8_uchar b UnicodeUtils.replacement_char
       ) str;
       Buffer.contents b 
 end

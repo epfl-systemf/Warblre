@@ -12,7 +12,7 @@ From Warblre Require Import List Result Typeclasses Base Notation Numeric Charac
 Import Patterns.
 
 Section Zipper.
-  Context `{ep: CharacterInstance Σ}.
+  Context `{ep: CharacterInstance Γ Σ}.
 
   Inductive RegexContextLayer :=
   | Disjunction_left (r: Regex)
@@ -63,7 +63,7 @@ Notation RegexNode := (Regex * RegexContext)%type.
 
 Module Zipper.
   Module Root. Section main.
-    Context `{ep: CharacterInstance Σ}.
+    Context `{ep: CharacterInstance Γ Σ}.
 
     Lemma id: forall r, Root r (r, nil).
     Proof. intros. reflexivity. Qed.
@@ -73,7 +73,7 @@ Module Zipper.
   End main. End Root.
 
   Module Zip. Section main.
-    Context `{ep: CharacterInstance Σ}.
+    Context `{ep: CharacterInstance Γ Σ}.
 
     Lemma id: forall r, zip r nil = r.
     Proof. intros. reflexivity. Qed.
@@ -98,7 +98,7 @@ Module Zipper.
   End main. End Zip.
 
   Section Down.
-    Context `{ep: CharacterInstance Σ}.
+    Context `{ep: CharacterInstance Γ Σ}.
     Import Patterns.
 
     Inductive Down: (Regex * RegexContext) -> (Regex * RegexContext) -> Prop :=
@@ -119,7 +119,7 @@ Module Zipper.
 
   (*  Down represent the notion of a (direct) subregex. *)
   Module Down. Section main.
-    Context `{ep: CharacterInstance Σ}.
+    Context `{ep: CharacterInstance Γ Σ}.
 
     Lemma same_root: forall root r0 ctx0 r1 ctx1, Down (r0, ctx0) (r1, ctx1) -> (Root root (r0, ctx0) <-> Root root (r1, ctx1)).
     Proof. unfold Root. intros. dependent destruction H; cbn; easy. Qed.
@@ -176,7 +176,7 @@ Module Zipper.
 
   (* A walk must return a list of all sub-nodes of the provided node *)
   Module Walk. Section main.
-    Context `{ep: CharacterInstance Σ}.
+    Context `{ep: CharacterInstance Γ Σ}.
 
     Fixpoint walk (r: Regex) (ctx: RegexContext): list (Regex * RegexContext) :=
       (r, ctx) ::
@@ -328,7 +328,7 @@ Module Zipper.
 End Zipper.
 
 Section Induction.
-    Context `{ep: CharacterInstance Σ}.
+    Context `{ep: CharacterInstance Γ Σ}.
     Import Patterns.
 
     Lemma Node_ind: forall root (P : (Regex * RegexContext) -> Prop),

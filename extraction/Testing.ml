@@ -9,7 +9,7 @@ module Tester (P: EngineParameters) = struct
   let list_to_string ls = P.String.to_host (P.String.list_to_string ls)
   let list_from_string str = P.String.list_from_string (P.String.from_host str)
 
-  let pretty_print_result ls_input at (res: character coq_MatchResult) unicode =
+  let pretty_print_result ls_input at (res: (character, string) coq_MatchResult) unicode =
     let input = list_to_string ls_input in
     match res with
     | Success (Some { MatchState.endIndex = i; MatchState.captures = captures; MatchState.input = _ }) -> 
@@ -38,13 +38,13 @@ module Tester (P: EngineParameters) = struct
       
     | Failure AssertionFailed -> Printf.printf "Assertion error during compilation \n"
 
-  let test_regex regex input at ?(ignoreCase=false) ?(multiline=false) ?(dotAll=false) ?(unicode=false) () =
+  let test_regex regex input at ?(ignoreCase=false) ?(multiline=false) ?(dotAll=false) () =
     let groups = (countGroups regex) in
     let rer = Extracted.({
       RegExpRecord.ignoreCase = ignoreCase;
       RegExpRecord.multiline = multiline;
       RegExpRecord.dotAll = dotAll;
-      RegExpRecord.unicode = unicode;
+      RegExpRecord.unicode = ();
       RegExpRecord.capturingGroupsCount = groups;
     }) in
     test_regex_using_record regex input at rer
@@ -52,7 +52,7 @@ module Tester (P: EngineParameters) = struct
   let test_exec_using_flags regex flags at input =
     match initialize regex flags with
     | Success r ->
-      (match exec (setLastIndex r at) (Encoding.Utf16.list_from_string input) with
+      (match exec (setLastIndex r at) (P.String.from_host input) with
       | Success res -> Printf.printf "Matching %s on '%s':\n%s\n" (regex_to_string regex) input (exec_result_to_string res)
       | Failure AssertionFailed -> Printf.printf "Assertion failed during execution.\n"
       | Failure OutOfFuel -> Printf.printf "Out of fuel during execution.\n")
@@ -65,7 +65,7 @@ module Tester (P: EngineParameters) = struct
       RegExpFlags.i = i;
       RegExpFlags.m = m;
       RegExpFlags.s = s;
-      RegExpFlags.u = P.unicode;
+      RegExpFlags.u = ();
       RegExpFlags.y = y;
     }) in
     test_exec_using_flags regex flags at input
@@ -89,13 +89,13 @@ module Tester (P: EngineParameters) = struct
     | Failure AssertionFailed, _ -> Printf.printf "Assertion error during compilation \n"
     | _, Failure AssertionFailed -> Printf.printf "Assertion error during compilation \n"
 
-  let compare_regexes r1 r2 input at ?(ignoreCase=false) ?(multiline=false) ?(dotAll=false) ?(unicode=false) () =
+  let compare_regexes r1 r2 input at ?(ignoreCase=false) ?(multiline=false) ?(dotAll=false) () =
     let groups = (countGroups r1) in
     let rer = Extracted.({
       RegExpRecord.ignoreCase = ignoreCase;
       RegExpRecord.multiline = multiline;
       RegExpRecord.dotAll = dotAll;
-      RegExpRecord.unicode = unicode;
+      RegExpRecord.unicode = ();
       RegExpRecord.capturingGroupsCount = groups;
     }) in
     compare_regexes_using_record r1 r2 input at rer

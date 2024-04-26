@@ -6,7 +6,7 @@ From Warblre Require Import List Result Typeclasses Notation Numeric Characters.
   grammar cannot interpret the String as an expansion of Pattern *)
 
 Module Patterns. Section main.
-  Context `{ep: CharacterInstance Σ}.
+  Context `{ep: CharacterInstance Γ Σ}.
 
   Definition GroupName := String.
 
@@ -148,7 +148,7 @@ Module Patterns. Section main.
     #[export] #[refine] Instance eqdec_CClassEscape: EqDec ClassEscape := {}.
       decide equality; apply EqDec.eq_dec. Defined.
     #[export] #[refine] Instance eqdec_AtomEscape: EqDec AtomEscape := {}.
-      decide equality; first [ apply EqDec.eq_dec ]. Defined.
+      decide equality; try first [ apply EqDec.eq_dec ]. Defined.
     #[export] #[refine] Instance eqdec_QuantifierPrefix: EqDec QuantifierPrefix := {}.
       decide equality; apply EqDec.eq_dec. Defined.
     #[export] #[refine] Instance eqdec_Quantifier: EqDec Quantifier := {}.

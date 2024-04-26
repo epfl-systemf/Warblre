@@ -20,7 +20,7 @@ Module RegExpFlags.
     i: bool;
     m: bool;
     s: bool;
-    u: bool;
+    u: unit;
     y: bool;
   }.
 End RegExpFlags.
@@ -29,7 +29,7 @@ Notation reg_exp_flags := RegExpFlags.make.
 
 (** 22.2.8 Properties of RegExp Instances *)
 Module RegExpInstance. Section main.
-  Context {Σ} `{ep: CharacterInstance Σ}.
+  Context `{ep: CharacterInstance Γ Σ}.
   Record type := make {
       originalSource: Patterns.Regex;
       originalFlags: RegExpFlags;
@@ -46,7 +46,7 @@ Notation RegExpInstance := RegExpInstance.type.
 Notation reg_exp_instance := RegExpInstance.make.
 
 Section Initialization.
-  Context {Σ} `{ep: CharacterInstance Σ}.
+  Context `{ep: CharacterInstance Γ Σ}.
 
   (** 22.2.3.4 Static Semantics: ParsePattern ( patternText, u ) *)
 
@@ -64,14 +64,10 @@ Section Initialization.
     let u := RegExpFlags.u F in
 
     (* 10. If u is true, then *)
-    let patternText := if u == true then
       (* a. Let patternText be StringToCodePoints(P). *)
-      P
     (* 11. Else, *)
-    else
       (* a. Let patternText be the result of interpreting each of P's 16-bit elements as a Unicode BMP code point. UTF-16 decoding is not applied to the elements. *)
-      P
-    in
+    let patternText := P in
 
     (* 12. Let parseResult be ParsePattern(patternText, u). *)
     let parseResult := patternText in
@@ -111,12 +107,14 @@ Notation MatchRecord := MatchRecord.type.
 Notation match_record := MatchRecord.make.
 
 (* the groups that are returned inside the obejct returned by RegExpBuiltinExec *)
-Definition groups_map : Type := list (GroupName * option String).
+Definition groups_map `{ep: CharacterInstance Γ Σ}: Type := list (GroupName * option String).
 
   (* RegExpBuiltinExec returns an array exotic, i.e. a blob mapping names and indices to (JS) values.
      We instead use, and define here, a statically typed record to represent these returned values.
   *)
 Module ExecArrayExotic. Section main.
+  Context `{ep: CharacterInstance Γ Σ}.
+
   Record type := make {
       index: nat;
       input: String;
@@ -130,11 +128,11 @@ Notation ExecArrayExotic := ExecArrayExotic.type.
 Notation exec_array_exotic := ExecArrayExotic.make.
 
 Section BuiltinExec.
-  Context {Character} `{ep: CharacterInstance Character}.
+  Context `{ep: CharacterInstance Γ Σ}.
 
   (** 22.2.7.7 GetMatchIndexPair ( S, match ) *)
 
-  Definition getMatchIndexPair (S: String) (match_rec:MatchRecord) : Result.Result (nat * nat) MatchError :=
+  Definition getMatchIndexPair (S: String) (match_rec: MatchRecord) : Result.Result (nat * nat) MatchError :=
     (* 1. Assert: match.[[StartIndex]] ≤ match.[[EndIndex]] ≤ the length of S. *)
     assert! ((MatchRecord.startIndex match_rec) <=? (MatchRecord.endIndex match_rec));
     assert! ((MatchRecord.endIndex match_rec) <=? String.length S);
@@ -223,53 +221,6 @@ Section BuiltinExec.
     (* 2. Return the substring of S from match.[[StartIndex]] to match.[[EndIndex]]. *)
     Success (String.substring S (MatchRecord.startIndex matsh) (MatchRecord.endIndex matsh)).
 
-  (** 22.2.7.3 AdvanceStringIndex ( S, index, unicode ) *)
-  Definition advanceStringIndex (S: String) (index: non_neg_integer) (unicode: bool) : Result.Result non_neg_integer MatchError :=
-    (* 1. Assert: index ≤ 2^53 - 1. *)
-    (* assert! (index <? 9007199254740991)%nat; *)
-    (* If unicode is false, return index + 1. *)
-    if unicode == false then Success (index + 1) else
-    (* 3. Let length be the length of S. *)
-    let length := String.length S in
-    (* 4. If index + 1 ≥ length, return index + 1. *)
-    if (index + 1) >=? length then Success (index + 1) else
-    (* 5. Let cp be CodePointAt(S, index). *)
-    let! cp =<< String.codePointAt S index in
-    (* 6. Return index + cp.[[CodeUnitCount]]. *)
-    Success (Nat.add index 1)%nat.
-
-  (** 22.2.7.4 GetStringIndex ( S, codePointIndex ) *)
-  Definition getStringIndex (S: String) (codePointIndex: non_neg_integer) : Result.Result non_neg_integer MatchError :=
-  (* If S is the empty String, return 0. *)
-  if String.isEmpty S then Success 0 else
-  (* 2. Let len be the length of S. *)
-  let len := String.length S in
-  (* 3. Let codeUnitCount be 0. *)
-  let codeUnitCount := 0 in
-  (* 4. Let codePointCount be 0. *)
-  let codePointCount := 0 in
-  (* 5. Repeat, while codeUnitCount < len, *)
-  let! res =<< Return.while MatchError.OutOfFuel (len + 1) (codeUnitCount, codePointCount)
-    (fun p => let (codeUnitCount, _) := p in codeUnitCount <? len)
-    (fun p => let (codeUnitCount, codePointCount) := p in
-      (* a. If codePointCount = codePointIndex, return codeUnitCount. *)
-      if codePointCount == codePointIndex then Success (Return.ret codeUnitCount) else
-      (* b. Let cp be CodePointAt(S, codeUnitCount). *)
-      let! cp =<< String.codePointAt S codeUnitCount in
-      (* c. Set codeUnitCount to codeUnitCount + cp.[[CodeUnitCount]]. *)
-      let codeUnitCount := codeUnitCount + CodePoint.codeUnitCount cp in
-      (* d. Set codePointCount to codePointCount + 1. *)
-      let codePointCount := codePointCount + 1 in
-      Success (Return.continue (codeUnitCount, codePointCount)))
-  in
-  match res with
-  | Return.Returned v => Success v
-  | Return.Continue (codeUnitCount, codePointCount) =>
-      (* 6. Return len. *)
-      Success codeUnitCount
-  end.
-
-
   (** 22.2.7.2 RegExpBuiltinExec ( R, S ) *)
 
   Inductive ExecResult :=
@@ -283,7 +234,7 @@ Section BuiltinExec.
   | Continues: MatchState -> nat -> LoopResult.
 
     (* transforms a capture into a capturedValue, a substring of the original string *)
-  Definition capture_to_value (S: String) (cI:option CaptureRange) (fullUnicode: bool) : Result.Result (option (String)) MatchError :=
+  Definition capture_to_value (S: String) (cI:option CaptureRange) : Result.Result (option (String)) MatchError :=
     match cI with
     (* b. If captureI is undefined, then
     i. Let capturedValue be undefined. *)
@@ -296,9 +247,9 @@ Section BuiltinExec.
         let! captureEnd =<< NonNegInt.from_int (CaptureRange.endIndex captureI) in
         (* iii. If fullUnicode is true, then *)
            (* 1. Set captureStart to GetStringIndex(S, captureStart). *)
-        let! captureStart =<< if fullUnicode then getStringIndex S captureStart else Success captureStart in
+        let captureStart := String.getStringIndex S captureStart in
            (* 2. Set captureEnd to GetStringIndex(S, captureEnd). *)
-        let! captureEnd =<< if fullUnicode then getStringIndex S captureEnd else Success captureEnd in
+        let captureEnd := String.getStringIndex S captureEnd in
         (* iv. Let capture be the Match Record { [[StartIndex]]: captureStart, [[EndIndex]]: captureEnd }. *)
         let! capture =<< match_record captureStart captureEnd in
         (* v. Let capturedValue be GetMatchString(S, capture). *)
@@ -307,27 +258,27 @@ Section BuiltinExec.
     end.
 
   (* computes the array part of the Exotic Array, but only for captures with an index >= 1 *)
-  Fixpoint captures_to_array (S: String) (captures: list (option CaptureRange)) (fullUnicode: bool) : Result.Result (list (option (String))) MatchError :=
+  Fixpoint captures_to_array (S: String) (captures: list (option CaptureRange)) : Result.Result (list (option (String))) MatchError :=
     (* 33. For each integer i such that 1 ≤ i ≤ n, in ascending order, do *)
     match captures with
     | nil => Success nil
     (* a. Let captureI be ith element of r's captures List. *)
     | captureI::captures' =>
-        let! capturedValue =<< capture_to_value S captureI fullUnicode in
-        let! next =<< captures_to_array S captures' fullUnicode in
+        let! capturedValue =<< capture_to_value S captureI in
+        let! next =<< captures_to_array S captures' in
         (* d. Perform ! CreateDataPropertyOrThrow(A, ! ToString(𝔽(i)), capturedValue). *)
         Success (capturedValue::next)
     end.
 
   (* i is the index of the first group in the captures list (initially, 1) *)
-  Fixpoint captures_to_groupsmap (R: Regex) (S: String) (captures: list (option CaptureRange)) (i: non_neg_integer) (fullUnicode: bool): Result.Result groups_map MatchError :=
+  Fixpoint captures_to_groupsmap (R: Regex) (S: String) (captures: list (option CaptureRange)) (i: non_neg_integer): Result.Result groups_map MatchError :=
     match captures with
     | nil => Success nil
     | captureI::captures' =>
-        let! capturedValue =<< capture_to_value S captureI fullUnicode in
+        let! capturedValue =<< capture_to_value S captureI in
         let! node =<< nth_group R i in
         destruct! (Group groupname _, _) <- node in
-        let! next =<< captures_to_groupsmap R S captures' (i+1) fullUnicode in
+        let! next =<< captures_to_groupsmap R S captures' (i+1) in
         (* e. If the ith capture of R was defined with a GroupName, then *)
         match groupname with
         | None => Success next
@@ -338,8 +289,8 @@ Section BuiltinExec.
     end.
 
   (* computes the groups map, associating each group name to its captured value *)
-  Definition captures_to_groups_map (R:Regex) (S: String) (captures: list (option CaptureRange)) (fullUnicode: bool) : Result.Result groups_map MatchError :=
-    captures_to_groupsmap R S captures 1%nat fullUnicode.
+  Definition captures_to_groups_map (R:Regex) (S: String) (captures: list (option CaptureRange)) : Result.Result groups_map MatchError :=
+    captures_to_groupsmap R S captures 1%nat.
 
   Fixpoint captures_to_groupnames (R:Regex) (captures:list (option CaptureRange)) (i:nat): Result.Result (list (option GroupName)) MatchError :=
     match captures with
@@ -361,7 +312,7 @@ Section BuiltinExec.
     captures_to_groupnames R captures 1%nat.
 
   (* transforms a capture into a matchRecord *)
-  Definition capture_to_record (S: String) (cI: option CaptureRange) (fullUnicode: bool) : Result.Result (option MatchRecord) MatchError :=
+  Definition capture_to_record (S: String) (cI: option CaptureRange) : Result.Result (option MatchRecord) MatchError :=
     match cI with
     (* b. If captureI is undefined, then
     i. Let capturedValue be undefined. *)
@@ -374,9 +325,9 @@ Section BuiltinExec.
         let! captureEnd =<< NonNegInt.from_int (CaptureRange.endIndex captureI) in
         (* iii. If fullUnicode is true, then *)
            (* 1. Set captureStart to GetStringIndex(S, captureStart). *)
-        let! captureStart =<< if fullUnicode then getStringIndex S captureStart else Success captureStart in
+        let captureStart := String.getStringIndex S captureStart in
            (* 2. Set captureEnd to GetStringIndex(S, captureEnd). *)
-        let! captureEnd =<< if fullUnicode then getStringIndex S captureEnd else Success captureEnd in
+        let captureEnd := String.getStringIndex S captureEnd in
         (* iv. Let capture be the Match Record { [[StartIndex]]: captureStart, [[EndIndex]]: captureEnd }. *)
         let! capture =<< match_record captureStart captureEnd in
         (* vi. Append capture to indices. *)
@@ -384,14 +335,14 @@ Section BuiltinExec.
     end.
 
   (* computes the indices list *)
-  Fixpoint captures_to_indices (S: String) (captures:list (option CaptureRange)) (fullUnicode: bool) : Result.Result (list (option MatchRecord)) MatchError :=
+  Fixpoint captures_to_indices (S: String) (captures:list (option CaptureRange)) : Result.Result (list (option MatchRecord)) MatchError :=
     (* 33. For each integer i such that 1 ≤ i ≤ n, in ascending order, do *)
     match captures with
     | nil => Success nil
     (* a. Let captureI be ith element of r's captures List. *)
     | captureI :: captures' =>
-        let! record =<< capture_to_record S captureI fullUnicode in
-        let! next =<< captures_to_indices S captures' fullUnicode in
+        let! record =<< capture_to_record S captureI in
+        let! next =<< captures_to_indices S captures' in
         Success (record :: next)
     end.
 
@@ -414,7 +365,7 @@ Section BuiltinExec.
     (* 8. Let matcher be R.[[RegExpMatcher]]. *)
     let matcher := RegExpInstance.regExpMatcher R in
     (* 9. If flags contains "u", let fullUnicode be true; else let fullUnicode be false. *)
-    let fullUnicode := if RegExpFlags.u flags then true else false in
+    let fullUnicode := RegExpFlags.u in
     (* 10. Let matchSucceeded be false. *)
     let matchSucceeded := false in
     (* 11. If fullUnicode is true, let input be StringToCodePoints(S). Otherwise, let input be a List whose elements are the code units that are the elements of S. *)
@@ -453,7 +404,7 @@ Section BuiltinExec.
               Success (Terminates (Null R))
             else
             (* ii. Set lastIndex to AdvanceStringIndex(S, lastIndex, fullUnicode). *)
-            let! lastIndex =<< advanceStringIndex S lastIndex fullUnicode in
+            let lastIndex := @String.advanceStringIndex _ string_string S lastIndex in
             repeatloop lastIndex fuel'
           (* e. Else *)
           else
@@ -472,7 +423,7 @@ Section BuiltinExec.
         (* Spec error: missing integer conversion *)
         let! e: non_neg_integer =<< NonNegInt.from_int (MatchState.endIndex r) in
         (* 15. If fullUnicode is true, set e to GetStringIndex(S, e). *)
-        let! e =<< if fullUnicode then getStringIndex S e else Success e in
+        let e := String.getStringIndex S e in
         (* 16. If global is true or sticky is true, then *)
         let R := if (orb global sticky) then
                              (* a. Perform ? Set(R, "lastIndex", 𝔽(e), true). *)
@@ -495,14 +446,14 @@ Section BuiltinExec.
         let! matchedSubstr =<< getMatchString S match_rec in
         (* 29. Perform ! CreateDataPropertyOrThrow(A, "0", matchedSubstr). *)
         let A_array_zero := Some matchedSubstr in
-        let! A_array_next =<< captures_to_array S (MatchState.captures r) fullUnicode in
+        let! A_array_next =<< captures_to_array S (MatchState.captures r) in
         let A_array := A_array_zero :: A_array_next in
         (* 21. Assert: The mathematical value of A's "length" property is n + 1. *)
         assert! (Nat.eqb (List.length A_array) (n+1));
         (* 30. If R contains any GroupName, then *)
         let hasGroups := StaticSemantics.defines_groups (RegExpInstance.originalSource R) in
         let! A_groups =<< if hasGroups then 
-          let! groupsmap =<< captures_to_groups_map (RegExpInstance.originalSource R) S (MatchState.captures r) fullUnicode in
+          let! groupsmap =<< captures_to_groups_map (RegExpInstance.originalSource R) S (MatchState.captures r) in
           Success (Some groupsmap)
         (* 31. Else, *)
         else
@@ -510,7 +461,7 @@ Section BuiltinExec.
           Success None
         in
         (* 27. Append match to indices. *)
-        let! indices_next =<< captures_to_indices S (MatchState.captures r) fullUnicode in
+        let! indices_next =<< captures_to_indices S (MatchState.captures r) in
         let indices := (Some match_rec) :: indices_next in
         let! groupNames =<< captures_to_group_names (RegExpInstance.originalSource R) (MatchState.captures r) in
         (* 34. a. Let indicesArray be MakeMatchIndicesIndexPairArray(S, indices, groupNames, hasGroups). *)
@@ -527,7 +478,7 @@ Section BuiltinExec.
 End BuiltinExec.
 
 Section API.
-  Context {Character} `{ep: CharacterInstance Character}.
+  Context `{ep: CharacterInstance Γ Σ}.
 
   (** 22.2.7.1 RegExpExec ( R, S ) *)
   Definition regExpExec (R: RegExpInstance) (S: String): Result.Result ExecResult MatchError :=

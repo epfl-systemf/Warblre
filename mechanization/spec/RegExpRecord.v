@@ -6,7 +6,7 @@ Module RegExpRecord.
     ignoreCase: bool;
     multiline: bool;
     dotAll: bool;
-    unicode: bool;
+    unicode: unit;
     capturingGroupsCount: non_neg_integer;
   }.
 End RegExpRecord.

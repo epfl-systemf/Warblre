@@ -36,3 +36,9 @@ module Option = struct
     | (Some l, Some r) -> Some ((l, r))
     | _ -> None
 end
+
+module Result = struct
+  let get r = match r with
+  | Extracted.Result.Success s -> s
+  | Extracted.Result.Failure _ -> failwith "Cannot get result of failure."
+end

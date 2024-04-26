@@ -8,7 +8,7 @@ Local Open Scope result_flow.
 
 (** 22.2.2 Pattern Semantics *)
 Module Semantics. Section main.
-  Context `{ep: CharacterInstance Σ}.
+  Context `{ep: CharacterInstance Γ Σ}.
   Import Patterns.
   Import Notation.
 

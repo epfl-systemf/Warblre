@@ -4,82 +4,6 @@ From Warblre Require Import RegExpRecord Tactics List Result Numeric Typeclasses
 Import Result.Notations.
 Local Open Scope result_flow.
 
-Module CodePoint.
-  Parameter type: Type.
-
-  Record record := make_record {
-    codePoint: type;
-    codeUnitCount: non_neg_integer;
-    isUnpairedSurrogate: bool;
-  }.
-
-  Parameter from_numeric_value: non_neg_integer -> type.
-End CodePoint.
-Notation CodePoint := CodePoint.type.
-Notation CodePointRecord := CodePoint.record.
-Notation code_point_record := CodePoint.make_record.
-
-Module CodeUnit.
-  Parameter type: Type.
-  Parameter numeric_value: type -> non_neg_integer.
-
-  Parameter is_leading_surrogate: type -> bool.
-  Parameter is_trailing_surrogate: type -> bool.
-
-  (** 11.1.3 Static Semantics: UTF16SurrogatePairToCodePoint ( lead, trail ) *)
-  Definition utf16SurrogatePairToCodePoint {F: Type} `{Result.AssertionError F} (lead trail: type): Result CodePoint F :=
-  (* Assert: lead is a leading surrogate and trail is a trailing surrogate. *)
-  assert! is_leading_surrogate lead && is_trailing_surrogate trail ;
-  (* 2. Let cp be (lead - 0xD800) × 0x400 + (trail - 0xDC00) + 0x10000. *)
-  let cp := (numeric_value lead - 0xD800) * 0x400 + (numeric_value trail - 0xDC00) + 0x10000 in
-  (* 3. Return the code point cp. *)
-  Success (CodePoint.from_numeric_value cp).
-End CodeUnit.
-Notation CodeUnit := CodeUnit.type.
-
-Module String.
-  Parameter type: Type.
-  Parameter eqdec: forall (l r: type), {l=r} + {l<>r}.
-  Parameter length: type -> non_neg_integer.
-  Parameter substring: type -> non_neg_integer -> non_neg_integer -> type.
-  Parameter codeUnitAt: type -> non_neg_integer -> CodeUnit.
-
-  Definition isEmpty (string: type) := length string == 0.
-
-  Definition codePointAt {F: Type} `{Result.AssertionError F} (string: type) (position: non_neg_integer): Result CodePointRecord F :=
-    (* 1. Let size be the length of string. *)
-    let size := length string in
-    (* 2. Assert: position ≥ 0 and position < size. *)
-    assert! (position >=? 0) && (position <? size) ;
-    (* 3. Let first be the code unit at index position within string. *)
-    let first := codeUnitAt string position in
-    (* 4. Let cp be the code point whose numeric value is the numeric value of first. *)
-    let cp := CodePoint.from_numeric_value (CodeUnit.numeric_value first) in
-    (* 5. If first is neither a leading surrogate nor a trailing surrogate, then *)
-    if negb (CodeUnit.is_leading_surrogate first) && negb (CodeUnit.is_trailing_surrogate first) then
-      (* a. Return the Record { [[CodePoint]]: cp, [[CodeUnitCount]]: 1, [[IsUnpairedSurrogate]]: false }. *)
-      Success (code_point_record cp 1 false)
-    else
-    (* 6. If first is a trailing surrogate or position + 1 = size, then *)
-    if CodeUnit.is_trailing_surrogate first || ((position + 1) == size) then
-      (* a. Return the Record { [[CodePoint]]: cp, [[CodeUnitCount]]: 1, [[IsUnpairedSurrogate]]: true }. *)
-      Success (code_point_record cp 1 true)
-    else
-    (* 7. Let second be the code unit at index position + 1 within string. *)
-    let second := codeUnitAt string (position + 1) in
-    (* 8. If second is not a trailing surrogate, then *)
-    if negb (CodeUnit.is_trailing_surrogate second) then
-      (* a. Return the Record { [[CodePoint]]: cp, [[CodeUnitCount]]: 1, [[IsUnpairedSurrogate]]: true }. *)
-      Success (code_point_record cp 1 true)
-    else
-    (* 9. Set cp to UTF16SurrogatePairToCodePoint(first, second). *)
-    let! cp =<< CodeUnit.utf16SurrogatePairToCodePoint first second in
-    (* 10. Return the Record { [[CodePoint]]: cp, [[CodeUnitCount]]: 2, [[IsUnpairedSurrogate]]: false }. *)
-    Success (code_point_record cp 2 true).
-End String.
-Notation String := String.type.
-#[export] Instance eqdec_String: EqDec String := { eq_dec := String.eqdec; }.
-
 Module HexDigit.
   Parameter type: Type.
   Inductive Hex4Digits := hex4 (_0 _1 _2 _3: type).
@@ -135,31 +59,44 @@ Module CharSet.
   }.
 End CharSet.
 
+Module String.
+  Class class (type: Type) := make {
+    eqdec : EqDec type;
+    length: type -> non_neg_integer;
+    substring: type -> non_neg_integer -> non_neg_integer -> type;
+    advanceStringIndex: type -> non_neg_integer -> non_neg_integer;
+    getStringIndex: type -> non_neg_integer -> non_neg_integer;
+  }.
+
+  Definition isEmpty `{class} (string: type) := length string == 0.
+End String.
+
 Module Character.
-  Class class type := make {
+  Class class (character input: Type) := make {
     (* The character type and its operations *)
-    eq_dec: EqDec type;
-    from_numeric_value: nat -> type;
-    numeric_value: type -> nat;
-    canonicalize: RegExpRecord -> type -> type;
+    eq_dec: EqDec character;
+    from_numeric_value: nat -> character;
+    numeric_value: character -> nat;
+    canonicalize: RegExpRecord -> character -> character;
 
     numeric_pseudo_bij: forall c, from_numeric_value (numeric_value c) = c;
     numeric_round_trip_order: forall l r, l <= r -> (numeric_value (from_numeric_value l)) <= (numeric_value (from_numeric_value r));
 
-    from_string: String -> list type;
+    string_ops: String.class input;
+    from_string: input -> list character;
 
-    set_type: CharSet.class type;
+    set_type: CharSet.class character;
 
     (* Some important (sets of) characters *)
-    all: list type;
-    line_terminators: list type;
-    digits: list type;
-    white_spaces: list type;
-    ascii_word_characters: list type;
+    all: list character;
+    line_terminators: list character;
+    digits: list character;
+    white_spaces: list character;
+    ascii_word_characters: list character;
 
     unicode_property: Type;
     unicode_property_eqdec: EqDec unicode_property;
-    code_points_for: unicode_property -> list type;
+    code_points_for: unicode_property -> list character;
   }.
 
   Lemma numeric_inj `{class}: forall c c', numeric_value c = numeric_value c' -> c = c'.
@@ -168,11 +105,13 @@ Module Character.
     assumption.
   Qed.
 
-  Definition type {C} `{class C} := C.
+  Definition character {Γ Σ} `{_: class Γ Σ} := Γ.
+  Definition input {Γ Σ} `{_: class Γ Σ} := Σ.
 End Character.
-#[global] Generalizable Variable Σ.
+#[global] Generalizable Variable Γ Σ.
 Notation CharacterInstance := @Character.class.
 Notation CharSet := (@CharSet.set_type _ Character.set_type).
+
 (* 
     In order to get an API which is usable from both Coq and OCaml, we use a weird aliasing trick:
     The Character record (CharacterInstance) is parametrized on the type representing a character
@@ -186,13 +125,16 @@ Notation CharSet := (@CharSet.set_type _ Character.set_type).
     - Since the type of characters is NOT a dependent type, the type is not extracted to Obj.t, hence the OCaml API
       does not require a Obj.magic galore.
 *)
-Notation Character := Character.type.
+Notation Character := Character.character.
+Notation String := Character.input.
 Notation UnicodeProperty := Character.unicode_property.
 
-Instance eqdec_Character {C} `{ci: CharacterInstance C}: EqDec C := Character.eq_dec.
+Instance eqdec_Character `{ci: CharacterInstance Γ Σ}: EqDec Γ := Character.eq_dec.
+#[export] Instance string_string `{ci: CharacterInstance Γ Σ}: String.class String := Character.string_ops.
+#[export] Instance eqdec_String `{ci: CharacterInstance Γ Σ}: EqDec String := @String.eqdec _ (Character.string_ops).
 
 Module Characters. Section main.
-  Context `{ep: CharacterInstance Σ}.
+  Context `{ep: CharacterInstance Γ Σ}.
 
   Definition NULL: Character := Character.from_numeric_value 0.
   Definition BACKSPACE: Character := Character.from_numeric_value 8.

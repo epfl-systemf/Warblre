@@ -1,14 +1,18 @@
 (** Defines notations to define regexes
     You should either import Utf16Notations or UnicodeNotations    
 *)
+open Engines
 open Patterns
 
-module CharNotations (S: Encoding.Character) = struct
-  type character = S.character
+module CharNotations (P: EngineParameters) = struct
+  type character = P.character
+
+  let list_from_string s = Obj.magic (P.String.list_from_string (P.String.from_host s))
+  let list_to_string s = P.String.to_host (P.String.list_to_string s)
 
   let epsilon = Empty
   let group r = Group (None, r)
-  let ngroup p = Group (Some (Encoding.Utf16.list_from_string (fst p)), (snd p))
+  let ngroup p = Group (Some (list_from_string (fst p)), (snd p))
 
   let (||) l r = Disjunction (l, r)
 
@@ -29,25 +33,25 @@ module CharNotations (S: Encoding.Character) = struct
   let (?<!) r = NegativeLookbehind r
 
   let (!$) n = assert(0 < n); AtomEsc (DecimalEsc n)
-  let (!&) n = AtomEsc (GroupEsc (Encoding.Utf16.list_from_string n))
+  let (!&) n = AtomEsc (GroupEsc (list_from_string n))
 
-  let lchar (c: character list): character coq_Regex =
+  let lchar (c: character list): (character, P.string) coq_Regex =
     match c with
     | h :: [] -> Char h
-    | _ -> failwith (String.cat "Invalid character: " (S.list_to_string c))
+    | _ -> failwith (String.cat "Invalid character: " (list_to_string c))
 
-  let char (c: string): character coq_Regex = lchar (S.list_from_string c)
+  let char (c: string): (character, P.string) coq_Regex = lchar (list_from_string c)
 
-  let ichar (c: int): character coq_Regex = lchar (S.chars_from_int c)
+  let ichar (c: int): (character, P.string) coq_Regex = Char (P.Character.from_numeric_value c)
 
-  let cchar (c: char): character coq_Regex = ichar (Char.code c)
+  let cchar (c: char): (character, P.string) coq_Regex = ichar (Char.code c)
 
-  let sc c = SourceCharacter (S.char_from_int (Char.code c))
+  let sc c = SourceCharacter (P.Character.from_numeric_value (Char.code c))
 end
 
-module Utf16Notations = CharNotations(Encoding.Utf16)
+module Utf16Notations = CharNotations(Utf16Parameters)
 module UnicodeNotations = struct
-  module Base = CharNotations(Encoding.Unicode)
+  module Base = CharNotations(UnicodeParameters)
   include Base
 
   let uprop n = AtomEsc (ACharacterClassEsc (UnicodeProp (Obj.magic (Engines.UnicodeProperty.Predicate n))))

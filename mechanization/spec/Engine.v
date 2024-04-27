@@ -24,8 +24,6 @@ Module Type EngineParameters.
     Parameter getStringIndex: string -> non_neg_integer -> non_neg_integer.
     Parameter list_from_string: string -> list character.
     Parameter list_to_string: list character -> string.
-    Parameter to_host: string -> host_string.
-    Parameter from_host: host_string -> string.
   End String.
 
   (** CharSet *)

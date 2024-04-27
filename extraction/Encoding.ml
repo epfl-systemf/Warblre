@@ -128,3 +128,19 @@ module Unicode : Character with type character = int = struct
       ) str;
       Buffer.contents b 
 end
+
+
+
+module type StringLike = sig
+  type t
+  val to_string: t -> string
+  val of_string: string -> t
+end
+
+module Utf16StringLike : StringLike
+  with type t = Utf16.character list
+= struct
+  type t = Utf16.character list
+  let to_string = Utf16.list_to_string
+  let of_string = Utf16.list_from_string
+end

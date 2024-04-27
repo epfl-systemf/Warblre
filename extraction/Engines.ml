@@ -53,9 +53,6 @@ module CamlString = struct
   let length = List.length
   let substring str s e = Utils.List.take (e - s) (Utils.List.drop s str)
   let codeUnitAt str at = List.nth str at
-
-  let to_host = Encoding.Utf16.list_to_string
-  let from_host = Encoding.Utf16.list_from_string
 end
 
 module CharSet (C: Character) = struct
@@ -151,6 +148,7 @@ end
 
 module Utf16Parameters : EngineParameters 
   with type character = Unsigned.UInt16.t
+  with type string = Encoding.Utf16.character list
 = struct
   module Character = UInt16Character
   type character = Character.t

@@ -3,9 +3,6 @@ From Coq Require Import ZArith.
 
 From Coq Require Extraction.
 Extraction Language OCaml.
-Set Warnings "-extraction-default-directory".
-Set Warnings "-extraction-logical-axiom".
-
 
 From Coq Require extraction.ExtrOcamlBasic.
 From Coq Require extraction.ExtrOcamlString.

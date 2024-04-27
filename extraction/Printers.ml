@@ -1,9 +1,10 @@
 open Engines
 open Patterns
 
-module Printer(P: EngineParameters) = struct
+module Printer(P: EngineParameters) (S: Encoding.StringLike with type t := P.string) = struct
   type ocaml_string = string
   open Engine(P)
+  open S
 
   type character = P.character
 
@@ -19,7 +20,7 @@ module Printer(P: EngineParameters) = struct
     let escaped = CS.of_list (List.map Char.code ('\\' :: '/' :: '-' :: '[' :: ']' :: '{' :: '}' :: '(' :: ')' :: '*' :: '+' :: '?' :: '$' :: '^' :: '|' :: '.' :: []))
 
     let escape (c: character) : ocaml_string =
-      let str = P.String.to_host (P.String.list_to_string (c :: [])) in
+      let str = to_string (P.String.list_to_string (c :: [])) in
       if String.length str != 1 then
         failwith "Unexpected escape corner case: '" ^ str ^ "'"
       else
@@ -30,7 +31,7 @@ module Printer(P: EngineParameters) = struct
       if CS.mem i escaped then
         escape c
       else
-        let str = P.String.to_host (P.String.list_to_string (c :: [])) in
+        let str = to_string (P.String.list_to_string (c :: [])) in
         str
 
     let hex4digits_to_string (h: Extracted.HexDigit.coq_Hex4Digits) : ocaml_string =
@@ -96,7 +97,7 @@ module Printer(P: EngineParameters) = struct
 
     (* Exec result printers *)
 
-    let quoted (str: string) : ocaml_string = "'" ^ P.String.to_host str ^ "'"
+    let quoted (str: string) : ocaml_string = "'" ^ to_string str ^ "'"
 
     let string_range (string_input: ocaml_string) (single_capture: Extracted.Notation.CaptureRange.coq_type) : ocaml_string =
       let { Extracted.Notation.CaptureRange.startIndex = s; Extracted.Notation.CaptureRange.endIndex = e } = single_capture in
@@ -144,7 +145,7 @@ module Printer(P: EngineParameters) = struct
             (zip_with_opt a.array a.indices_array)) ::
           (option_to_string ~none:"" ~some_prefix:"Named captures:"
               (keyed_list_to_string ~prefix:"\027[20G# " ~key_sep:"\027[32G: " ~sep:"\n\027[20G# "
-                P.String.to_host
+                to_string
                 (pair_to_string ~start:"" ~sep:"\027[64G" ~endd:""
                   (option_to_string quoted)
                   (option_to_string ~none:"" (pair_to_string string_of_int string_of_int))))
@@ -161,7 +162,7 @@ module Printer(P: EngineParameters) = struct
           ("Named captures:" ^ (
             option_to_string ~none:"\n\tNone" 
               (keyed_list_to_string ~nil:"\n\tNone" ~prefix:"\n\t# " ~key_sep:" : " ~sep:"\n\t# "
-                P.String.to_host
+                to_string
                 (option_to_string quoted))
             a.groups)) ::
           ("Indices:" ^ (
@@ -172,7 +173,7 @@ module Printer(P: EngineParameters) = struct
           ("Named indices:" ^ (
             option_to_string ~none:"\n\tNone" 
               (keyed_list_to_string ~nil:"\n\tNone" ~prefix:"\n\t# " ~key_sep:" : " ~sep:"\n\t# "
-              P.String.to_host
+              to_string
                 (option_to_string ~none:"Undefined" (pair_to_string string_of_int string_of_int)))
             a.indices_groups)) ::
           []
@@ -198,12 +199,12 @@ module Printer(P: EngineParameters) = struct
       | AtomEsc (DecimalEsc gid) -> "\\" ^ string_of_int gid
       | AtomEsc (ACharacterClassEsc esc) -> character_class_escape_to_string esc
       | AtomEsc (ACharacterEsc esc) -> character_escape_to_string esc
-      | AtomEsc (GroupEsc name) -> "\\" ^ "k<" ^ P.String.to_host name ^ ">"
+      | AtomEsc (GroupEsc name) -> "\\" ^ "k<" ^ to_string name ^ ">"
       | Disjunction (r1, r2) -> prio ((iter r1 (next 0)) ^ "|" ^ (iter r2 0)) 0 current
       | Quantified (r1, q) -> prio ((iter r1 4) ^ quantifier_to_string q) 3 current
       | Seq (r1, r2) -> prio ((iter r1 (next 1)) ^ (iter r2 1)) 1 current
       | Group (None, r1) -> "(" ^ iter r1 0 ^ ")"
-      | Group (Some name, r1) -> "(?<" ^ P.String.to_host name ^  ">" ^ iter r1 0 ^ ")"
+      | Group (Some name, r1) -> "(?<" ^ to_string name ^  ">" ^ iter r1 0 ^ ")"
       | InputStart -> prio "^" 3 current
       | InputEnd -> prio_if_strict "$" 3 current
       | WordBoundary -> prio_if_strict "\\b" 3 current
@@ -219,7 +220,7 @@ module Printer(P: EngineParameters) = struct
   let match_state_to_string (m: (character, string) Extracted.Notation.MatchState.coq_type): ocaml_string =
     let Extracted.Notation.MatchState.{input = ls; endIndex = endIndex; captures = captures } = m in
     String.concat "\n" (List.filter (fun s -> String.length s != 0) (
-          ("Input: " ^ P.String.to_host (P.String.list_to_string ls)) ::
+          ("Input: " ^ S.to_string (P.String.list_to_string ls)) ::
           ("End: " ^ string_of_int endIndex) ::
           ("Captures:" ^ (
             (indexed_list_to_string ~nil:"\n\tNone" ~prefix:"\n\t# " ~key_sep:" : " ~sep:"\n\t# "
@@ -252,5 +253,5 @@ module Printer(P: EngineParameters) = struct
     !s
 end
 
-module Utf16Printer = Printer(Utf16Parameters)
-module UnicodePrinter = Printer(UnicodeParameters)
+module Utf16Printer = Printer(Utf16Parameters)(Encoding.Utf16StringLike)
+module UnicodePrinter = Printer(UnicodeParameters)(Encoding.Utf16StringLike)

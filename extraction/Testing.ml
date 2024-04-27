@@ -1,11 +1,11 @@
 open Engines
 open Printers
 
-module Tester (P: EngineParameters) = struct
+module Tester (P: EngineParameters) (S: Encoding.StringLike with type t := P.string) = struct
   open Engine(P)
-  open Printer(P)
+  open Printer(P)(S)
 
-  let string_to_engine_input str = P.String.list_from_string (P.String.from_host str)
+  let string_to_engine_input str = P.String.list_from_string (S.of_string str)
 
   let test_regex_using_record regex input at rer =
     match compilePattern regex rer with
@@ -29,7 +29,7 @@ module Tester (P: EngineParameters) = struct
   let test_exec_using_flags regex flags at input =
     match initialize regex flags with
     | Success r ->
-      (match exec (setLastIndex r at) (P.String.from_host input) with
+      (match exec (setLastIndex r at) (S.of_string input) with
       | Success res -> Printf.printf "Regex %s on '%s' at %d (using exec):\n%s\n" (regex_to_string regex) input at (exec_result_to_string res)
       | Failure AssertionFailed -> Printf.printf "Assertion failed during execution.\n"
       | Failure OutOfFuel -> Printf.printf "Out of fuel during execution.\n")
@@ -78,5 +78,5 @@ module Tester (P: EngineParameters) = struct
     compare_regexes_using_record r1 r2 input at rer
 end
 
-module Utf16Tester = Tester(Utf16Parameters)
-module UnicodeTester = Tester(UnicodeParameters)
+module Utf16Tester = Tester(Utf16Parameters)(Encoding.Utf16StringLike)
+module UnicodeTester = Tester(UnicodeParameters)(Encoding.Utf16StringLike)

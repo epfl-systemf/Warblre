@@ -51,11 +51,11 @@ let string_of_command (command:string) : string =
    close_in chan;
    !output
 
-module Fuzzer (P: EngineParameters) = struct
+module Fuzzer (P: EngineParameters) (S: Warblre.Encoding.StringLike with type t := P.string) = struct
   open Warblre
   open Warblre.Extracted.Patterns
   open Engine(P)
-  open Printer(P)
+  open Printer(P)(S)
 
   (* getting the Node result as a string, with a timeout in case of exponential complexity *)
   (* when the result is None, a Timeout occurred *)
@@ -97,7 +97,7 @@ module Fuzzer (P: EngineParameters) = struct
   let get_reference_result (regex: (character, string) coq_Regex) (flags: Extracted.RegExpFlags.coq_type) (index: int) (str: ocaml_string) (f: frontend_function) : ocaml_string option =
     let instance = get_success_compile (initialize regex flags) in
     let instance = setLastIndex instance index in
-    let list_input = P.String.from_host str in
+    let list_input = S.of_string str in
     match f with
     | Exec -> Some (String.trim (reference_exec instance list_input))
     (* | Search -> Some (reference_search instance (Obj.magic list_input))
@@ -347,7 +347,7 @@ module Fuzzer (P: EngineParameters) = struct
 
 end
 
-open Fuzzer(UnicodeParameters)
+open Fuzzer(UnicodeParameters)(Warblre.Encoding.Utf16StringLike)
 let () =
   let test_count: int = 100 in
   let user_seed: int option = Some 89809344 in

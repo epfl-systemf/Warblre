@@ -7,22 +7,29 @@ let%expect_test "backref_0_pos" =
     "aa"
     0 ();
   [%expect {|
-    /(a)\1/ matched 2 characters ([0-2]) in 'aa' (length=2)
-    Group 1: 'a' ([0-1]) |}]
+    Regex /(a)\1/ on 'aa' at 0:
+    Input: aa
+    End: 2
+    Captures:
+    	# 0 : (0,1) |}]
 
 let%expect_test "backref_0_neg_0" =
   test_regex
     (group ((cchar 'a')) -- !$ 1)
     "ab"
     0 ();
-  [%expect {| /(a)\1/ matched nothing on 'ab' |}]
+  [%expect {|
+    Regex /(a)\1/ on 'ab' at 0:
+    No match |}]
 
 let%expect_test "backref_0_neg_1" =
   test_regex
     (group ((cchar 'a')) -- !$ 1)
     "a"
     0 ();
-  [%expect {| /(a)\1/ matched nothing on 'a' |}]
+  [%expect {|
+    Regex /(a)\1/ on 'a' at 0:
+    No match |}]
 
 let%expect_test "backref_undefined" =
   test_regex
@@ -30,9 +37,12 @@ let%expect_test "backref_undefined" =
     "aa"
     0 ();
   [%expect {|
-    /(?:(a)|(b))\2/ matched 1 characters ([0-1]) in 'aa' (length=2)
-    Group 1: 'a' ([0-1])
-    Group 2: undefined |}]
+    Regex /(?:(a)|(b))\2/ on 'aa' at 0:
+    Input: aa
+    End: 1
+    Captures:
+    	# 0 : (0,1)
+    	# 1 : Undefined |}]
 
 let%expect_test "backref_multiple" =
   test_regex
@@ -40,9 +50,12 @@ let%expect_test "backref_multiple" =
     "aabab"
     0 ();
   [%expect {|
-    /(a)\1\2(b)\1\2/ matched 5 characters ([0-5]) in 'aabab' (length=5)
-    Group 1: 'a' ([0-1])
-    Group 2: 'b' ([2-3]) |}]
+    Regex /(a)\1\2(b)\1\2/ on 'aabab' at 0:
+    Input: aabab
+    End: 5
+    Captures:
+    	# 0 : (0,1)
+    	# 1 : (2,3) |}]
 
 let%expect_test "backref_long_pos" =
   test_regex
@@ -50,36 +63,47 @@ let%expect_test "backref_long_pos" =
     "abaaba"
     0 ();
   [%expect {|
-    /(aba)\1/ matched 6 characters ([0-6]) in 'abaaba' (length=6)
-    Group 1: 'aba' ([0-3]) |}]
+    Regex /(aba)\1/ on 'abaaba' at 0:
+    Input: abaaba
+    End: 6
+    Captures:
+    	# 0 : (0,3) |}]
 
 let%expect_test "backref_long_neg_0" =
   test_regex
     (group ((cchar 'a') -- (cchar 'b') -- (cchar 'a')) -- !$ 1)
     "abaab"
     0 ();
-  [%expect {| /(aba)\1/ matched nothing on 'abaab' |}]
+  [%expect {|
+    Regex /(aba)\1/ on 'abaab' at 0:
+    No match |}]
 
 let%expect_test "backref_long_neg_1" =
 test_regex
   (group ((cchar 'a') -- (cchar 'b') -- (cchar 'a')) -- !$ 1)
   "abacba"
   0 ();
-[%expect {| /(aba)\1/ matched nothing on 'abacba' |}]
+[%expect {|
+  Regex /(aba)\1/ on 'abacba' at 0:
+  No match |}]
 
 let%expect_test "backref_long_neg_2" =
   test_regex
     (group ((cchar 'a') -- (cchar 'b') -- (cchar 'a')) -- !$ 1)
     "abaaca"
     0 ();
-  [%expect {| /(aba)\1/ matched nothing on 'abaaca' |}]
+  [%expect {|
+    Regex /(aba)\1/ on 'abaaca' at 0:
+    No match |}]
 
 let%expect_test "backref_long_neg_3" =
   test_regex
     (group ((cchar 'a') -- (cchar 'b') -- (cchar 'a')) -- !$ 1)
     "abaabc"
     0 ();
-  [%expect {| /(aba)\1/ matched nothing on 'abaabc' |}]
+  [%expect {|
+    Regex /(aba)\1/ on 'abaabc' at 0:
+    No match |}]
 
 
 
@@ -90,8 +114,11 @@ test_regex
     "aa"
     0 ();
   [%expect {|
-  /(?<G>a)\1/ matched 2 characters ([0-2]) in 'aa' (length=2)
-  Group 1: 'a' ([0-1]) |}]
+  Regex /(?<G>a)\1/ on 'aa' at 0:
+  Input: aa
+  End: 2
+  Captures:
+  	# 0 : (0,1) |}]
 
 let%expect_test "named_backref_0_1" =
     test_regex
@@ -99,8 +126,11 @@ let%expect_test "named_backref_0_1" =
       "aa"
       0 ();
     [%expect {|
-      /(?<G>a)\k<G>/ matched 2 characters ([0-2]) in 'aa' (length=2)
-      Group 1: 'a' ([0-1]) |}]
+      Regex /(?<G>a)\k<G>/ on 'aa' at 0:
+      Input: aa
+      End: 2
+      Captures:
+      	# 0 : (0,1) |}]
   
 let%expect_test "named_backref_1_0" =
   test_regex
@@ -113,10 +143,13 @@ let%expect_test "named_backref_1_0" =
     "abca"
     0 ();
   [%expect {|
-    /(?<G>a)(?<H>b)(?<I>c)\k<G>/ matched 4 characters ([0-4]) in 'abca' (length=4)
-    Group 1: 'a' ([0-1])
-    Group 2: 'b' ([1-2])
-    Group 3: 'c' ([2-3]) |}]
+    Regex /(?<G>a)(?<H>b)(?<I>c)\k<G>/ on 'abca' at 0:
+    Input: abca
+    End: 4
+    Captures:
+    	# 0 : (0,1)
+    	# 1 : (1,2)
+    	# 2 : (2,3) |}]
   
 let%expect_test "named_backref_1_1" =
   test_regex
@@ -129,10 +162,13 @@ let%expect_test "named_backref_1_1" =
     "abcb"
     0 ();
   [%expect {|
-    /(?<G>a)(?<H>b)(?<I>c)\k<H>/ matched 4 characters ([0-4]) in 'abcb' (length=4)
-    Group 1: 'a' ([0-1])
-    Group 2: 'b' ([1-2])
-    Group 3: 'c' ([2-3]) |}]
+    Regex /(?<G>a)(?<H>b)(?<I>c)\k<H>/ on 'abcb' at 0:
+    Input: abcb
+    End: 4
+    Captures:
+    	# 0 : (0,1)
+    	# 1 : (1,2)
+    	# 2 : (2,3) |}]
   
 let%expect_test "named_backref_1_2" =
   test_regex
@@ -145,10 +181,13 @@ let%expect_test "named_backref_1_2" =
     "abcc"
     0 ();
   [%expect {|
-    /(?<G>a)(?<H>b)(?<I>c)\k<I>/ matched 4 characters ([0-4]) in 'abcc' (length=4)
-    Group 1: 'a' ([0-1])
-    Group 2: 'b' ([1-2])
-    Group 3: 'c' ([2-3]) |}]
+    Regex /(?<G>a)(?<H>b)(?<I>c)\k<I>/ on 'abcc' at 0:
+    Input: abcc
+    End: 4
+    Captures:
+    	# 0 : (0,1)
+    	# 1 : (1,2)
+    	# 2 : (2,3) |}]
   
 let%expect_test "named_backref_nested" =
   test_regex
@@ -163,7 +202,10 @@ let%expect_test "named_backref_nested" =
     "abccbcabc"
     0 ();
   [%expect {|
-    /(?<G>a(?<H>b(?<I>c)))\k<I>\k<H>\k<G>/ matched 9 characters ([0-9]) in 'abccbcabc' (length=9)
-    Group 1: 'abc' ([0-3])
-    Group 2: 'bc' ([1-3])
-    Group 3: 'c' ([2-3]) |}]
+    Regex /(?<G>a(?<H>b(?<I>c)))\k<I>\k<H>\k<G>/ on 'abccbcabc' at 0:
+    Input: abccbcabc
+    End: 9
+    Captures:
+    	# 0 : (0,3)
+    	# 1 : (1,3)
+    	# 2 : (2,3) |}]

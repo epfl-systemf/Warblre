@@ -307,7 +307,7 @@ module Fuzzer (P: EngineParameters) = struct
       i = Random.bool();
       m = Random.bool();
       s = Random.bool();
-      u = false;
+      u = ();
       y = Random.bool();
     }
 

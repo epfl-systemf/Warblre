@@ -216,12 +216,32 @@ module Printer(P: EngineParameters) = struct
     let res = iter r 0 in
     if delimited then "/" ^ res ^ "/" else res
 
-  let exec_result_to_string ?(pretty=true) (r: (character, string) Extracted.execResult) : ocaml_string =
+  let match_state_to_string (m: (character, string) Extracted.Notation.MatchState.coq_type): ocaml_string =
+    let Extracted.Notation.MatchState.{input = ls; endIndex = endIndex; captures = captures } = m in
+    String.concat "\n" (List.filter (fun s -> String.length s != 0) (
+          ("Input: " ^ P.String.to_host (P.String.list_to_string ls)) ::
+          ("End: " ^ string_of_int endIndex) ::
+          ("Captures:" ^ (
+            (indexed_list_to_string ~nil:"\n\tNone" ~prefix:"\n\t# " ~key_sep:" : " ~sep:"\n\t# "
+              (option_to_string ~none:"Undefined"
+                (fun p -> let Extracted.Notation.CaptureRange.{startIndex = s; endIndex = e} = p in pair_to_string string_of_int string_of_int (s, e))))
+            captures)) ::
+          []
+        ))
+
+  let match_result_to_string (r: (character, string) Extracted.Notation.coq_MatchResult): ocaml_string =
+    match r with
+    | Success None -> "No match"
+    | Success (Some m) -> match_state_to_string m
+    | Failure OutOfFuel -> "Out of fuel."
+    | Failure AssertionFailed -> "Assertion error."
+
+  let exec_result_to_string ?(pretty=true) (r: (character, string) Extracted.execResult): ocaml_string =
     match r with
     | Null _ -> "No match"
     | Exotic (a, _) -> Internal.exec_array_exotic_to_string pretty a
 
-  let flags_to_string (flags: Extracted.RegExpFlags.coq_type) : ocaml_string =
+  let flags_to_string (flags: Extracted.RegExpFlags.coq_type): ocaml_string =
     let s = ref "" in
     if (flags.d) then s := "d" ^ !s;
     if (flags.g) then s := "g" ^ !s;

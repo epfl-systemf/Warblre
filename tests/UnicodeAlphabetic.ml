@@ -6,25 +6,45 @@ let%expect_test "ascii" =
     (!* (uprop "Alphabetic"))
     "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
     0 ();
-  [%expect{| /\p{...}*/ matched 52 characters ([0-52]) in 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ' (length=52) |}]
+  [%expect{|
+    Regex /\p{...}*/ on 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ' at 0:
+    Input: abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ
+    End: 52
+    Captures:
+    	None |}]
 
 let%expect_test "space" =
   test_regex
     (!* (uprop "Alphabetic"))
     "abcdefghijklmno pqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
     0 ();
-  [%expect{| /\p{...}*/ matched 15 characters ([0-15]) in 'abcdefghijklmno pqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ' (length=53) |}]
+  [%expect{|
+    Regex /\p{...}*/ on 'abcdefghijklmno pqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ' at 0:
+    Input: abcdefghijklmno pqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ
+    End: 15
+    Captures:
+    	None |}]
 
 let%expect_test "tab" =
   test_regex
     (!* (uprop "Alphabetic"))
     "abcdefghijklmno\tpqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
     0 ();
-  [%expect{| /\p{...}*/ matched 15 characters ([0-15]) in 'abcdefghijklmno	pqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ' (length=53) |}]
+  [%expect{|
+    Regex /\p{...}*/ on 'abcdefghijklmno	pqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ' at 0:
+    Input: abcdefghijklmno	pqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ
+    End: 15
+    Captures:
+    	None |}]
 
 let%expect_test "greek" =
   test_regex
     (!* (uprop "Alphabetic"))
     "αβγδεϝͷϛζͱηθιϳκλμνξοπϻϟϙρσͼτυφχψωϡͳϸ"
     0 ();
-  [%expect{| /\p{...}*/ matched 36 characters ([0-36]) in 'αβγδεϝͷϛζͱηθιϳκλμνξοπϻϟϙρσͼτυφχψωϡͳϸ' (length=36) |}]
+  [%expect{|
+    Regex /\p{...}*/ on 'αβγδεϝͷϛζͱηθιϳκλμνξοπϻϟϙρσͼτυφχψωϡͳϸ' at 0:
+    Input: αβγδεϝͷϛζͱηθιϳκλμνξοπϻϟϙρσͼτυφχψωϡͳϸ
+    End: 36
+    Captures:
+    	None |}]

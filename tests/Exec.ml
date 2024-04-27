@@ -3,7 +3,7 @@ let%expect_test "sequence" =
     Warblre.Notations.UnicodeNotations.((cchar 'a') -- (cchar 'b') -- (cchar 'b'))
     "abbb";
   [%expect {|
-    Matching /abb/ on 'abbb':
+    Regex /abb/ on 'abbb' at 0 (using exec):
     Start:[20G0
     Captures:[20G# 0[32G: 'abb'[64G |}]
 
@@ -16,7 +16,7 @@ let%expect_test "unicode_u" =
       (char "🧭")))
     "aaaaabaπaa🧭aaccaa";
   [%expect {|
-    Matching /((?:(?<G>a)|(b)|π|🧭)*)/ on 'aaaaabaπaa🧭aaccaa':
+    Regex /((?:(?<G>a)|(b)|π|🧭)*)/ on 'aaaaabaπaa🧭aaccaa' at 0 (using exec):
     Start:[20G0
     Captures:[20G# 0[32G: 'aaaaabaπaa🧭aa'[64G(0,14)
     [20G# 1[32G: 'aaaaabaπaa🧭aa'[64G(0,14)
@@ -32,7 +32,7 @@ let%expect_test "unicode_non_u" =
         (char "π")))
     "aaaaabaπaa🧭aaccaa";
   [%expect {|
-    Matching /((?:(?<G>a)|(b)|π)*)/ on 'aaaaabaπaa🧭aaccaa':
+    Regex /((?:(?<G>a)|(b)|π)*)/ on 'aaaaabaπaa🧭aaccaa' at 0 (using exec):
     Start:[20G0
     Captures:[20G# 0[32G: 'aaaaabaπaa'[64G
     [20G# 1[32G: 'aaaaabaπaa'[64G

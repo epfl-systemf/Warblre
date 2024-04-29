@@ -75,7 +75,7 @@ Module UnicodeOps (S: Utf16String).
     (* 4. Let codePointCount be 0. *)
     let codePointCount := 0 in
     (* 5. Repeat, while codeUnitCount < len, *)
-    let! res =<< Return.while MatchError.OutOfFuel (len + 1) (codeUnitCount, codePointCount)
+    let! res =<< Return.while MatchError.OutOfFuel (len + 2) (codeUnitCount, codePointCount)
       (fun p => let (codeUnitCount, _) := p in codeUnitCount <? len)
       (fun p => let (codeUnitCount, codePointCount) := p in
         (* a. If codePointCount = codePointIndex, return codeUnitCount. *)

@@ -83,6 +83,7 @@ module CharSets (C: Character) = struct
       let str = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_" in
       List.init (String.length str) (String.get str)
   
+    (* https://262.ecma-international.org/14.0/#prod-LineTerminator *)
     let line_terminators: int list =
       0x000A :: (* <LF> *)
       0x000D :: (* <CR> *)
@@ -91,27 +92,29 @@ module CharSets (C: Character) = struct
       []
   
     let white_spaces: int list =
-      9 :: (* <TAB> *)
-      11 :: (* <VT> *)
-      12 :: (* <FF> *)
-      32 :: 
-      160 :: 
-      5760 ::
-      8192 ::
-      8193 ::
-      8194 ::
-      8195 ::
-      8196 ::
-      8197 ::
-      8198 ::
-      8199 ::
-      8200 ::
-      8201 ::
-      8202 ::
-      8203 :: (* <ZWNBSP> *)
-      8239 ::
-      8287 ::
-      12288 ::
+      0x0009 :: (* <TAB> *)
+      0x000B :: (* <VT> *)
+      0x000C :: (* <FF> *)
+      0xFEFF :: (* <ZWNBSP> *)
+      (* USP: Chars whose general category is Zs ('Space_Separator')
+         in https://unicode.org/Public/UCD/latest/ucd/UnicodeData.txt *)
+      0x20 ::                              
+      0xA0 ::
+      0x1680 ::
+      0x2000 ::
+      0x2001 ::
+      0x2002 ::
+      0x2003 ::
+      0x2004 ::
+      0x2005 ::
+      0x2006 ::
+      0x2007 ::
+      0x2008 ::
+      0x2009 ::
+      0x200A ::
+      0x202F ::
+      0x205F ::
+      0x3000 ::
       []
   
     let list_flat_map (type a b) (f: a -> b list) (ls: a list): b list =

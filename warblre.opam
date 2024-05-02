@@ -6,6 +6,10 @@ authors: ["Noé De Santo" "Aurèle Barrière" "Clément Pit-Claudel"]
 depends: [
   "ocaml"
   "dune" {>= "3.8"}
+  "coq"
+  "js_of_ocaml"
+  "js_of_ocaml-ppx"
+  "integers_stubs_js"
   "integers"
   "uucp"
   "ppx_expect"

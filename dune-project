@@ -13,4 +13,4 @@
 (package
  (name warblre)
  (synopsis "A mechanization of the specification of ECMAScript regexes.")
- (depends ocaml dune integers uucp ppx_expect))
+ (depends ocaml dune coq js_of_ocaml js_of_ocaml-ppx integers_stubs_js integers uucp ppx_expect))

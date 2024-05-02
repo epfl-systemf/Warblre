@@ -1,7 +1,11 @@
 (executable
- (public_name fuzzer)
- (name main)
- (libraries warblre))
+ (name fuzzer)
+ (libraries warblre)
+ (js_of_ocaml
+  (javascript_files ./repack.js))
+ (preprocess
+  (pps js_of_ocaml-ppx))
+ (modes js))
 
 (env
   (dev

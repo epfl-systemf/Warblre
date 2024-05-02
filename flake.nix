@@ -24,6 +24,9 @@
                 ocamlPackages.integers
                 ocamlPackages.uucp
                 ocamlPackages.ppx_expect
+                ocamlPackages.js_of_ocaml
+                ocamlPackages.js_of_ocaml-ppx
+                ocamlPackages.integers_stubs_js
 
                 nodejs_21
               ];

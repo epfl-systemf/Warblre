@@ -2,6 +2,6 @@
  (name warblre_js)
  (libraries warblre integers_stubs_js)
  (js_of_ocaml
-  (javascript_files ./repack.js))
+  (javascript_files ./repack.js ./string.js))
  (preprocess
   (pps js_of_ocaml-ppx)))

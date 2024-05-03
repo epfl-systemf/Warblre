@@ -23,6 +23,7 @@ function exec_result_repack (r) {
 
     return {
         index: r.index,
+        input: r.input,
         groups: r.slice(),
         namedGroups: object_to_array(r.groups),
         indices: r.indices?.slice()?.map(array_to_pair),

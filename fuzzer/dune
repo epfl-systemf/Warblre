@@ -1,8 +1,6 @@
 (executable
  (name fuzzer)
- (libraries warblre)
- (js_of_ocaml
-  (javascript_files ./repack.js))
+ (libraries warblre warblre_js)
  (preprocess
   (pps js_of_ocaml-ppx))
  (modes js))

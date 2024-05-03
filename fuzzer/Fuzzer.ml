@@ -16,6 +16,18 @@ type frontend_function =
 *)
 let alphabet : char list = ['#'; 'a'; 'b']
 
+(* Potential names for named capture groups *)
+let group_names: string list =
+  "_1" ::
+  "_2" ::
+  "_3" ::
+  "_4" ::
+  "_5" ::
+  "_6" ::
+  "_7" ::
+  "_8" ::
+  []
+
 (* maximum bound for counted repetition *)
 let counted_quantifiers_bound = 10
 
@@ -72,24 +84,27 @@ module Fuzzer (P: EngineParameters) (S: Warblre.Encoding.StringLike with type t 
 
   (* getting the Node result as a string, with a timeout in case of exponential complexity *)
   (* when the result is None, a Timeout occurred *)
-  class type ['a] js_pair = object
+  class type ['a, 'b] js_pair = object
     method first : 'a Js.readonly_prop
-    method second : 'a Js.readonly_prop
+    method second : 'b Js.readonly_prop
   end
 
-  let pair_to_tuple (p: int js_pair Js.t): ('a * 'a) = 
+  let pair_to_tuple (type a b) (p: (a, b) js_pair Js.t): (a * b) = 
     (p##.first, p##.second)
 
   class type repacked_result = object
     method index : int Js.readonly_prop
     method groups : Js.js_string Js.t Js.optdef Js.js_array Js.t Js.readonly_prop
-    method indices : int js_pair Js.t Js.optdef Js.js_array Js.t Js.optdef Js.readonly_prop
+    method namedGroups : (Js.js_string Js.t, Js.js_string Js.t Js.optdef) js_pair Js.t Js.js_array Js.t Js.optdef Js.readonly_prop
+    method indices : (int, int) js_pair Js.t Js.optdef Js.js_array Js.t Js.optdef Js.readonly_prop
+    method namedIndices : (Js.js_string Js.t, (int, int) js_pair Js.t Js.optdef) js_pair Js.t Js.js_array Js.t Js.optdef Js.readonly_prop
   end
 
   let repacked_result_to_result (reg: (character, string) Extracted.RegExpInstance.coq_type) (input: string) (r: repacked_result Js.t Js.opt): (character, string) Extracted.execResult =
     let to_mapped_option (type a b) (f: a -> b) (o: a Js.optdef): b option = Js.Optdef.to_option (Js.Optdef.map o f) in
     let to_mapped_list (type a b) (f: a -> b) (a: a Js.js_array Js.t): b list = List.map f (Array.to_list (Js.to_array a)) in
     let to_list = to_mapped_list (fun x -> x) in
+    let to_mapped_tupple (type a b c d) (f: a -> c) (g: b -> d) (p: (a, b) js_pair Js.t): (c * d) = (f p##.first, g p##.second) in
     let to_string str = (S.of_string (Js.to_string str)) in
     match Js.Opt.to_option r with
     | None -> Null reg
@@ -98,9 +113,9 @@ module Fuzzer (P: EngineParameters) (S: Warblre.Encoding.StringLike with type t 
           index = r##.index;
           input = input;
           array = to_mapped_list (to_mapped_option to_string) (r##.groups);
-          groups = None; 
+          groups = to_mapped_option (to_mapped_list (to_mapped_tupple to_string (to_mapped_option to_string))) (r##.namedGroups); 
           indices_array = to_mapped_option (to_mapped_list (to_mapped_option pair_to_tuple)) (r##.indices);
-          indices_groups = None;
+          indices_groups = (to_mapped_option (to_mapped_list (to_mapped_tupple to_string (to_mapped_option pair_to_tuple)))) (r##.namedIndices);
         }) in
         Exotic (exotic, reg)
 
@@ -208,6 +223,10 @@ module Fuzzer (P: EngineParameters) (S: Warblre.Encoding.StringLike with type t 
         RangeCR (sc (fst cs), sc (snd cs), current)
     ) EmptyCR (List.init (Random.int 3) (fun x -> x))
 
+  let randome_group_name (): string = 
+    let i = Random.int (List.length group_names) in
+    S.of_string (List.nth group_names i)
+
   (* We generate regexes in two steps:
         1.  Random AST are generated, using a ticket system (more tickets = more chances of being generated), 
             where backreferences are all set to 0 (an invalid backref index)
@@ -225,6 +244,7 @@ module Fuzzer (P: EngineParameters) (S: Warblre.Encoding.StringLike with type t 
     ); 
     ( 3, fun _ -> let c = random_char() in cchar(c));
     ( 1, fun _ -> AtomEsc (DecimalEsc 0));
+    ( 1, fun _ -> AtomEsc (GroupEsc (S.of_string "")));
     ( 1, fun _ -> Dot);
   ]
 
@@ -246,7 +266,7 @@ module Fuzzer (P: EngineParameters) (S: Warblre.Encoding.StringLike with type t 
     );
     ( 2, fun depth random_ast ->
           let r1 = random_ast (depth-1) in
-          Group (None, r1)       (* TODO: generate named groups *)
+          Group (None, r1)
     );
     ( 1, fun depth random_ast ->
           let r1 = random_ast (depth-1) in
@@ -296,30 +316,70 @@ module Fuzzer (P: EngineParameters) (S: Warblre.Encoding.StringLike with type t 
       let gen = Lookup.find rand full_lookup in
       gen depth random_ast
 
-  (* Replace each backreference number with a legal one, between 1 and the maximum group id  *)
-  let rec fill_backref (r: (character, string) coq_Regex) (maxgroup: int) : (character, string) coq_Regex =
-    match r with
-    | Empty | Char _ | Dot| CharacterClass _ -> r
-    | AtomEsc (DecimalEsc _) ->
-        if (maxgroup = 0) then Empty
-        else let groupid = (Random.int maxgroup) + 1 in
-          AtomEsc (DecimalEsc groupid)
-    | AtomEsc _ -> r
-    | Disjunction (r1,r2) -> Disjunction (fill_backref r1 maxgroup, fill_backref r2 maxgroup)
-    | Quantified (r1,quant) -> Quantified (fill_backref r1 maxgroup, quant)
-    | Seq (r1,r2) -> Seq (fill_backref r1 maxgroup, fill_backref r2 maxgroup)
-    | Group (nameop, r1) -> Group (nameop, fill_backref r1 maxgroup)
-    | InputStart | InputEnd | WordBoundary | NotWordBoundary -> r
-    | Lookahead (r1) -> Lookahead (fill_backref r1 maxgroup)
-    | NegativeLookahead (r1) -> NegativeLookahead (fill_backref r1 maxgroup)
-    | Lookbehind (r1) -> Lookbehind (fill_backref r1 maxgroup)
-    | NegativeLookbehind (r1) -> NegativeLookbehind (fill_backref r1 maxgroup)
+  (*  Replace each backreference number with a legal one, between 1 and the maximum group id.
+      Replace each backreference name with a legal one.
+      Assign the names to the groups.
+  *)
+  module M = Map.Make(Int)
+  let fill_backref_and_groups_names (r: (character, string) coq_Regex) (group_count: int) (names_map: string M.t) : (character, string) coq_Regex =
+    let group_id = ref 0 in
+    let names = List.map snd (List.of_seq (M.to_seq names_map)) in
+    let rec iter (r: (character, string) coq_Regex)  =
+      match r with
+      | Empty | Char _ | Dot| CharacterClass _ -> r
+      | AtomEsc (GroupEsc _) ->
+        if (List.length names = 0) then Empty
+        else
+          let groupid = Random.int (List.length names) in
+          AtomEsc (GroupEsc (List.nth names groupid))
+      | AtomEsc (DecimalEsc _) ->
+          if (group_count = 0) then Empty
+          else
+            let groupid = (Random.int group_count) + 1 in
+            AtomEsc (DecimalEsc groupid)
+      | AtomEsc _ -> r
+      | Disjunction (r1,r2) -> Disjunction (iter r1, iter r2)
+      | Quantified (r1,quant) -> Quantified (iter r1, quant)
+      | Seq (r1,r2) -> Seq (iter r1, iter r2)
+      | Group (name, r1) ->
+          assert(name = None);
+          let name = M.find_opt (!group_id) names_map in
+          group_id := (!group_id) + 1;
+          Group (name, iter r1)
+      | InputStart | InputEnd | WordBoundary | NotWordBoundary -> r
+      | Lookahead (r1) -> Lookahead (iter r1)
+      | NegativeLookahead (r1) -> NegativeLookahead (iter r1)
+      | Lookbehind (r1) -> Lookbehind (iter r1)
+      | NegativeLookbehind (r1) -> NegativeLookbehind (iter r1)
+    in
+    let res = iter r in 
+    assert(group_count = (!group_id));
+    res
+
+  let generate_group_names_map (group_count: int) (map_size: int): string M.t =
+    assert (map_size <= group_count);
+    assert (map_size <= List.length group_names);
+    let names = ref (List.map S.of_string group_names) in
+    let result: string M.t ref = ref M.empty in
+    let count = ref 0 in
+    while !count < map_size do
+      let i = Random.int group_count in
+      if not (M.mem i (!result)) then
+        (let name = List.hd (!names) in
+        names := List.tl (!names);
+        result := M.add i name (!result);
+        count := (!count) + 1)
+    done;
+    !result
 
   (* Generate an AST then fills the backreferences numbers *)
   let random_regex (): (character, string) coq_Regex =
     let ast = random_ast (Random.int max_regex_depth) in
-    let maxgroup = countGroups ast in
-    fill_backref ast maxgroup
+    let group_count = countGroups ast in
+    let named_group_count = (Random.int ((min (List.length group_names) group_count) + 1)) in
+    let named_groups_map = generate_group_names_map group_count named_group_count in
+
+    fill_backref_and_groups_names ast group_count named_groups_map
 
   (* Generate random flags *)
   let random_flags () : Extracted.RegExpFlags.coq_type =
@@ -373,7 +433,7 @@ open Fuzzer(UnicodeParameters)(Warblre.Encoding.Utf16StringLike)
 let () =
   let start_from = 0 in
   let test_count: int = 100 in
-  let user_seed: int option = Some 89809344 in
+  let user_seed: int option = None in
   let seed: int = (Option.value (Option.map (fun v _ -> v) user_seed) ~default:(fun _ -> Random.int (1073741823))) () in
   Printf.printf "\027[91mSeed is %d. Starting at test %d.\027[0m\n" seed start_from;
   Random.init seed;

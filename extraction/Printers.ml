@@ -3,7 +3,8 @@ open Patterns
 
 module Printer(P: EngineParameters) (S: Encoding.StringLike with type t := P.string) = struct
   type ocaml_string = string
-  open Engine(P)
+  module E = Engine(P)
+  open E
   open S
 
   type character = P.character
@@ -52,7 +53,7 @@ module Printer(P: EngineParameters) (S: Encoding.StringLike with type t := P.str
       | UnicodeEsc esc -> (match esc with
         | Pair (h1, h2) -> "\\u{" ^ (hex4digits_to_string h1) ^ "}\\u{" ^ (hex4digits_to_string h2) ^ "}"
         | Lonely h -> "\\u{" ^ (hex4digits_to_string h) ^ "}"
-        | CodePoint i -> failwith "TODO: pretty-printer -- \\u{codepoint}")
+        | CodePoint _ -> failwith "TODO: pretty-printer -- \\u{codepoint}")
       | IdentityEsc c -> escape c
 
     let character_class_escape_to_string (esc: (character, string) coq_CharacterClassEscape) : ocaml_string =
@@ -255,5 +256,3 @@ module Printer(P: EngineParameters) (S: Encoding.StringLike with type t := P.str
     !s
 end
 
-module Utf16Printer = Printer(Utf16Parameters)(Encoding.Utf16StringLike)
-module UnicodePrinter = Printer(UnicodeParameters)(Encoding.Utf16StringLike)

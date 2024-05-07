@@ -7,11 +7,9 @@ depends: [
   "ocaml"
   "dune" {>= "3.8"}
   "coq"
-  "js_of_ocaml"
-  "js_of_ocaml-ppx"
-  "integers_stubs_js"
   "integers"
   "uucp"
+  "melange"
   "ppx_expect"
   "odoc" {with-doc}
 ]

@@ -1,5 +1,5 @@
-open Warblre.Notations.UnicodeNotations
-open Warblre.Printers.UnicodePrinter
+open Warblre_ocaml.OCamlEngines.UnicodeNotations
+open Warblre_ocaml.OCamlEngines.UnicodePrinter
 
 let pp r = Printf.printf "%s\n" (regex_to_string ~strict:true r)
 

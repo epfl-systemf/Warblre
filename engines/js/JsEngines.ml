@@ -1,23 +1,46 @@
 open Warblre
-open Js_of_ocaml
 
 module JsStringLike: Encoding.StringLike
-  with type t = Js.js_string Js.t
+  with type t = Js.String.t
 = struct
-  type t = Js.js_string Js.t
-  let to_string = Js.to_string
-  let of_string = Js.string
+  type t = Js.String.t
+  let to_string = fun s -> s
+  let of_string = fun s -> s
 end
 
-module JsCharacter: Engines.Character with type t = Js.js_string Js.t = struct
-  type t = Js.js_string Js.t
-  external equal: t -> t -> bool = "char_utf16_equal"
-  external compare: t -> t -> int = "char_utf16_compare"
-  external numeric_value: t -> int = "char_utf16_numeric_value"
-  external from_numeric_value: int -> t = "char_utf16_from_numeric_value"
+module JsCharacter: Engines.Character with type t = Js.String.t = struct
+  type t = Js.String.t
+  let equal: t -> t -> bool = [%mel.raw {|
+    function (l, r) { return l === r; }
+  |}]
+  let compare: t -> t -> int = [%mel.raw {|
+    function (l, r) { return r.charCodeAt(0) - l.charCodeAt(0); }
+  |}]
+  let numeric_value: t -> int = [%mel.raw {|
+    function (c) { return c.charCodeAt(0); }
+  |}]
+  let from_numeric_value: int -> t = [%mel.raw {|
+    function (i) { return String.fromCharCode(i); }
+  |}]
   let max_numeric_value = 0xFFFF
 
-  external to_upper_case: t -> t = "char_utf16_to_uppercase"
+  let to_upper_case: t -> t = [%mel.raw {|
+    function (ch) {
+      const u = ch.toUpperCase();
+      if (u.length > 1) {
+        return ch;
+      }
+      else {
+        const cu = u.charCodeAt(0);
+        if (numeric_value(ch) >= 128 && cu < 128) {
+          return ch;
+        }
+        else {
+          return from_numeric_value(cu);
+        }
+      }
+    }
+  |}]
   let canonicalize rer ch =
     match rer with
     | { Extracted.RegExpRecord.ignoreCase = false; _ } -> ch
@@ -25,31 +48,25 @@ module JsCharacter: Engines.Character with type t = Js.js_string Js.t = struct
 end
 
 module JsString = struct
-  type t = Js.js_string Js.t
-  external equal: t -> t -> bool = "string_equal"
-  let length (s: t): int = s##.length
-  let substring (str: t) (b: int) (e: int): t = str##slice b e
-
-  let empty_string = (Js.string "")
+  type t = Js.String.t
+  let equal: t -> t -> bool = [%mel.raw {|
+    function (l, r) { return l === r; }
+  |}]
+  let length (s: t): int = Js.String.length s
+  let substring (str: t) (b: int) (e: int): t = Js.String.slice ~start:b ~end_:e str
+  let empty_string = {js||js}
 
   (* Ideally, character = string, but string = 'a list 
       TODO: change mechanization to not use character list, 
       but any type S with typeclass Indexable S character.
   *)
-  let list_from_string (s: t) =
-    (s##split empty_string)
-      |> Js.str_array
-      |> Js.to_array
-      |> Array.to_list
-  let list_to_string s =
-    s |> Array.of_list
-      |> Js.array
-      |> (fun a -> a##join empty_string)
+  let list_from_string (s: t) = Array.to_list (Js.String.split ~sep:"" s)
+  let list_to_string s = Stdlib.String.concat "" s
 end
 
 module JsParameters : Engines.EngineParameters 
-  with type character = Js.js_string Js.t
-  with type string = Js.js_string Js.t
+  with type character = Js.String.t
+  with type string = Js.String.t
 = struct
   module Character = JsCharacter
   type character = Character.t

@@ -2,8 +2,10 @@ open Engines
 open Printers
 
 module Tester (P: EngineParameters) (S: Encoding.StringLike with type t := P.string) = struct
-  open Engine(P)
-  open Printer(P)(S)
+  module E = Engine(P)
+  open E
+  module Pr = Printer(P)(S)
+  open Pr
 
   let string_to_engine_input str = P.String.list_from_string (S.of_string str)
 
@@ -78,5 +80,3 @@ module Tester (P: EngineParameters) (S: Encoding.StringLike with type t := P.str
     compare_regexes_using_record r1 r2 input at rer
 end
 
-module Utf16Tester = Tester(Utf16Parameters)(Encoding.Utf16StringLike)
-module UnicodeTester = Tester(UnicodeParameters)(Encoding.Utf16StringLike)

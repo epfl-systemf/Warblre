@@ -1,5 +1,5 @@
-open Warblre.Notations.UnicodeNotations
-open Warblre.Testing.UnicodeTester
+open Warblre_ocaml.OCamlEngines.UnicodeNotations
+open Warblre_ocaml.OCamlEngines.UnicodeTester
 
 let%expect_test "backref_0_pos" =
   test_regex

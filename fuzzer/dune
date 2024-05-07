@@ -1,11 +1,4 @@
-(executable
- (name fuzzer)
- (libraries warblre warblre_js)
- (preprocess
-  (pps js_of_ocaml-ppx))
- (modes js))
-
-(env
-  (dev
-    (flags (:standard -w -33 -w -32 -w -27 -w -26))))
-
+(melange.emit
+ (target app)
+ (module_systems es6)
+ (libraries warblre warblre_js))

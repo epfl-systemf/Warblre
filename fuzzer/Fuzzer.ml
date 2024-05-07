@@ -56,18 +56,22 @@ module Fuzzer (P: EngineParameters) (S: Warblre.Encoding.StringLike with type t 
 
   (* The JS engine we will be comparing to. *)
   module JsEngine = struct
-    open Warblre_js.HostEngine.HostEngine(P)(S)
+    module H = Warblre_js.HostEngine.HostEngine(P)(S)
+    open H
 
     let exec (regex: (P.character, P.string) coq_Regex) (flags: Extracted.RegExpFlags.coq_type) (at: int) (str: P.string): (P.character, P.string) Extracted.ExecArrayExotic.coq_type option =
       let r = initialize regex flags in
       setLastIndex r at;
       exec r str
   end
+  
+  module E = Engine(P)
+  open E
+  module Pr = Printer(P)(S)
+  open Pr
 
   (* Engine extracted from our mechanization. *)
   module RefEngine = struct
-    open Engine(P)
-    open Printer(P)(S)
 
     let make_output_stateless (res: (P.character, P.string) Extracted.execResult): (P.character, P.string) Extracted.ExecArrayExotic.coq_type option =
       match res with
@@ -81,8 +85,6 @@ module Fuzzer (P: EngineParameters) (S: Warblre.Encoding.StringLike with type t 
   end
 
 
-  open Engine(P)
-  open Printer(P)(S)
 
   type comparison_result = | Same | Different
 
@@ -91,7 +93,7 @@ module Fuzzer (P: EngineParameters) (S: Warblre.Encoding.StringLike with type t 
       A setup as in https://github.com/janestreet/async/blob/master/example/timeouts.ml might allow to do just that.
       TODO: maybe JS allows to do this more easily.
   *)
-  let compare_engines (regex: (character, string) coq_Regex) (flags: Extracted.RegExpFlags.coq_type) (index: int) (str: ocaml_string) (f: frontend_function): comparison_result =
+  let compare_engines (regex: (character, string) coq_Regex) (flags: Extracted.RegExpFlags.coq_type) (index: int) (str: ocaml_string) (_: frontend_function): comparison_result =
     let result_to_string = Internal.option_to_string ~none:"No match" (array_exotic_to_string ~pretty:false) in
     let sep = String.init 100 (fun _ -> '-') in
     Printf.printf "\027[36mJS Regex:\027[0m %s\n" (regex_to_string regex);
@@ -322,7 +324,7 @@ module Fuzzer (P: EngineParameters) (S: Warblre.Encoding.StringLike with type t 
     }
 
   (* does not generate matchall if there is no global flag *)
-  let random_frontend (glob: bool) : frontend_function =
+  let random_frontend (_: bool) : frontend_function =
     match (Random.int(1)) with
     | 0 -> Exec
     (* | 1 -> Search

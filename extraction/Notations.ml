@@ -44,10 +44,3 @@ module CharNotations (P: EngineParameters) (S: Encoding.StringLike with type t :
   let sc c = SourceCharacter (P.Character.from_numeric_value (Char.code c))
 end
 
-module Utf16Notations = CharNotations(Utf16Parameters)(Encoding.Utf16StringLike)
-module UnicodeNotations = struct
-  module Base = CharNotations(UnicodeParameters)(Encoding.Utf16StringLike)
-  include Base
-
-  let uprop n = AtomEsc (ACharacterClassEsc (UnicodeProp (Obj.magic (Engines.UnicodeProperty.Predicate n))))
-end

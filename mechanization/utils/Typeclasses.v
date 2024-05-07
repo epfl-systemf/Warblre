@@ -25,9 +25,9 @@ Notation EqDec := EqDec.type.
 Infix "=?=" := EqDec.eq_dec (at level 37, no associativity).
 Infix "==" := EqDec.eqb (at level 37, no associativity).
 Infix "!=" := EqDec.neqb (at level 37, no associativity).
-Infix "==#" := EqDec.eq_dec (at level 37, no associativity): wt_scope.
-Infix "==?" := EqDec.eqb (at level 37, no associativity): wt_scope.
-Infix "!=?" := EqDec.neqb (at level 37, no associativity): wt_scope.
+Infix "==#" := EqDec.eq_dec (at level 70, no associativity): wt_scope.
+Infix "==?" := EqDec.eqb (at level 70, no associativity): wt_scope.
+Infix "!=?" := EqDec.neqb (at level 70, no associativity): wt_scope.
 
 Instance eqdec_bool: EqDec bool := { eq_dec := Bool.bool_dec }.
 Instance eqdec_nat: EqDec nat := { eq_dec := Nat.eq_dec }.

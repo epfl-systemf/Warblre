@@ -1,0 +1,3 @@
+(library
+ (name warblre_ocaml)
+ (libraries warblre uucp integers))

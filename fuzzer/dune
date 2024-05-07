@@ -2,3 +2,10 @@
  (target app)
  (module_systems es6)
  (libraries warblre warblre_js))
+
+(rule
+ (target dist)
+ (deps
+  (:entrypoint (file app/fuzzer/Fuzzer.js))
+  (:config (file webpack.config.js)))
+ (action (run webpack-cli ./%{entrypoint} --config %{config} --config-name warblre-browser-fuzzer --no-stats)))

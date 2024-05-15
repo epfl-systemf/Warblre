@@ -363,7 +363,8 @@ module Fuzzer (P: EngineParameters) (S: Warblre.Encoding.StringLike with type t 
 
 end
 
-open Fuzzer(Warblre_js.JsEngines.JsParameters)(Warblre_js.JsEngines.JsStringLike)
+module F = Fuzzer(Warblre_js.JsEngines.JsParameters)(Warblre_js.JsEngines.JsStringLike)
+open F
 let () =
   let start_from = 0 in
   let test_count: int = 100 in

@@ -1,11 +1,13 @@
 (melange.emit
+ (alias fuzzer)
  (target app)
- (module_systems es6)
+ (module_systems (es6 mjs))
  (libraries warblre warblre_js))
 
 (rule
  (target dist)
  (deps
-  (:entrypoint (file app/fuzzer/Fuzzer.js))
+  (alias_rec fuzzer)
+  (:entrypoint (file app/fuzzer/Fuzzer.mjs))
   (:config (file webpack.config.js)))
  (action (run webpack-cli ./%{entrypoint} --config %{config} --config-name warblre-browser-fuzzer --no-stats)))

@@ -11,3 +11,8 @@ _build/
 # Direnv
 .direnv/
 .envrc
+
+# Npm
+package-lock.json
+package.json
+node_modules

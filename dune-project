@@ -6,6 +6,7 @@
 
 (using coq 0.8)
 (using melange 0.1)
+(using directory-targets 0.1)
 
 (authors "Noé De Santo" "Aurèle Barrière" "Clément Pit-Claudel")
 

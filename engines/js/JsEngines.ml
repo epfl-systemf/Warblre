@@ -8,7 +8,7 @@ module JsStringLike: Encoding.StringLike
   let of_string = fun s -> s
 end
 
-module JsCharacter: Engines.Character with type t = Js.String.t = struct
+module JsUtf16Character: Engines.Character with type t = Js.String.t = struct
   type t = Js.String.t
   let equal: t -> t -> bool = [%mel.raw {|
     function (l) { return function (r) { return l === r; }; }
@@ -50,6 +50,30 @@ module JsCharacter: Engines.Character with type t = Js.String.t = struct
     | _ -> to_upper_case ch
 end
 
+module JsUnicodeCharacter: Engines.Character with type t = Js.String.t = struct
+  type t = Js.String.t
+  let equal: t -> t -> bool = [%mel.raw {|
+    function (l) { return function (r) { return l === r; }; }
+  |}]
+  let compare: t -> t -> int  = [%mel.raw {|
+    function (l) { return function (r) { return r.codePointAt(0) - l.codePointAt(0); }; }
+  |}]
+  let numeric_value:  t -> int= [%mel.raw {|
+    function (c) {
+      return c.codePointAt(0);
+    }
+  |}]
+  let from_numeric_value: int -> t = [%mel.raw {|
+    function (i) { return String.fromCodePoint(i); }
+  |}]
+  let max_numeric_value = 0x10FFFF
+
+  let canonicalize rer ch =
+    match rer with
+    | { Extracted.RegExpRecord.ignoreCase = false; _ } -> ch
+    | _ -> from_numeric_value (SimpleFold.simple_fold (numeric_value ch))
+end
+
 module JsString = struct
   type t = Js.String.t
   let equal: t -> t -> bool = [%mel.raw {|
@@ -58,12 +82,6 @@ module JsString = struct
   let length (s: t): int = Js.String.length s
   let substring (str: t) (b: int) (e: int): t = Js.String.slice ~start:b ~end_:e str
   let empty_string = {js||js}
-
-  (* Ideally, character = string, but string = 'a list 
-      TODO: change mechanization to not use character list, 
-      but any type S with typeclass Indexable S character.
-  *)
-  let list_from_string (s: t) = Array.to_list (Js.String.split ~sep:"" s)
   let list_to_string s = Stdlib.String.concat "" s
 end
 
@@ -71,11 +89,16 @@ module JsParameters : Engines.EngineParameters
   with type character = Js.String.t
   with type string = Js.String.t
 = struct
-  module Character = JsCharacter
+  module Character = JsUtf16Character
   type character = Character.t
 
   module String = struct
     include JsString
+    (* Ideally, character = string, but string = 'a list 
+        TODO: change mechanization to not use character list, 
+        but any type S with typeclass Indexable S character.
+    *)
+    let list_from_string (s: t) = Array.to_list (Js.String.split ~sep:"" s)
     let advanceStringIndex _ i = i + 1
     let getStringIndex _ i = i
   end
@@ -93,45 +116,39 @@ module JsParameters : Engines.EngineParameters
   end
 end
 
-(* module UnicodeParameters : EngineParameters 
-  with type character = int
-  with type string = Unsigned.UInt16.t list
+module JsUnicodeParameters : Engines.EngineParameters 
+  with type character = Js.String.t
+  with type string = Js.String.t
 = struct
-  module Character = IntCharacter
+  module Character = JsUnicodeCharacter
   type character = Character.t
 
   module String = struct
-    let list_from_string str = Encoding.Unicode.list_from_string (Encoding.Utf16.list_to_string str)
-    let list_to_string str = Encoding.Utf16.list_from_string (Encoding.Unicode.list_to_string str)
-
-    module Ops = Extracted.UnicodeOps(struct
-      type coq_Utf16CodeUnit = Unsigned.UInt16.t
-      type coq_Utf16String = Unsigned.UInt16.t list
-      let length = List.length
-      let codeUnitAt = List.nth
-      let is_leading_surrogate c = Encoding.UnicodeUtils.is_high_surrogate (Unsigned.UInt16.to_int c)
-      let is_trailing_surrogate c = Encoding.UnicodeUtils.is_low_surrogate (Unsigned.UInt16.to_int c)
-    end)
-    let advanceStringIndex s i = Utils.Result.get (Ops.advanceStringIndex s i)
-    let getStringIndex s i = Utils.Result.get (Ops.getStringIndex s i)
-
-
-    include CamlString
+    include JsString
+    (* Ideally, character = string, but string = 'a list 
+        TODO: change mechanization to not use character list, 
+        but any type S with typeclass Indexable S character.
+    *)
+    let list_from_string (s: t) = Array.to_list (Js.Array.from (Js.String.unsafeToArrayLike s))
+    let advanceStringIndex _ i = i + 1
+    let getStringIndex _ i = i
   end
   type string = String.t
 
-  module CharSet = CharSet(Character)
+  module CharSet = Engines.CharSet(Character)
   type char_set = CharSet.t
 
-  module CharSets = CharSets(Character)
+  module CharSets = Engines.CharSets(Character)
 
-  type property = UnicodeProperty.t
+  (* TODO: implement *)
+  type property = |
   module Property = struct
-    let equal = UnicodeProperty.equal
-    let code_points up = UnicodeProperty.filter_for up CharSets.all
+    let equal _ _ = false
+    let code_points _ = failwith "How was the empty type instanciated?"
   end
 end
-*)
+
+
 module JsEngine = struct
   module E = Engines.Engine(JsParameters)
   include E
@@ -220,7 +237,7 @@ module JsEngine = struct
       let wat str = (fun _ _ -> failwith ("Unxpected node. Feature: " ^ str)) in
       let unsupported str = failwith ("Features from version > 13.0 are not supported. Feature: " ^ str) in
       let disjunction = (fun _ children -> Js.Array.reduce ~f:(fun acc child -> Smart.disjunction acc child) ~init:null children) in
-      let char_to_char (c: AST.character) = JsCharacter.from_numeric_value (c.value) in
+      let char_to_char (c: AST.character) = JsUtf16Character.from_numeric_value (c.value) in
       let last_char (str: Js.String.t) (at: int) = Js.String.charAt ~index:((Js.String.length str) - at - 1) str in
       map ast
         ~onAlternative:(fun _ children -> Js.Array.reduce ~f:(fun acc child -> Smart.seq acc child) ~init:epsilon children)

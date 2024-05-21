@@ -6,26 +6,12 @@ module Conversion (P: Engines.EngineParameters) (S: Encoding.StringLike with typ
   module Pr = Printers.Printer(P)(S)
   open Pr
 
-  (* class type ['a, 'b] js_pair = object
-    method first : 'a Js.readonly_prop
-    method second : 'b Js.readonly_prop
-  end
-
-
-  class type streamlined_match_result = object
-    method index : int Js.readonly_prop
-    method input : Js.js_string Js.t Js.readonly_prop
-    method groups : Js.js_string Js.t Js.optdef Js.js_array Js.t Js.readonly_prop
-    method namedGroups : (Js.js_string Js.t, Js.js_string Js.t Js.optdef) js_pair Js.t Js.js_array Js.t Js.optdef Js.readonly_prop
-    method indices : (int, int) js_pair Js.t Js.optdef Js.js_array Js.t Js.optdef Js.readonly_prop
-    method namedIndices : (Js.js_string Js.t, (int, int) js_pair Js.t Js.optdef) js_pair Js.t Js.js_array Js.t Js.optdef Js.readonly_prop
-  end *)
   type ('a, 'b) pair = {
     first: 'a;
     second: 'b;
   }
 
-  type streamlined_match_result = {
+  type unexotic_match_result = {
     index: int;
     input: Js.String.t;
     groups: Js.String.t Js.Nullable.t Js.Array.t;
@@ -34,9 +20,9 @@ module Conversion (P: Engines.EngineParameters) (S: Encoding.StringLike with typ
     namedIndices: (Js.String.t, (int, int) pair Js.Nullable.t) pair Js.Array.t Js.Nullable.t;
   }
 
-  (* Js function which makes match_result easier to manipulate from OCaml *)
-  let streamline_match_result : Js.Re.result Js.Nullable.t -> streamlined_match_result Js.Nullable.t = [%mel.raw {|
-    function exec_result_repack (r) {
+  (* Js function which makes match_result easier to manipulate from OCaml... *)
+  let unexotify_match_result : Js.Re.result Js.Nullable.t -> unexotic_match_result Js.Nullable.t = [%mel.raw {|
+    function (r) {
       function object_to_array (a) {
         if (a == null || a == undefined) { return a; }
   
@@ -65,7 +51,41 @@ module Conversion (P: Engines.EngineParameters) (S: Encoding.StringLike with typ
     }
   |}]
 
-  let streamlined_match_result_to_result (r: streamlined_match_result Js.Nullable.t): (character, string) Extracted.ExecArrayExotic.coq_type option =
+  (* ... and its reverse operation. *)
+  let exotify_match_result : unexotic_match_result Js.Nullable.t -> Js.Re.result Js.Nullable.t = [%mel.raw {|
+    function (r) {
+      function array_of_pairs_to_object (a, f = (x) => x) {
+        if (a == null || a == undefined) { return a; }
+        
+        var res = {};
+        for (var { first: first, second: second } of a) {
+          Object.defineProperty(res, first, { value: f(second), enumerable: true, writable: true, configurable: true })
+        }
+        return res;
+      }
+
+      function pair_to_array (p) {
+        if (p == null || p == undefined) { return p; }
+        return [ p.first, p.second ];
+      }
+
+      var result = r.groups.slice();
+      result.groups = array_of_pairs_to_object(r.namedGroups);
+      result.index = r.index;
+      if (r.indices !== undefined) {
+        result.indices = r.indices.slice().map(pair_to_array);
+        
+        if (r.namedIndices !== undefined) {
+          result.indices.groups = array_of_pairs_to_object(r.namedIndices.slice(), pair_to_array);
+        }
+      }
+      result.input = r.input;
+
+      return result;
+    }
+  |}]
+
+  let unexotic_match_result_to_result (r: unexotic_match_result Js.Nullable.t): (character, string) Extracted.ExecArrayExotic.coq_type option =
     let to_mapped_option (type a b) (f: a -> b) (o: a Js.Nullable.t): b option = Option.map f (Js.Nullable.toOption o) in
     let to_mapped_list (type a b) (f: a -> b) (a: a Js.Array.t): b list = List.map f (Array.to_list a) in
     let to_mapped_tuple (type a b c d) (f: a -> c) (g: b -> d) (p: (a, b) pair): (c * d) = (f p.first, g p.second) in
@@ -73,7 +93,7 @@ module Conversion (P: Engines.EngineParameters) (S: Encoding.StringLike with typ
     (* TODO: conversion *)
     let to_string str = (S.of_string str) in
     r |> Js.Nullable.toOption
-      |> Option.map (fun (r: streamlined_match_result) ->
+      |> Option.map (fun (r: unexotic_match_result) ->
         Extracted.ExecArrayExotic.({
           index = r.index;
           input = to_string (r.input);
@@ -84,8 +104,28 @@ module Conversion (P: Engines.EngineParameters) (S: Encoding.StringLike with typ
         })
       )
 
+  let result_to_unexotic_match_result (r: (character, string) Extracted.ExecArrayExotic.coq_type option): unexotic_match_result Js.Nullable.t =
+    let to_mapped_nullable (type a b) (f: a -> b) (o: a option): b Js.Nullable.t = Js.Nullable.fromOption (Option.map f o) in
+    let to_mapped_array (type a b) (f: a -> b) (a: a list): b Js.Array.t = Array.of_list (List.map f a) in
+    let to_mapped_pair (type a b c d) (f: a -> c) (g: b -> d) (p: a * b): (c, d) pair = { first = f (fst p); second = g (snd p)} in
+    let to_pair = to_mapped_pair (fun x -> x) (fun x -> x) in
+    (* TODO: conversion *)
+    let to_string str = (S.to_string str) in
+    r |> Option.map (fun (r: (character, string) Extracted.ExecArrayExotic.coq_type) ->
+        {
+          index = r.index;
+          input = to_string (r.input);
+          groups = to_mapped_array (to_mapped_nullable to_string) (r.array);
+          namedGroups = to_mapped_nullable (to_mapped_array (to_mapped_pair to_string (to_mapped_nullable to_string))) (r.groups); 
+          indices = to_mapped_nullable (to_mapped_array (to_mapped_nullable to_pair)) (r.indices_array);
+          namedIndices = (to_mapped_nullable (to_mapped_array (to_mapped_pair to_string (to_mapped_nullable to_pair)))) (r.indices_groups);
+        }
+      )|> Js.Nullable.fromOption
+
   module MatchResult = struct
     let ocaml_of_js (r: Js.Re.result Js.nullable): (character, string) Extracted.ExecArrayExotic.coq_type option =
-      r |> streamline_match_result |> streamlined_match_result_to_result
+      r |> unexotify_match_result |> unexotic_match_result_to_result
+    let js_of_ocaml (r: (character, string) Extracted.ExecArrayExotic.coq_type option): Js.Re.result Js.nullable =
+      r |> result_to_unexotic_match_result |> exotify_match_result
   end
 end

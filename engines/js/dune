@@ -1,6 +1,6 @@
 (library
  (name warblre_js)
- (libraries warblre)
+ (libraries warblre melange.belt)
  (melange.runtime_deps (file ./regexpp-map.mjs))
  (modes melange)
  (preprocess (pps melange.ppx)))

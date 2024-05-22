@@ -1,4 +1,4 @@
-From Warblre Require Import Base Patterns Semantics Frontend Engine Fragments.
+From Warblre Require Import Result Base Patterns Semantics Frontend Engine Fragments.
 From Coq Require Import ZArith.
 
 From Coq Require Extraction.
@@ -9,6 +9,11 @@ From Coq Require extraction.ExtrOcamlString.
 From Coq Require extraction.ExtrOcamlNatInt.
 From Coq Require extraction.ExtrOcamlZInt.
 Extract Constant Pos.to_nat => "(fun c -> c)".
+
+Extract Inductive Result.Result =>
+    "Interop.result"
+    [ "Interop.success" "Interop.failure" ]
+    "(fun fS _ v -> fS v )".
 
 Extract Constant host_string => "string".
 

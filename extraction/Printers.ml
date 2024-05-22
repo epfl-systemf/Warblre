@@ -233,10 +233,8 @@ module Printer(P: EngineParameters) (S: Encoding.StringLike with type t := P.str
 
   let match_result_to_string (r: (character, string) Extracted.Notation.coq_MatchResult): ocaml_string =
     match r with
-    | Success None -> "No match"
-    | Success (Some m) -> match_state_to_string m
-    | Failure OutOfFuel -> "Out of fuel."
-    | Failure AssertionFailed -> "Assertion error."
+    | None -> "No match"
+    | Some m -> match_state_to_string m
 
   let array_exotic_to_string ?(pretty=true) (a: (character, string) Extracted.ExecArrayExotic.coq_type): ocaml_string = Internal.exec_array_exotic_to_string pretty a
 

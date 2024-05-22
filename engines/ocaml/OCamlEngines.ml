@@ -254,8 +254,8 @@ module UnicodeParameters : Engines.EngineParameters
       let is_leading_surrogate c = Encoding.UnicodeUtils.is_high_surrogate (Unsigned.UInt16.to_int c)
       let is_trailing_surrogate c = Encoding.UnicodeUtils.is_low_surrogate (Unsigned.UInt16.to_int c)
     end)
-    let advanceStringIndex s i = Utils.Result.get (Ops.advanceStringIndex s i)
-    let getStringIndex s i = Utils.Result.get (Ops.getStringIndex s i)
+    let advanceStringIndex s i = Ops.advanceStringIndex s i
+    let getStringIndex s i = Ops.getStringIndex s i
 
 
     include CamlString

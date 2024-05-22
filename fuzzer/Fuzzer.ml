@@ -79,9 +79,9 @@ module Fuzzer (P: EngineParameters) (S: Warblre.Encoding.StringLike with type t 
       | Exotic (a, _) -> Some a
 
     let exec (regex: (P.character, P.string) coq_Regex) (flags: Extracted.RegExpFlags.coq_type) (at: int) (str: P.string): (P.character, P.string) Extracted.ExecArrayExotic.coq_type option =
-      let r = Utils.Result.get (initialize regex flags) in
-      let r = setLastIndex r at in
-      make_output_stateless (Utils.Result.get (exec r str))
+      let r0 = initialize regex flags in
+      let r1 = setLastIndex r0 at in
+      make_output_stateless (exec r1 str)
   end
 
 

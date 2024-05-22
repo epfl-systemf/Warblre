@@ -25,13 +25,11 @@ let run (pattern: string) (at: int) (input: string): string =
       RegExpFlags.u = ();
       RegExpFlags.y = false;
     }) in
-    let result = match JsEngine.initialize regex flags with
-    | Failure _ -> "Initialization failed."
-    | Success r ->
+    let r =  JsEngine.initialize regex flags in
+    let result = 
       match JsEngine.exec (JsEngine.setLastIndex r at) (Warblre_js.JsEngines.JsStringLike.of_string input) with
-      | Failure _ -> failwith "Engine failed."
-      | Success Null _ -> "No match found."
-      | Success Exotic ({ array = array ; _}, _) -> Option.get (List.nth array 0)
+      | Null _ -> "No match found."
+      | Exotic ({ array = array ; _}, _) -> Option.get (List.nth array 0)
     in 
     result
   with

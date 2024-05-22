@@ -130,8 +130,17 @@ module JsUnicodeParameters : Engines.EngineParameters
         but any type S with typeclass Indexable S character.
     *)
     let list_from_string (s: t) = Array.to_list (Js.Array.from (Js.String.unsafeToArrayLike s))
-    let advanceStringIndex _ i = i + 1
-    let getStringIndex _ i = i
+    
+    module Ops = Extracted.UnicodeOps(struct
+      type coq_Utf16CodeUnit = Js.String.t
+      type coq_Utf16String = Js.String.t
+      let length = Js.String.length
+      let codeUnitAt ls at = Js.String.charAt ~index:at ls
+      let is_leading_surrogate c = Encoding.UnicodeUtils.is_high_surrogate (Character.numeric_value c)
+      let is_trailing_surrogate c = Encoding.UnicodeUtils.is_low_surrogate (Character.numeric_value c)
+    end)
+    let advanceStringIndex s i = Ops.advanceStringIndex s i
+    let getStringIndex s i = Ops.getStringIndex s i
   end
   type string = String.t
 

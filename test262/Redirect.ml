@@ -41,8 +41,10 @@ let to_string: Js.String.t -> Js.String.t = [%mel.raw {|
         else { throw new TypeError('Exotic toPrimitive returned an object.'); }
       }
       else {
-        // Simplified OrdinaryToPrimitive
-        return input.toString();
+        // OrdinaryToPrimitive
+        if (typeof input.toString === 'function' && typeof input.toString() !== 'object') { return input.toString(); }
+        if (typeof input.valueOf === 'function' && typeof input.valueOf() !== 'object') { return input.valueOf(); }
+        throw new TypeError('Could not convert to string.');
       } 
     };
 
@@ -66,14 +68,15 @@ module Exec (
     with type property = JsEngines.NoProperty.t
 ) = struct
   module Conversion = Conversion.Conversion(Parameters)(JsEngines.JsStringLike)
-  module Engine = Engines.Engine(Parameters)
+  module Engine = Warblre_js.Engines.Engine(Parameters)
+  module Parser = Warblre_js.JsEngines.Parser(Parameters)(JsEngines.JsStringLike)
 
   let exec: (Js.Re.t -> string -> Js.Re.result Js.nullable) = 
     (*  Note that all inputs are not as strictly typed as the (melange) API might suggest.
         We hence have to use conversion functions (to_string & to_length), per the spec.    
     *)
     fun this input0 -> (
-      let re = JsEngines.JsEngine.Regexpp.parseRegex ("/" ^ (Js.Re.source this) ^ "/") in
+      let re = Parser.parseRegex ("/" ^ (Js.Re.source this) ^ "/" ^ (Js.Re.flags this)) in
       let flags0 = to_string (Js.Re.flags this) in
       let flags1 = Warblre_js.Extracted.({
         RegExpFlags.d = Js.String.includes ~search:"d" flags0;

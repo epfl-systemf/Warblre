@@ -18,3 +18,7 @@
  (target warblre-node-redirect.js)
  (deps (:js_file (file dist/warblre-node-redirect.js)))
  (action (copy %{js_file} %{target})))
+(rule
+ (target warblre-browser-redirect.js)
+ (deps (:js_file (file dist/warblre-browser-redirect.js)))
+ (action (copy %{js_file} %{target})))

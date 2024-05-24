@@ -353,6 +353,18 @@ Section BuiltinExec.
         Success (record :: next)
     end.
 
+  (* Map an index in the original (i.e UTF16) string into the char list *)
+  Definition to_list_index (stringIndex: nat) (S: String): Result.Result nat MatchError :=
+    let fix iter (count: nat) (current: nat): Result.Result nat MatchError :=
+      if (current == stringIndex)%nat then Success (stringIndex - count)%nat
+      else
+      match count with
+      | 0 => out_of_fuel
+      | S count' => iter count' (String.advanceStringIndex S current)
+      end
+    in
+    iter stringIndex 0.
+
   Definition regExpBuiltinExec (R: RegExpInstance) (S: String): Result.Result ExecResult MatchError :=
     (* 1. Let length be the length of S. *)
     let length := String.length S in
@@ -395,7 +407,8 @@ Section BuiltinExec.
             Success (Terminates (Null R))
           else
           (* b. Let inputIndex be the index into input of the character that was obtained from element lastIndex of S. *)
-          let inputIndex := lastIndex in
+          (*+ Nasty piece of english prose... +*)
+          let! inputIndex =<< to_list_index lastIndex S in
           (* c. Let r be matcher(input, inputIndex). *)
           let! r:(option MatchState) =<< matcher input inputIndex in
           (* d. If r is failure, then *)

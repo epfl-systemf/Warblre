@@ -53,7 +53,7 @@ module Conversion (P: Engines.EngineParameters) (S: Encoding.StringLike with typ
       function array_of_pairs_to_object (a, f = (x) => x) {
         if (a == null || a == undefined) { return a; }
         
-        var res = {};
+        var res = Object.create(null);
         for (var { first: first, second: second } of a) {
           Object.defineProperty(res, first, { value: f(second), enumerable: true, writable: true, configurable: true })
         }
@@ -66,14 +66,12 @@ module Conversion (P: Engines.EngineParameters) (S: Encoding.StringLike with typ
       }
 
       var result = r.groups.slice();
-      result.groups = array_of_pairs_to_object(r.namedGroups);
+      Object.defineProperty(result, 'groups', { value: array_of_pairs_to_object(r.namedGroups), enumerable: true, writable: true, configurable: true });
       result.index = r.index;
       if (r.indices !== undefined) {
-        result.indices = r.indices.slice().map(pair_to_array);
+        Object.defineProperty(result, 'indices', { value: r.indices.slice().map(pair_to_array), enumerable: true, writable: true, configurable: true });
         
-        if (r.namedIndices !== undefined) {
-          result.indices.groups = array_of_pairs_to_object(r.namedIndices.slice(), pair_to_array);
-        }
+        Object.defineProperty(result.indices, 'groups', { value: array_of_pairs_to_object(r.namedIndices?.slice(), pair_to_array), enumerable: true, writable: true, configurable: true });
       }
       result.input = r.input;
 
@@ -101,6 +99,7 @@ module Conversion (P: Engines.EngineParameters) (S: Encoding.StringLike with typ
       )
 
   let result_to_unexotic_match_result (r: (P.string) Extracted.ExecArrayExotic.coq_type option): unexotic_match_result Js.Nullable.t =
+    let nonify_nil (type a) (ls: a list option) = Option.bind ls (fun ls -> if List.is_empty ls then None else Some ls) in
     let to_mapped_nullable (type a b) (f: a -> b) (o: a option): b Js.Nullable.t = Js.Nullable.fromOption (Option.map f o) in
     let to_mapped_array (type a b) (f: a -> b) (a: a list): b Js.Array.t = Array.of_list (List.map f a) in
     let to_mapped_pair (type a b c d) (f: a -> c) (g: b -> d) (p: a * b): (c, d) pair = { first = f (fst p); second = g (snd p)} in
@@ -112,9 +111,9 @@ module Conversion (P: Engines.EngineParameters) (S: Encoding.StringLike with typ
           index = BigInt.to_int r.index;
           input = to_string (r.input);
           groups = to_mapped_array (to_mapped_nullable to_string) (r.array);
-          namedGroups = to_mapped_nullable (to_mapped_array (to_mapped_pair to_string (to_mapped_nullable to_string))) (r.groups); 
-          indices = to_mapped_nullable (to_mapped_array (to_mapped_nullable to_pair)) (r.indices_array);
-          namedIndices = (to_mapped_nullable (to_mapped_array (to_mapped_pair to_string (to_mapped_nullable to_pair)))) (r.indices_groups);
+          namedGroups = to_mapped_nullable (to_mapped_array (to_mapped_pair to_string (to_mapped_nullable to_string))) (nonify_nil r.groups); 
+          indices = to_mapped_nullable (to_mapped_array (to_mapped_nullable to_pair)) (nonify_nil r.indices_array);
+          namedIndices = (to_mapped_nullable (to_mapped_array (to_mapped_pair to_string (to_mapped_nullable to_pair)))) (nonify_nil r.indices_groups);
         }
       )|> Js.Nullable.fromOption
 

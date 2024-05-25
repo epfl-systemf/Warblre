@@ -15,7 +15,7 @@ let set_field (type a b): a -> Js.String.t -> b -> unit = [%mel.raw {|
 external regexp_prototype: Obj.t = "prototype" [@@mel.scope "RegExp"]
 external regexp_prototype_exec: Obj.t  = "exec" [@@mel.scope "RegExp", "prototype"]
 
-(* Simplified implementation of the ToLength (from the spec). *)
+(* Approximation of ToLength (from the spec). *)
 let to_length: int -> int = [%mel.raw {|
   function (index) {
     index = Number(index);
@@ -31,6 +31,7 @@ let to_length: int -> int = [%mel.raw {|
   }
 |}]
 
+(* pproximation of ToString (from the spec). *)
 let to_string: Js.String.t -> Js.String.t = [%mel.raw {|
   function (str) {
     let toPrimitive = function(input) {
@@ -108,6 +109,15 @@ module UnicodeExec = Exec(JsEngines.JsUnicodeParameters)
 
 let exec: (Js.Re.t -> string -> Js.Re.result Js.nullable) Js.Private.Js_OO.Callback.arity2 = 
   fun [@mel.this] this input -> (
+    (* Check that it is not being called as a constructor. *)
+    let as_constructor: bool = [%mel.raw{| new.target |}] in
+    if as_constructor then Js.Exn.raiseTypeError("'exec' is not a constructor.");
+
+    (* Hacky way of thecking that there is an internal [[RegExpMatcher]] slot *)
+    (* The related test instead mention the requirement that the internal slot [[Class]] === RegExp  *)
+    let is_regexp: bool = [%mel.raw{| Object.getPrototypeOf(this) === RegExp.prototype |}] in
+    if not is_regexp then Js.Exn.raiseTypeError("'exec' must be called on a RegExp.");
+
     if (Js.String.includes ~search:"u" (to_string (Js.Re.flags this))) then UnicodeExec.exec this input
     else RegularExec.exec this input
   )

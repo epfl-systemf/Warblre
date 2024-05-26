@@ -4,10 +4,8 @@ open Patterns
 module Printer(P: EngineParameters) (S: Encoding.StringLike with type t := P.string) = struct
   type ocaml_string = string
   module E = Engine(P)
-  open E
-  open S
-
-  type character = P.character
+  (* open E
+  open S *)
 
   module Internal = struct
     module CS = Set.Make(Int)
@@ -20,26 +18,26 @@ module Printer(P: EngineParameters) (S: Encoding.StringLike with type t := P.str
     (* TODO: check spec and update list *)
     let escaped = CS.of_list (List.map Char.code ('\\' :: '/' :: '-' :: '[' :: ']' :: '{' :: '}' :: '(' :: ')' :: '*' :: '+' :: '?' :: '$' :: '^' :: '|' :: '.' :: []))
 
-    let escape (c: character) : ocaml_string =
-      let str = to_string (P.String.list_to_string (c :: [])) in
+    let escape (c: P.character) : ocaml_string =
+      let str = S.to_string (P.String.list_to_string (c :: [])) in
       if String.length str != 1 then
         failwith "Unexpected escape corner case: '" ^ str ^ "'"
       else
         "\\" ^ str
 
-    let char_lit_to_string (c: character) : ocaml_string =
+    let char_lit_to_string (c: P.character) : ocaml_string =
       let i = P.Character.numeric_value c in
       if CS.mem i escaped then
         escape c
       else
-        let str = to_string (P.String.list_to_string (c :: [])) in
+        let str = S.to_string (P.String.list_to_string (c :: [])) in
         str
 
     let hex4digits_to_string (h: Extracted.HexDigit.coq_Hex4Digits) : ocaml_string =
       let Coq_hex4 (h1, h2, h3, h4) = h in
       (String.make 1 h1) ^ (String.make 1 h2) ^ (String.make 1 h3) ^ (String.make 1 h4)
 
-    let character_escape_to_string (esc: (character, string) coq_CharacterEscape) : ocaml_string =
+    let character_escape_to_string (esc: (P.character) coq_CharacterEscape) : ocaml_string =
       match esc with
       | ControlEsc esc -> (match esc with
         | Coq_esc_f -> "\\f"
@@ -56,7 +54,7 @@ module Printer(P: EngineParameters) (S: Encoding.StringLike with type t := P.str
         | CodePoint _ -> failwith "TODO: pretty-printer -- \\u{codepoint}")
       | IdentityEsc c -> escape c
 
-    let character_class_escape_to_string (esc: (character, string) coq_CharacterClassEscape) : ocaml_string =
+    let character_class_escape_to_string (esc: (P.property) coq_CharacterClassEscape) : ocaml_string =
       match esc with
       | Coq_esc_d -> "\\d"
       | Coq_esc_D -> "\\D"
@@ -81,7 +79,7 @@ module Printer(P: EngineParameters) (S: Encoding.StringLike with type t := P.str
       | Greedy (qp) -> quantifier_prefix_to_string qp
       | Lazy (qp) -> quantifier_prefix_to_string qp ^ "?"
 
-    let class_atom_to_string (ca: (character, string) coq_ClassAtom) : ocaml_string =
+    let class_atom_to_string (ca: (P.character, P.property) coq_ClassAtom) : ocaml_string =
       match ca with
       | SourceCharacter c -> char_lit_to_string c
       | ClassEsc Coq_esc_b -> "\\b"
@@ -89,7 +87,7 @@ module Printer(P: EngineParameters) (S: Encoding.StringLike with type t := P.str
       | ClassEsc (CCharacterClassEsc esc) -> character_class_escape_to_string esc
       | ClassEsc (CCharacterEsc esc) -> character_escape_to_string esc
 
-    let rec range_to_string (r: (character, string) coq_ClassRanges) : ocaml_string =
+    let rec range_to_string (r: (P.character, P.property) coq_ClassRanges) : ocaml_string =
     match r with
     | EmptyCR -> ""
     | ClassAtomCR (ca, r) -> (class_atom_to_string ca) ^ (range_to_string r)
@@ -98,7 +96,7 @@ module Printer(P: EngineParameters) (S: Encoding.StringLike with type t := P.str
 
     (* Exec result printers *)
 
-    let quoted (str: string) : ocaml_string = "'" ^ to_string str ^ "'"
+    let quoted (str: P.string) : ocaml_string = "'" ^ S.to_string str ^ "'"
 
     let string_range (string_input: ocaml_string) (single_capture: Extracted.Notation.CaptureRange.coq_type) : ocaml_string =
       let { Extracted.Notation.CaptureRange.startIndex = s; Extracted.Notation.CaptureRange.endIndex = e } = single_capture in
@@ -125,7 +123,7 @@ module Printer(P: EngineParameters) (S: Encoding.StringLike with type t := P.str
       in
       keyed_list_to_string ~nil:nil ~prefix:prefix ~key_sep:key_sep ~sep:sep string_of_int p (indexed l 0)
 
-    let exec_array_exotic_to_string (pretty: bool) (a: execArrayExotic) : ocaml_string =
+    let exec_array_exotic_to_string (pretty: bool) (a: E.execArrayExotic) : ocaml_string =
       if pretty then
         let zip_with_opt (type a b) (l: a list) (r: b option list option) = match r with
           | None -> List.map (fun l -> (l, None)) l
@@ -146,7 +144,7 @@ module Printer(P: EngineParameters) (S: Encoding.StringLike with type t := P.str
             (zip_with_opt a.array a.indices_array)) ::
           (option_to_string ~none:"" ~some_prefix:"Named captures:"
               (keyed_list_to_string ~prefix:"\027[20G# " ~key_sep:"\027[32G: " ~sep:"\n\027[20G# "
-                to_string
+                S.to_string
                 (pair_to_string ~start:"" ~sep:"\027[64G" ~endd:""
                   (option_to_string quoted)
                   (option_to_string ~none:"" (pair_to_string string_of_int string_of_int))))
@@ -163,7 +161,7 @@ module Printer(P: EngineParameters) (S: Encoding.StringLike with type t := P.str
           ("Named captures:" ^ (
             option_to_string ~none:"\n\tNone" 
               (keyed_list_to_string ~nil:"\n\tNone" ~prefix:"\n\t# " ~key_sep:" : " ~sep:"\n\t# "
-                to_string
+                S.to_string
                 (option_to_string quoted))
             a.groups)) ::
           ("Indices:" ^ (
@@ -174,7 +172,7 @@ module Printer(P: EngineParameters) (S: Encoding.StringLike with type t := P.str
           ("Named indices:" ^ (
             option_to_string ~none:"\n\tNone" 
               (keyed_list_to_string ~nil:"\n\tNone" ~prefix:"\n\t# " ~key_sep:" : " ~sep:"\n\t# "
-              to_string
+              S.to_string
                 (option_to_string ~none:"Undefined" (pair_to_string string_of_int string_of_int)))
             a.indices_groups)) ::
           []
@@ -186,10 +184,10 @@ module Printer(P: EngineParameters) (S: Encoding.StringLike with type t := P.str
     In strict mode, the regex will be printed as is.
     In non-strict mode, an equivalent regex (through associativity) might be printed.
     Additionally, in non-strict mode, parentheses which are not required by most engines (but are mandated by the spec) are not printed. *)
-  let regex_to_string ?(delimited=true) ?(strict=false) (r: (character, string) coq_Regex) : ocaml_string =
+  let regex_to_string ?(delimited=true) ?(strict=false) (r: (P.character, P.string, P.property) coq_Regex) : ocaml_string =
     let next (i: int) : int = if strict then i + 1 else i in
     let prio_if_strict (str: ocaml_string) (at: int) (current: int) : ocaml_string = if strict then prio str at current else str in
-    let rec iter (r: (character, string) coq_Regex) (current: int) : ocaml_string =
+    let rec iter (r: (P.character, P.string, P.property) coq_Regex) (current: int) : ocaml_string =
       match r with
       | Empty -> prio_if_strict "" 3 current
       | Char c -> char_lit_to_string c
@@ -200,12 +198,12 @@ module Printer(P: EngineParameters) (S: Encoding.StringLike with type t := P.str
       | AtomEsc (DecimalEsc gid) -> "\\" ^ string_of_int gid
       | AtomEsc (ACharacterClassEsc esc) -> character_class_escape_to_string esc
       | AtomEsc (ACharacterEsc esc) -> character_escape_to_string esc
-      | AtomEsc (GroupEsc name) -> "\\" ^ "k<" ^ to_string name ^ ">"
+      | AtomEsc (GroupEsc name) -> "\\" ^ "k<" ^ S.to_string name ^ ">"
       | Disjunction (r1, r2) -> prio ((iter r1 (next 0)) ^ "|" ^ (iter r2 0)) 0 current
       | Quantified (r1, q) -> prio ((iter r1 4) ^ quantifier_to_string q) 3 current
       | Seq (r1, r2) -> prio ((iter r1 (next 1)) ^ (iter r2 1)) 1 current
       | Group (None, r1) -> "(" ^ iter r1 0 ^ ")"
-      | Group (Some name, r1) -> "(?<" ^ to_string name ^  ">" ^ iter r1 0 ^ ")"
+      | Group (Some name, r1) -> "(?<" ^ S.to_string name ^  ">" ^ iter r1 0 ^ ")"
       | InputStart -> prio "^" 3 current
       | InputEnd -> prio_if_strict "$" 3 current
       | WordBoundary -> prio_if_strict "\\b" 3 current
@@ -218,7 +216,7 @@ module Printer(P: EngineParameters) (S: Encoding.StringLike with type t := P.str
     let res = iter r 0 in
     if delimited then "/" ^ res ^ "/" else res
 
-  let match_state_to_string (m: (character, string) Extracted.Notation.MatchState.coq_type): ocaml_string =
+  let match_state_to_string (m: (P.character) Extracted.Notation.MatchState.coq_type): ocaml_string =
     let Extracted.Notation.MatchState.{input = ls; endIndex = endIndex; captures = captures } = m in
     String.concat "\n" (List.filter (fun s -> String.length s != 0) (
           ("Input: " ^ S.to_string (P.String.list_to_string ls)) ::
@@ -231,14 +229,14 @@ module Printer(P: EngineParameters) (S: Encoding.StringLike with type t := P.str
           []
         ))
 
-  let match_result_to_string (r: (character, string) Extracted.Notation.coq_MatchResult): ocaml_string =
+  let match_result_to_string (r: (P.character) Extracted.Notation.coq_MatchResult): ocaml_string =
     match r with
     | None -> "No match"
     | Some m -> match_state_to_string m
 
-  let array_exotic_to_string ?(pretty=true) (a: (character, string) Extracted.ExecArrayExotic.coq_type): ocaml_string = Internal.exec_array_exotic_to_string pretty a
+  let array_exotic_to_string ?(pretty=true) (a: (P.string) Extracted.ExecArrayExotic.coq_type): ocaml_string = Internal.exec_array_exotic_to_string pretty a
 
-  let exec_result_to_string ?(pretty=true) (r: (character, string) Extracted.execResult): ocaml_string =
+  let exec_result_to_string ?(pretty=true) (r: (P.character, P.string, P.property) Extracted.execResult): ocaml_string =
     match r with
     | Null _ -> "No match"
     | Exotic (a, _) -> Internal.exec_array_exotic_to_string pretty a

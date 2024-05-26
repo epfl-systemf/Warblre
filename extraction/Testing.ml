@@ -9,7 +9,7 @@ module Tester (P: EngineParameters) (S: Encoding.StringLike with type t := P.str
 
   let string_to_engine_input str = P.String.list_from_string (S.of_string str)
 
-  let test_regex_using_record regex input at rer =
+  let test_regex_using_record (regex: (P.character, _, _) Patterns.coq_Regex) input at rer =
     let matcher =  compilePattern regex rer in
     let ls_input = string_to_engine_input input in
     Printf.printf "Regex %s on '%s' at %d:\n" (regex_to_string regex) input at;

@@ -63,13 +63,17 @@ Module Type EngineParameters.
   End Property.
 End EngineParameters.
 
-
 Module Engine (parameters: EngineParameters).
   Definition character := parameters.character.
   Definition string := parameters.string.
+  Definition property := parameters.property.
+
+  Instance character_marker: CharacterMarker character := (mk_character_marker _).
+  Instance string_marker: StringMarker string := (mk_string_marker _).
+  Instance property_marker: UnicodePropertyMarker property := (mk_unicode_property_marker _).
 
   (* Instanciation *)
-  Definition char_instance: CharacterInstance character string := Character.make character string
+  Definition char_instance: CharacterInstance := Character.make character string
     (EqDec.make _ parameters.Character.equal)
     parameters.Character.from_numeric_value
     parameters.Character.numeric_value
@@ -104,22 +108,31 @@ Module Engine (parameters: EngineParameters).
     parameters.CharSets.digits
     parameters.CharSets.white_spaces
     parameters.CharSets.ascii_word_characters
-    parameters.property
+    property
     (EqDec.make _ parameters.Property.equal)
     parameters.Property.code_points
-    (mk_character_marker _)
-    (mk_string_marker _)
-    (mk_unicode_property_marker _)
+    _ _ _
   .
 
-  (* Utils *)
-  Definition countGroups r := @StaticSemantics.countLeftCapturingParensWithin_impl _ _ char_instance r.
+  Notation Regex := (@Patterns.Regex character string property _ _ _).
+  Notation MatchResult := (@Notation.MatchResult character _).
+  Notation RegExpInstance := (@RegExpInstance.type _ _ _ _ _ _).
+  Notation ExecResult := (@ExecResult character string property _ _ _).
 
   (* API *)
-  Definition compilePattern := @Semantics.compilePattern _ _ char_instance.
+  Definition countGroups: Regex -> non_neg_integer :=
+    @StaticSemantics.countLeftCapturingParensWithin_impl char_instance.
 
-  Definition initialize := @Frontend.regExpInitialize _ _ char_instance.
-  Definition setLastIndex := @Frontend.RegExpInstance.setLastIndex _ _ char_instance.
-  Definition exec := @Frontend.regExpExec _ _ char_instance.
-  Definition execArrayExotic := @Frontend.ExecArrayExotic _ _ char_instance.
+  Definition compilePattern:
+      Regex -> (RegExpRecord.type) ->
+      Result (list character -> non_neg_integer -> MatchResult) _
+    := @Semantics.compilePattern char_instance.
+
+  Definition initialize: Regex -> RegExpFlags.type -> (Result RegExpInstance _) :=
+    @Frontend.regExpInitialize char_instance.
+  Definition setLastIndex :=
+    @Frontend.RegExpInstance.setLastIndex character string property _ _ _.
+  Definition exec: RegExpInstance -> string -> Result ExecResult _ :=
+    @Frontend.regExpExec char_instance.
+  Definition execArrayExotic := @Frontend.ExecArrayExotic string (mk_string_marker _).
 End Engine.

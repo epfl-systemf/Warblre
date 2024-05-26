@@ -27,31 +27,30 @@ Module Notation.
         capturing parentheses, or undefined if the nth set of capturing parentheses hasn't been reached yet. Due
         to backtracking, many States may be in use at any time during the matching process. *)
   Module MatchState. Section main.
-    Record type `{ep: CharacterInstance Γ Σ} := make {
+    Record type {Character} `{CharacterMarker Character} := make {
       input: list Character;
       endIndex: integer; (* one plus the index of the last input character matched so far *)
       captures: list (option CaptureRange);
     }.
-    #[global]
-    Arguments make {_} {_} {_}.
+    #[global ]Arguments make {_} {_}.
   End main. End MatchState.
   Notation MatchState := MatchState.type.
   Notation match_state := MatchState.make.
-  #[refine] Instance eqdec_matchState `{ep: CharacterInstance Γ Σ}: EqDec MatchState := {}. decide equality; try apply EqDec.eq_dec. Defined.
+
+  #[export] #[refine]
+  Instance eqdec_matchState {C} `{m: CharacterMarker C} `{EqDec C}: EqDec MatchState := {}. decide equality; try apply EqDec.eq_dec. Defined.
 
   Section main.
-    Context `{ep: CharacterInstance Γ Σ}.
-
     (* - A MatchResult is either a MatchState or the special token failure that indicates that the match failed. *)
-    Definition MatchResult := Result (option MatchState) MatchError.
-    Instance eqdec_matchResult `{ep: CharacterInstance Γ Σ}: EqDec MatchResult := eqdec_result.
+    Definition MatchResult {Character} `{CharacterMarker Character} := Result (option MatchState) MatchError.
+    Instance eqdec_matchResult {C} `{CharacterMarker C} `{EqDec C} `{ep: CharacterInstance}: EqDec MatchResult := _.
 
     (*  - A MatcherContinuation is an Abstract Closure that takes one MatchState argument and returns a
           MatchResult result. The MatcherContinuation attempts to match the remaining portion (specified by the
           closure's captured values) of the pattern against Input, starting at the intermediate state given by its
           MatchState argument. If the match succeeds, the MatcherContinuation returns the final MatchState that it
           reached; if the match fails, the MatcherContinuation returns failure. *)
-    Definition MatcherContinuation := MatchState -> MatchResult.
+    Definition MatcherContinuation {Character} `{CharacterMarker Character} := MatchState -> MatchResult.
 
     (*  - A Matcher is an Abstract Closure that takes two arguments—a MatchState and a MatcherContinuation—
           and returns a MatchResult result. A Matcher attempts to match a middle subpattern (specified by the
@@ -62,7 +61,7 @@ Module Notation.
           If it can, the Matcher returns the MatchState returned by MatcherContinuation; if not, the Matcher may try
           different choices at its choice points, repeatedly calling MatcherContinuation until it either succeeds or all
           possibilities have been exhausted. *)
-    Definition Matcher := MatchState -> MatcherContinuation -> MatchResult.
+    Definition Matcher {Character} `{CharacterMarker Character} := MatchState -> MatcherContinuation -> MatchResult.
   End main.
   Notation undefined := None (only parsing).
   Notation failure := (@None MatchState) (only parsing).

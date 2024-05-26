@@ -59,7 +59,8 @@ module Fuzzer (P: EngineParameters) (S: Warblre.Encoding.StringLike with type t 
     module H = Warblre_js.HostEngine.HostEngine(P)(S)
     open H
 
-    let exec (regex: (P.character, P.string) coq_Regex) (flags: Extracted.RegExpFlags.coq_type) (at: int) (str: P.string): (P.character, P.string) Extracted.ExecArrayExotic.coq_type option =
+    let exec (regex: (P.character, P.string, P.property) coq_Regex) (flags: Extracted.RegExpFlags.coq_type) (at: int) (str: P.string):
+    (P.string) Extracted.ExecArrayExotic.coq_type option =
       let r = initialize regex flags in
       setLastIndex r at;
       exec r str
@@ -73,12 +74,12 @@ module Fuzzer (P: EngineParameters) (S: Warblre.Encoding.StringLike with type t 
   (* Engine extracted from our mechanization. *)
   module RefEngine = struct
 
-    let make_output_stateless (res: (P.character, P.string) Extracted.execResult): (P.character, P.string) Extracted.ExecArrayExotic.coq_type option =
+    let make_output_stateless (res: (P.character, P.string, P.property) Extracted.execResult): (P.string) Extracted.ExecArrayExotic.coq_type option =
       match res with
       | Null _ -> None
       | Exotic (a, _) -> Some a
 
-    let exec (regex: (P.character, P.string) coq_Regex) (flags: Extracted.RegExpFlags.coq_type) (at: int) (str: P.string): (P.character, P.string) Extracted.ExecArrayExotic.coq_type option =
+    let exec (regex: (P.character, P.string, P.property) coq_Regex) (flags: Extracted.RegExpFlags.coq_type) (at: int) (str: P.string): (P.string) Extracted.ExecArrayExotic.coq_type option =
       let r0 = initialize regex flags in
       let r1 = setLastIndex r0 at in
       make_output_stateless (exec r1 str)
@@ -93,7 +94,7 @@ module Fuzzer (P: EngineParameters) (S: Warblre.Encoding.StringLike with type t 
       A setup as in https://github.com/janestreet/async/blob/master/example/timeouts.ml might allow to do just that.
       TODO: maybe JS allows to do this more easily.
   *)
-  let compare_engines (regex: (character, string) coq_Regex) (flags: Extracted.RegExpFlags.coq_type) (index: int) (str: ocaml_string) (_: frontend_function): comparison_result =
+  let compare_engines (regex: (character, string, P.property) coq_Regex) (flags: Extracted.RegExpFlags.coq_type) (index: int) (str: ocaml_string) (_: frontend_function): comparison_result =
     let result_to_string = Internal.option_to_string ~none:"No match" (array_exotic_to_string ~pretty:false) in
     let sep = String.init 100 (fun _ -> '-') in
     Printf.printf "\027[36mJS Regex:\027[0m %s\n" (regex_to_string regex);
@@ -141,9 +142,9 @@ module Fuzzer (P: EngineParameters) (S: Warblre.Encoding.StringLike with type t 
       let qp = random_qp () in
       if (Random.bool ()) then Greedy qp else Lazy qp
 
-    let random_char_ranges () : (character, string) coq_ClassRanges =
+    let random_char_ranges () : (character, P.property) coq_ClassRanges =
       let sc c = SourceCharacter (P.Character.from_numeric_value (Char.code c)) in
-      List.fold_left (fun current _: (character, string) coq_ClassRanges ->
+      List.fold_left (fun current _: (character, P.property) coq_ClassRanges ->
         if Random.bool() then
           let c = random_char() in
           ClassAtomCR (sc c, current)
@@ -166,11 +167,11 @@ module Fuzzer (P: EngineParameters) (S: Warblre.Encoding.StringLike with type t 
     *)
 
     (* Table used to generate regex without children (i.e. leafs of the AST) *)
-    let ticketTableNonRec: (int * (unit -> (character, string) coq_Regex)) list = [
+    let ticketTableNonRec: (int * (unit -> (character, string, P.property) coq_Regex)) list = [
       ( 1, fun _ -> Empty);
-      ( 1, fun _: (character, string) coq_Regex ->
+      ( 1, fun _: (character, string, P.property) coq_Regex ->
           let r = random_char_ranges () in
-          let cc: (character, string) coq_CharClass = if Random.bool() then NoninvertedCC (r) else InvertedCC(r) in
+          let cc: (character, P.property) coq_CharClass = if Random.bool() then NoninvertedCC (r) else InvertedCC(r) in
           CharacterClass (cc)
       ); 
       ( 3, fun _ -> let c = random_char() in Char (P.Character.from_numeric_value (Char.code c)));
@@ -179,7 +180,7 @@ module Fuzzer (P: EngineParameters) (S: Warblre.Encoding.StringLike with type t 
       ( 1, fun _ -> Dot);
     ]
 
-    let ticketTableRec: (int * (int -> (int -> (character, string) coq_Regex) -> (character, string) coq_Regex)) list = [
+    let ticketTableRec: (int * (int -> (int -> (character, string, P.property) coq_Regex) -> (character, string, P.property) coq_Regex)) list = [
       ( 3, fun depth random_ast -> 
             let r1 = random_ast (depth-1) in
             let r2 = random_ast (depth-1) in
@@ -235,7 +236,7 @@ module Fuzzer (P: EngineParameters) (S: Warblre.Encoding.StringLike with type t 
       ticketTableRec
       ])
 
-    let rec random_ast (depth:int) : (character, string) coq_Regex =
+    let rec random_ast (depth:int) : (character, string, P.property) coq_Regex =
       if (depth = 0) then
         (* The regex cannot have further children -> use the "childless" table *)
         let rand = Random.int (Lookup.cardinal base_lookup) in
@@ -252,10 +253,10 @@ module Fuzzer (P: EngineParameters) (S: Warblre.Encoding.StringLike with type t 
         Assign the names to the groups.
     *)
     module M = Map.Make(Int)
-    let fill_backref_and_groups_names (r: (character, string) coq_Regex) (group_count: int) (names_map: string M.t) : (character, string) coq_Regex =
+    let fill_backref_and_groups_names (r: (character, string, P.property) coq_Regex) (group_count: int) (names_map: string M.t) : (character, string, P.property) coq_Regex =
       let group_id = ref 0 in
       let names = List.map snd (List.of_seq (M.to_seq names_map)) in
-      let rec iter (r: (character, string) coq_Regex)  =
+      let rec iter (r: (character, string, P.property) coq_Regex)  =
         match r with
         | Empty | Char _ | Dot| CharacterClass _ -> r
         | AtomEsc (GroupEsc _) ->
@@ -305,7 +306,7 @@ module Fuzzer (P: EngineParameters) (S: Warblre.Encoding.StringLike with type t 
   end
 
   (* Generate an AST then fills the backreferences numbers *)
-  let random_regex (): (character, string) coq_Regex =
+  let random_regex (): (character, string, P.property) coq_Regex =
     let ast = RegexGenerator.random_ast (Random.int max_regex_depth) in
     let group_count = countGroups ast in
     let named_group_count = (Random.int ((min (List.length group_names) group_count) + 1)) in

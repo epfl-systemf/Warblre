@@ -29,7 +29,12 @@ Notation reg_exp_flags := RegExpFlags.make.
 
 (** 22.2.8 Properties of RegExp Instances *)
 Module RegExpInstance. Section main.
-  Context `{ep: CharacterInstance Γ Σ}.
+  Local Definition String {T: Type} `{StringMarker T} := T.
+  Local Definition Character {T: Type} `{CharacterMarker T} := T.
+  Local Definition UnicodeProperty {T: Type} `{UnicodePropertyMarker T} := T.
+  Context {Character_ String_ UnicodeProperty_: Type}
+    `{CharacterMarker Character_} `{StringMarker String_} `{UnicodePropertyMarker UnicodeProperty_}.
+
   Record type := make {
       originalSource: Patterns.Regex;
       originalFlags: RegExpFlags;
@@ -46,7 +51,7 @@ Notation RegExpInstance := RegExpInstance.type.
 Notation reg_exp_instance := RegExpInstance.make.
 
 Section Initialization.
-  Context `{ep: CharacterInstance Γ Σ}.
+  Context `{ep: CharacterInstance}.
 
   (** 22.2.3.4 Static Semantics: ParsePattern ( patternText, u ) *)
 
@@ -107,13 +112,15 @@ Notation MatchRecord := MatchRecord.type.
 Notation match_record := MatchRecord.make.
 
 (* the groups that are returned inside the obejct returned by RegExpBuiltinExec *)
-Definition groups_map `{ep: CharacterInstance Γ Σ}: Type := list (GroupName * option String).
+Definition groups_map {S} `{StringMarker S}: Type := list (GroupName * option S).
 
   (* RegExpBuiltinExec returns an array exotic, i.e. a blob mapping names and indices to (JS) values.
      We instead use, and define here, a statically typed record to represent these returned values.
   *)
 Module ExecArrayExotic. Section main.
-  Context `{ep: CharacterInstance Γ Σ}.
+  Local Definition String {T: Type} `{StringMarker T} := T.
+  Local Definition Character {T: Type} `{CharacterMarker T} := T.
+  Context {Character_ String_: Type} `{CharacterMarker Character_} `{StringMarker String_}.
 
   Record type := make {
       index: nat;
@@ -127,8 +134,12 @@ End main. End ExecArrayExotic.
 Notation ExecArrayExotic := ExecArrayExotic.type.
 Notation exec_array_exotic := ExecArrayExotic.make.
 
+Inductive ExecResult {C S UP: Type} `{CharacterMarker C} `{StringMarker S} `{UnicodePropertyMarker UP} :=
+| Null: RegExpInstance -> ExecResult (* also returns modifications to the RegExpInstance Object *)
+| Exotic: ExecArrayExotic -> RegExpInstance -> ExecResult.
+
 Section BuiltinExec.
-  Context `{ep: CharacterInstance Γ Σ}.
+  Context `{ep: CharacterInstance}.
 
   (** 22.2.7.7 GetMatchIndexPair ( S, match ) *)
 
@@ -222,10 +233,6 @@ Section BuiltinExec.
     Success (String.substring S (MatchRecord.startIndex matsh) (MatchRecord.endIndex matsh)).
 
   (** 22.2.7.2 RegExpBuiltinExec ( R, S ) *)
-
-  Inductive ExecResult :=
-  | Null: RegExpInstance -> ExecResult (* also returns modifications to the RegExpInstance Object *)
-  | Exotic: ExecArrayExotic -> RegExpInstance -> ExecResult.
 
   (* The inner repeat loop can either make the whole function terminate *)
   (* Or it lets the whole function go on, but defines (r:MatchState) and (lastIndex:nat) *)
@@ -478,7 +485,7 @@ Section BuiltinExec.
 End BuiltinExec.
 
 Section API.
-  Context `{ep: CharacterInstance Γ Σ}.
+  Context `{ep: CharacterInstance}.
 
   (** 22.2.7.1 RegExpExec ( R, S ) *)
   Definition regExpExec (R: RegExpInstance) (S: String): Result.Result ExecResult MatchError :=

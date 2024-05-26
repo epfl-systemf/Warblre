@@ -30,16 +30,16 @@ module CharNotations (P: EngineParameters) (S: Encoding.StringLike with type t :
   let (!$) n = assert(0 < n); AtomEsc (DecimalEsc n)
   let (!&) n = AtomEsc (GroupEsc (S.of_string n))
 
-  let lchar (c: P.character list): (P.character, P.string) coq_Regex =
+  let lchar (c: P.character list): (P.character, P.string, P.property) coq_Regex =
     match c with
     | h :: [] -> Char h
     | _ -> failwith (String.cat "Invalid P.character: " (S.to_string (P.String.list_to_string c)))
 
-  let char (c: string): (P.character, P.string) coq_Regex = lchar (P.String.list_from_string (S.of_string c))
+  let char (c: string): (P.character, P.string, P.property) coq_Regex = lchar (P.String.list_from_string (S.of_string c))
 
-  let ichar (c: int): (P.character, P.string) coq_Regex = Char (P.Character.from_numeric_value c)
+  let ichar (c: int): (P.character, P.string, P.property) coq_Regex = Char (P.Character.from_numeric_value c)
 
-  let cchar (c: char): (P.character, P.string) coq_Regex = ichar (Char.code c)
+  let cchar (c: char): (P.character, P.string, P.property) coq_Regex = ichar (Char.code c)
 
   let sc c = SourceCharacter (P.Character.from_numeric_value (Char.code c))
 end

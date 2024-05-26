@@ -4,7 +4,6 @@ module Conversion (P: Engines.EngineParameters) (S: Encoding.StringLike with typ
   module E = Engines.Engine(P)
   open E
   module Pr = Printers.Printer(P)(S)
-  open Pr
 
   type ('a, 'b) pair = {
     first: 'a;
@@ -85,7 +84,7 @@ module Conversion (P: Engines.EngineParameters) (S: Encoding.StringLike with typ
     }
   |}]
 
-  let unexotic_match_result_to_result (r: unexotic_match_result Js.Nullable.t): (character, string) Extracted.ExecArrayExotic.coq_type option =
+  let unexotic_match_result_to_result (r: unexotic_match_result Js.Nullable.t): (P.string) Extracted.ExecArrayExotic.coq_type option =
     let to_mapped_option (type a b) (f: a -> b) (o: a Js.Nullable.t): b option = Option.map f (Js.Nullable.toOption o) in
     let to_mapped_list (type a b) (f: a -> b) (a: a Js.Array.t): b list = List.map f (Array.to_list a) in
     let to_mapped_tuple (type a b c d) (f: a -> c) (g: b -> d) (p: (a, b) pair): (c * d) = (f p.first, g p.second) in
@@ -104,14 +103,14 @@ module Conversion (P: Engines.EngineParameters) (S: Encoding.StringLike with typ
         })
       )
 
-  let result_to_unexotic_match_result (r: (character, string) Extracted.ExecArrayExotic.coq_type option): unexotic_match_result Js.Nullable.t =
+  let result_to_unexotic_match_result (r: (string) Extracted.ExecArrayExotic.coq_type option): unexotic_match_result Js.Nullable.t =
     let to_mapped_nullable (type a b) (f: a -> b) (o: a option): b Js.Nullable.t = Js.Nullable.fromOption (Option.map f o) in
     let to_mapped_array (type a b) (f: a -> b) (a: a list): b Js.Array.t = Array.of_list (List.map f a) in
     let to_mapped_pair (type a b c d) (f: a -> c) (g: b -> d) (p: a * b): (c, d) pair = { first = f (fst p); second = g (snd p)} in
     let to_pair = to_mapped_pair (fun x -> x) (fun x -> x) in
     (* TODO: conversion *)
     let to_string str = (S.to_string str) in
-    r |> Option.map (fun (r: (character, string) Extracted.ExecArrayExotic.coq_type) ->
+    r |> Option.map (fun (r: (string) Extracted.ExecArrayExotic.coq_type) ->
         {
           index = r.index;
           input = to_string (r.input);
@@ -123,9 +122,9 @@ module Conversion (P: Engines.EngineParameters) (S: Encoding.StringLike with typ
       )|> Js.Nullable.fromOption
 
   module MatchResult = struct
-    let ocaml_of_js (r: Js.Re.result Js.nullable): (character, string) Extracted.ExecArrayExotic.coq_type option =
+    let ocaml_of_js (r: Js.Re.result Js.nullable): (string) Extracted.ExecArrayExotic.coq_type option =
       r |> unexotify_match_result |> unexotic_match_result_to_result
-    let js_of_ocaml (r: (character, string) Extracted.ExecArrayExotic.coq_type option): Js.Re.result Js.nullable =
+    let js_of_ocaml (r: (string) Extracted.ExecArrayExotic.coq_type option): Js.Re.result Js.nullable =
       r |> result_to_unexotic_match_result |> exotify_match_result
   end
 end

@@ -76,34 +76,37 @@ Class StringMarker (T: Type): Prop := mk_string_marker {}.
 Class UnicodePropertyMarker (T: Type): Prop := mk_unicode_property_marker {}.
 
 Module Character.
-  Class class (character input: Type) := make {
+  Class class := make {
+    Character: Type;
+    String: Type;
+
     (* The character type and its operations *)
-    #[global] eq_dec :: EqDec character;
-    from_numeric_value: nat -> character;
-    numeric_value: character -> nat;
-    canonicalize: RegExpRecord -> character -> character;
+    #[global] eq_dec :: EqDec Character;
+    from_numeric_value: nat -> Character;
+    numeric_value: Character -> nat;
+    canonicalize: RegExpRecord -> Character -> Character;
 
     numeric_pseudo_bij: forall c, from_numeric_value (numeric_value c) = c;
     numeric_round_trip_order: forall l r, l <= r -> (numeric_value (from_numeric_value l)) <= (numeric_value (from_numeric_value r));
 
-    #[global] string_ops :: String.class input;
-    from_string: input -> list character;
+    #[global] string_ops :: String.class String;
+    from_string: String -> list Character;
 
-    set_type: CharSet.class character;
+    set_type: CharSet.class Character;
 
     (* Some important (sets of) characters *)
-    all: list character;
-    line_terminators: list character;
-    digits: list character;
-    white_spaces: list character;
-    ascii_word_characters: list character;
+    all: list Character;
+    line_terminators: list Character;
+    digits: list Character;
+    white_spaces: list Character;
+    ascii_word_characters: list Character;
 
     unicode_property: Type;
     #[global] unicode_property_eqdec:: EqDec unicode_property;
-    code_points_for: unicode_property -> list character;
+    code_points_for: unicode_property -> list Character;
 
-    #[global] character_marker:: CharacterMarker character;
-    #[global] string_marker:: StringMarker input;
+    #[global] character_marker:: CharacterMarker Character;
+    #[global] string_marker:: StringMarker String;
     #[global] unicode_property_marker::> UnicodePropertyMarker unicode_property;
   }.
 
@@ -112,11 +115,7 @@ Module Character.
     rewrite !numeric_pseudo_bij in *.
     assumption.
   Qed.
-
-  Definition character {Γ Σ} `{_: class Γ Σ} := Γ.
-  Definition input {Γ Σ} `{_: class Γ Σ} := Σ.
 End Character.
-#[global] Generalizable Variable Γ Σ.
 Notation CharacterInstance := @Character.class.
 Notation CharSet := (@CharSet.set_type _ Character.set_type).
 
@@ -134,15 +133,15 @@ Notation CharSet := (@CharSet.set_type _ Character.set_type).
       does not require a Obj.magic galore.
 *)
 
-Notation Character := Character.character.
-Notation String := Character.input.
+Notation Character := Character.Character.
+Notation String := Character.String.
 Notation UnicodeProperty := Character.unicode_property.
 
 (* Used in frontend due to bug in coq kernel (see use site). TODO: remove once bug is fixed. *)
-Definition string_string `{ci: CharacterInstance Γ Σ}: String.class String := Character.string_ops.
+Definition string_string `{ci: CharacterInstance}: String.class String := Character.string_ops.
 
 Module Characters. Section main.
-  Context `{ep: CharacterInstance Γ Σ}.
+  Context `{ep: CharacterInstance}.
 
   Definition NULL: Character := Character.from_numeric_value 0.
   Definition BACKSPACE: Character := Character.from_numeric_value 8.

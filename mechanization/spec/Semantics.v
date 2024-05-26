@@ -252,7 +252,7 @@ Module Semantics. Section main.
   (**  CharacterClassEscape :: p{ UnicodePropertyValueExpression } *)
   | ClassEsc (CCharacterClassEsc (UnicodeProp p)) => 
       (* 1. Return the CharSet containing all Unicode code points included in CompileToCharSet of UnicodePropertyValueExpression with argument rer. *)
-      CharSet.from_list (Character.code_points_for p)
+      CharSet.from_list (Property.code_points_for p)
 
   | ClassEsc (CCharacterClassEsc esc_D) => Result.assertion_failed
   | ClassEsc (CCharacterClassEsc esc_S) => Result.assertion_failed

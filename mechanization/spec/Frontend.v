@@ -376,7 +376,7 @@ Section BuiltinExec.
     (* 10. Let matchSucceeded be false. *)
     let matchSucceeded := false in
     (* 11. If fullUnicode is true, let input be StringToCodePoints(S). Otherwise, let input be a List whose elements are the code units that are the elements of S. *)
-    let input := Character.from_string S in
+    let input := String.to_char_list S in
     (* 12. NOTE: Each element of input is considered to be a character. *)
     (* 13. Repeat, while matchSucceeded is false, *)
     (* We change the repeat loop to a recursive function with fuel *)

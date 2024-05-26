@@ -246,7 +246,7 @@ module UnicodeParameters : Engines.EngineParameters
     let list_from_string str = Unicode.list_from_string (Utf16.list_to_string str)
     let list_to_string str = Utf16.list_from_string (Unicode.list_to_string str)
 
-    module Ops = Extracted.UnicodeOps(struct
+    module Ops = Extracted.API.Utils.UnicodeOps(struct
       type coq_Utf16CodeUnit = Unsigned.UInt16.t
       type coq_Utf16String = Unsigned.UInt16.t list
       let length = List.length

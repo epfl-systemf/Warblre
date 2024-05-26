@@ -18,14 +18,14 @@ end.
 
 Module Definitions.
 
-  Definition characterClass_successful_state `{ep: CharacterInstance} input endIndex captures (dir: Direction) := input [@ step{dir} endIndex $ captures ].
+  Definition characterClass_successful_state `{Parameters} input endIndex captures (dir: Direction) := input [@ step{dir} endIndex $ captures ].
 
   Module RepeatMatcher.
-    Definition matcher `{ep: CharacterInstance} (m: Matcher) (min: non_neg_integer) (max: non_neg_integer_or_inf) 
+    Definition matcher `{Parameters} (m: Matcher) (min: non_neg_integer) (max: non_neg_integer_or_inf) 
       (greedy: bool) (parenIndex parenCount: non_neg_integer) (fuel: nat): Matcher :=
         fun (x : MatchState) (c : MatcherContinuation) => Semantics.repeatMatcher' m min max greedy x c parenIndex parenCount fuel.
 
-    Definition continuation `{ep: CharacterInstance} (x: MatchState) (c: MatcherContinuation) (m: Matcher) (min: non_neg_integer) (max: non_neg_integer_or_inf) 
+    Definition continuation `{Parameters} (x: MatchState) (c: MatcherContinuation) (m: Matcher) (min: non_neg_integer) (max: non_neg_integer_or_inf) 
       (greedy: bool) (parenIndex parenCount: non_neg_integer) (fuel: nat): MatcherContinuation :=
         fun y : MatchState =>
           if (min == 0) && (MatchState.endIndex y =? MatchState.endIndex x)%Z
@@ -36,7 +36,7 @@ Module Definitions.
   End RepeatMatcher.
 
   Module PositiveLookaround.
-    Definition matcher `{ep: CharacterInstance} (m: Matcher): MatchState -> MatcherContinuation -> MatchResult :=
+    Definition matcher `{Parameters} (m: Matcher): MatchState -> MatcherContinuation -> MatchResult :=
       fun (x : MatchState) (c : MatcherContinuation) =>
         let d: MatcherContinuation := fun y => y in
         let! r =<< m x d in
@@ -50,19 +50,19 @@ Module Definitions.
         c z.
 
     (* Check this definition *)
-    Lemma lookahead_correctness `{ep: CharacterInstance}: forall r ctx rer dir m,
+    Lemma lookahead_correctness `{Parameters}: forall r ctx rer dir m,
       Semantics.compileSubPattern r (Lookahead_inner :: ctx) rer forward = Success m ->
       Semantics.compileSubPattern (Patterns.Lookahead r) ctx rer dir = Success (matcher m).
-    Proof. intros ? ? ? ? ? H. cbn. rewrite -> H. reflexivity. Qed.
-    Lemma lookbehind_correctness `{ep: CharacterInstance}: forall r ctx rer dir m,
+    Proof. intros ? ? ? ? ? G. cbn. rewrite -> G. reflexivity. Qed.
+    Lemma lookbehind_correctness `{Parameters}: forall r ctx rer dir m,
       Semantics.compileSubPattern r (Lookbehind_inner :: ctx) rer backward = Success m ->
       Semantics.compileSubPattern (Patterns.Lookbehind r) ctx rer dir = Success (matcher m).
-    Proof. intros ? ? ? ? ? H. cbn. rewrite -> H. reflexivity. Qed.
+    Proof. intros ? ? ? ? ? G. cbn. rewrite -> G. reflexivity. Qed.
 
   End PositiveLookaround.
 
   Module NegativeLookaround.
-    Definition matcher `{ep: CharacterInstance} (m: Matcher): MatchState -> MatcherContinuation -> MatchResult :=
+    Definition matcher `{Parameters} (m: Matcher): MatchState -> MatcherContinuation -> MatchResult :=
       fun (x : MatchState) (c : MatcherContinuation) =>
         let d: MatcherContinuation := fun y => y in
         let! r =<< m x d in
@@ -71,13 +71,13 @@ Module Definitions.
         c x.
 
     (* Check this definition *)
-    Lemma negativeLookahead_correctness `{ep: CharacterInstance}: forall r ctx rer dir m,
+    Lemma negativeLookahead_correctness `{Parameters}: forall r ctx rer dir m,
       Semantics.compileSubPattern r (NegativeLookahead_inner :: ctx) rer forward = Success m ->
       Semantics.compileSubPattern (Patterns.NegativeLookahead r) ctx rer dir = Success (matcher m).
-    Proof. intros ? ? ? ? ? H. cbn. rewrite -> H. reflexivity. Qed.
-    Lemma negativeLookbehind_correctness `{ep: CharacterInstance}: forall r ctx rer dir m,
+    Proof. intros ? ? ? ? ? G. cbn. rewrite -> G. reflexivity. Qed.
+    Lemma negativeLookbehind_correctness `{Parameters}: forall r ctx rer dir m,
       Semantics.compileSubPattern r (NegativeLookbehind_inner :: ctx) rer backward = Success m ->
       Semantics.compileSubPattern (Patterns.NegativeLookbehind r) ctx rer dir = Success (matcher m).
-    Proof. intros ? ? ? ? ? H. cbn. rewrite -> H. reflexivity. Qed.
+    Proof. intros ? ? ? ? ? G. cbn. rewrite -> G. reflexivity. Qed.
   End NegativeLookaround.
 End Definitions.

@@ -1,6 +1,7 @@
 From Coq Require Import ZArith Lia List ListSet Bool.
 From Warblre Require Import Tactics List Result.
 From Warblre Require Export Typeclasses Characters Numeric Coercions Errors.
+From Warblre Require Export Parameters.
 
 (** Notations for list operations *)
 
@@ -45,4 +46,4 @@ Notation "m 'is' 'not' p" := (match m with | p => false | _ => true end) (at lev
 Inductive Direction :=
 | forward
 | backward.
-#[refine ]Instance eqdec_Direction: EqDec Direction := {}. decide equality. Defined.
+#[refine] Instance eqdec_Direction: EqDec Direction := {}. decide equality. Defined.

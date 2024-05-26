@@ -1,4 +1,4 @@
-From Warblre Require Import Result Base Patterns Semantics Frontend Engine Fragments.
+From Warblre Require Import Result Base API.
 From Coq Require Import ZArith.
 
 From Coq Require Extraction.
@@ -10,12 +10,11 @@ From Coq Require extraction.ExtrOcamlNatInt.
 From Coq Require extraction.ExtrOcamlZInt.
 Extract Constant Pos.to_nat => "(fun c -> c)".
 
+(* Eliminate the Result monad from the extracted code. *)
 Extract Inductive Result.Result =>
     "Interop.result"
     [ "Interop.success" "Interop.failure" ]
     "(fun fS _ v -> fS v )".
-
-Extract Constant host_string => "string".
 
 Extract Constant HexDigit.type => "char".
 Extract Constant HexDigit.to_integer => "Interop.Common.parse_hex".
@@ -23,7 +22,5 @@ Extract Constant HexDigit.to_integer => "Interop.Common.parse_hex".
 Extract Constant AsciiLetter.type => "char".
 Extract Constant AsciiLetter.numeric_value => "Char.code".
 
-Extraction Inline Frontend.RegExpInstance.setLastIndex.
-
-Extraction "Extracted.ml" Engine.Engine UnicodeOps.
+Extraction "Extracted.ml" API.
 

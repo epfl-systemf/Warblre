@@ -51,7 +51,7 @@ Notation RegExpInstance := RegExpInstance.type.
 Notation reg_exp_instance := RegExpInstance.make.
 
 Section Initialization.
-  Context `{ep: CharacterInstance}.
+  Context `{specParameters: Parameters}.
 
   (** 22.2.3.4 Static Semantics: ParsePattern ( patternText, u ) *)
 
@@ -139,7 +139,7 @@ Inductive ExecResult {C S UP: Type} `{CharacterMarker C} `{StringMarker S} `{Uni
 | Exotic: ExecArrayExotic -> RegExpInstance -> ExecResult.
 
 Section BuiltinExec.
-  Context `{ep: CharacterInstance}.
+  Context `{specParameters: Parameters}.
 
   (** 22.2.7.7 GetMatchIndexPair ( S, match ) *)
 
@@ -485,7 +485,7 @@ Section BuiltinExec.
 End BuiltinExec.
 
 Section API.
-  Context `{ep: CharacterInstance}.
+  Context `{specParameters: Parameters}.
 
   (** 22.2.7.1 RegExpExec ( R, S ) *)
   Definition regExpExec (R: RegExpInstance) (S: String): Result.Result ExecResult MatchError :=

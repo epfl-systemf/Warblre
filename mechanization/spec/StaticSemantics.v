@@ -1,5 +1,5 @@
 From Coq Require Import PeanoNat List Bool.
-From Warblre Require Import Result List Base Result Patterns Node Characters Coercions Typeclasses.
+From Warblre Require Import Result List Base Result Patterns Node NodeProps Characters Coercions Typeclasses.
 
 Import Coercions.
 Import Result.Notations.
@@ -7,7 +7,7 @@ Import Result.Notations.Boolean.
 Local Open Scope result_flow.
 
 Section StaticSemantics.
-  Context `{ep: CharacterInstance}.
+  Context `{specParameters: Parameters}.
   Import Patterns.
 
   (** 22.2.1.9 Static Semantics: RegExpIdentifierCodePoints *)

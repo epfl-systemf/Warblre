@@ -7,7 +7,7 @@ Module EndToEnd.
   Import Notation.
   Import Patterns.
 
-  Definition regex_compile `{ep: CharacterInstance} (r: Regex) (rer: RegExpRecord)
+  Definition regex_compile `{Parameters} (r: Regex) (rer: RegExpRecord)
       (P0: countLeftCapturingParensWithin r nil = RegExpRecord.capturingGroupsCount rer)
       (P1: EarlyErrors.Pass_Regex r nil):
       { m: list Character -> non_neg_integer -> MatchResult | Semantics.compilePattern r rer = Success m } :=
@@ -18,7 +18,7 @@ Module EndToEnd.
     | Failure CompileError.AssertionFailed => fun eq => match (Compile.compilePattern r rer) P0 P1 eq with end
     end eq_refl.
 
-  Definition regex_match `{ep: CharacterInstance} (r: Regex) (rer: RegExpRecord) (input: list Character) (start: non_neg_integer)
+  Definition regex_match `{Parameters} (r: Regex) (rer: RegExpRecord) (input: list Character) (start: non_neg_integer)
       (P0: countLeftCapturingParensWithin r nil = RegExpRecord.capturingGroupsCount rer)
       (P1: EarlyErrors.Pass_Regex r nil)
       (P2: start <= (length input)):
@@ -32,7 +32,7 @@ Module EndToEnd.
     | match_assertion_failed => fun eq => match (Correctness.no_failure r rer input start m) P1 P0 Eq_m P2 eq with end
     end eq_refl.
 
-  Definition regex_end_to_end `{ep: CharacterInstance} (r: Regex) (rer: RegExpRecord) (input: list Character) (start: non_neg_integer)
+  Definition regex_end_to_end `{Parameters} (r: Regex) (rer: RegExpRecord) (input: list Character) (start: non_neg_integer)
       (P0: countLeftCapturingParensWithin r nil = RegExpRecord.capturingGroupsCount rer)
       (P1: start <= (length input)): option MatchState :=
     match StaticSemantics.earlyErrors r nil as ee return

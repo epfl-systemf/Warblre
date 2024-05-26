@@ -1,5 +1,5 @@
-module type EngineParameters = Extracted.EngineParameters
-module Engine = Extracted.Engine
+module type EngineParameters = Extracted.API.EngineParameters
+module Engine = Extracted.API.Engine
 
 module type Character = sig
   type t

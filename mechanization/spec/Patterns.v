@@ -1,5 +1,5 @@
 From Coq Require Import List Program.Equality PeanoNat.
-From Warblre Require Import List Result Typeclasses Notation Numeric Characters.
+From Warblre Require Import List Result Typeclasses Notation Numeric Characters Parameters.
 
 (** 22.2.1 Patterns *)
 (* The RegExp constructor applies the following grammar to the input pattern String. An error occurs if the
@@ -142,7 +142,7 @@ Module Patterns.
   End Types.
 
   Section EqDec.
-    Context `{ep: CharacterInstance}.
+    Context `{specParameters: Parameters}.
 
     #[export] #[refine] Instance eqdec_CharacterClassEscape: EqDec CharacterClassEscape := {}. 
     Proof. decide equality; apply EqDec.eq_dec. Defined.

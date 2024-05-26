@@ -1,5 +1,5 @@
 From Coq Require Import ZArith List.
-From Warblre Require Import Typeclasses Result Numeric Characters Errors List.
+From Warblre Require Import Typeclasses Result Numeric Characters Errors Parameters List.
 
 (** 22.2.2.1 Notation *)
 (* The descriptions below use the following internal data structures: *)
@@ -43,7 +43,7 @@ Module Notation.
   Section main.
     (* - A MatchResult is either a MatchState or the special token failure that indicates that the match failed. *)
     Definition MatchResult {Character} `{CharacterMarker Character} := Result (option MatchState) MatchError.
-    Instance eqdec_matchResult {C} `{CharacterMarker C} `{EqDec C} `{ep: CharacterInstance}: EqDec MatchResult := _.
+    Instance eqdec_matchResult {C} `{CharacterMarker C} `{EqDec C} `{Parameters}: EqDec MatchResult := _.
 
     (*  - A MatcherContinuation is an Abstract Closure that takes one MatchState argument and returns a
           MatchResult result. The MatcherContinuation attempts to match the remaining portion (specified by the

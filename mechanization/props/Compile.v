@@ -1,11 +1,11 @@
 From Coq Require Import PeanoNat ZArith Bool Lia Program.Equality List.
-From Warblre Require Import List Tactics Specialize Focus Result Base Patterns Node StaticSemantics Notation Semantics Definitions EarlyErrors RegExpRecord.
+From Warblre Require Import List Tactics Specialize Focus Result Base Patterns Node NodeProps StaticSemantics Notation Semantics Definitions EarlyErrors RegExpRecord.
 
 Import Result.Notations.
 Import Semantics.
 
 Section Compile.
-  Context `{ep: CharacterInstance}.
+  Context `{specParameters: Parameters}.
     Import Patterns.
 
     Lemma wordCharacters {F: Type} {_: Result.AssertionError F}: forall rer f, wordCharacters rer <> Failure f.

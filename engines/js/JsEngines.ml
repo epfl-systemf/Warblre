@@ -131,7 +131,7 @@ module JsUnicodeParameters : Engines.EngineParameters
     *)
     let list_from_string (s: t) = Array.to_list (Js.Array.from (Js.String.unsafeToArrayLike s))
     
-    module Ops = Extracted.UnicodeOps(struct
+    module Ops = Extracted.API.Utils.UnicodeOps(struct
       type coq_Utf16CodeUnit = Js.String.t
       type coq_Utf16String = Js.String.t
       let length = Js.String.length

@@ -1,4 +1,4 @@
-open Warblre.Printers
+open Warblre_js.Printers
 module JsEngine = Warblre_js.JsEngines.JsEngine
 module P = Printer(Warblre_js.JsEngines.JsParameters)(Warblre_js.JsEngines.JsStringLike)
 open! P
@@ -16,7 +16,7 @@ external add_event_listener : Dom.element -> string -> (unit -> unit) -> unit = 
 let run (pattern: string) (at: int) (input: string): string =
   try 
     let regex = Warblre_js.JsEngines.JsEngine.Regexpp.parseRegex pattern in
-    let flags = Warblre.Extracted.({
+    let flags = Warblre_js.Extracted.({
       RegExpFlags.d = false;
       RegExpFlags.g = false;
       RegExpFlags.i = false;

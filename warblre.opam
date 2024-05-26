@@ -5,7 +5,7 @@ maintainer: ["Noé De Santo" "Aurèle Barrière"]
 authors: ["Noé De Santo" "Aurèle Barrière" "Clément Pit-Claudel"]
 depends: [
   "ocaml"
-  "dune" {>= "3.8"}
+  "dune" {>= "3.14"}
   "coq"
   "integers"
   "uucp"

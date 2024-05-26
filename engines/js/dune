@@ -1,6 +1,23 @@
+; Replicate the goodies developed for the OCaml engine
+(copy_files#
+ (only_sources true)
+ (files ../common/*.ml))
+
+; Extract with different directives
+(coq.extraction
+ (prelude Extraction)
+ (extracted_modules Extracted)
+ (theories Warblre Ltac2))
+
+; Make a library out of it
 (library
  (name warblre_js)
- (libraries warblre melange.belt)
+ (libraries melange.belt)
  (melange.runtime_deps (file ./regexpp-map.mjs))
  (modes melange)
  (preprocess (pps melange.ppx)))
+
+(env
+ (dev
+  (flags
+   (:standard -w -27 -w -39 -w -67))))

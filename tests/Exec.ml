@@ -1,6 +1,6 @@
 let%expect_test "sequence" =
-  Warblre_ocaml.OCamlEngines.UnicodeTester.test_exec
-    Warblre_ocaml.OCamlEngines.UnicodeNotations.((cchar 'a') -- (cchar 'b') -- (cchar 'b'))
+  Warblre.OCamlEngines.UnicodeTester.test_exec
+    Warblre.OCamlEngines.UnicodeNotations.((cchar 'a') -- (cchar 'b') -- (cchar 'b'))
     "abbb";
   [%expect {|
     Regex /abb/ on 'abbb' at 0 (using exec):
@@ -8,8 +8,8 @@ let%expect_test "sequence" =
     Captures:[20G# 0[32G: 'abb'[64G |}]
 
 let%expect_test "unicode_u" =
-  Warblre_ocaml.OCamlEngines.UnicodeTester.test_exec ~d:true
-    Warblre_ocaml.OCamlEngines.UnicodeNotations.(group !* (
+  Warblre.OCamlEngines.UnicodeTester.test_exec ~d:true
+    Warblre.OCamlEngines.UnicodeNotations.(group !* (
       ngroup ("G", char "a") ||
       group (char "b") ||
       (char "π") ||
@@ -25,8 +25,8 @@ let%expect_test "unicode_u" =
     Named captures:[20G# G[32G: 'a'[64G(13,14) |}]
 
 let%expect_test "unicode_non_u" =
-  Warblre_ocaml.OCamlEngines.Utf16Tester.test_exec
-    Warblre_ocaml.OCamlEngines.Utf16Notations.(group !* (
+  Warblre.OCamlEngines.Utf16Tester.test_exec
+    Warblre.OCamlEngines.Utf16Notations.(group !* (
         ngroup ("G", char "a") ||
         group (char "b") ||
         (char "π")))

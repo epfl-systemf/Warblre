@@ -1,6 +1,6 @@
 (library
  (name tests)
- (libraries warblre_ocaml)
+ (libraries warblre)
  (inline_tests)
  (preprocess
   (pps ppx_expect)))

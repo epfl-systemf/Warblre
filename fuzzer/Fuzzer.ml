@@ -1,5 +1,5 @@
-open Warblre.Engines
-open Warblre.Printers
+open Warblre_js.Engines
+open Warblre_js.Printers
 
 (* the different frontend functions we can test *)
 type frontend_function =
@@ -50,9 +50,9 @@ let frontend_func (f:frontend_function) : string =
 
 (* geting the result of a command as a string *)
 
-module Fuzzer (P: EngineParameters) (S: Warblre.Encoding.StringLike with type t := P.string) = struct
-  open Warblre
-  open Warblre.Extracted.Patterns
+module Fuzzer (P: EngineParameters) (S: Warblre_js.Encoding.StringLike with type t := P.string) = struct
+  open Warblre_js
+  open Warblre_js.Extracted.Patterns
 
   (* The JS engine we will be comparing to. *)
   module JsEngine = struct

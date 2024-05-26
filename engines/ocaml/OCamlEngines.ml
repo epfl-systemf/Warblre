@@ -1,5 +1,3 @@
-open Warblre
-
 module Utf16 : Encoding.Character with type character = Unsigned.UInt16.t = struct
   type character = Unsigned.UInt16.t
   let cmp (l: character) (r: character): int = Unsigned.UInt16.compare l r

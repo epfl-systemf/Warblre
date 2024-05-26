@@ -1,5 +1,3 @@
-open Warblre
-
 module Conversion (P: Engines.EngineParameters) (S: Encoding.StringLike with type t := P.string) = struct
   module E = Engines.Engine(P)
   open E

@@ -1,5 +1,3 @@
-open Warblre
-
 module JsStringLike: Encoding.StringLike
   with type t = Js.String.t
 = struct
@@ -241,7 +239,7 @@ module JsEngine = struct
       'a
       = "map" [@@mel.module "./regexpp-map.mjs"]  [@@mel.scope "RegExpMapper"]
 
-    let parseRegex (str: string): (character, string, JsParameters.property) Warblre.Extracted.Patterns.coq_Regex = Warblre.Patterns.(
+    let parseRegex (str: string): (character, string, JsParameters.property) Extracted.Patterns.coq_Regex = Patterns.(
       let ast = parseRegExpLiteral str in
       let wat str = (fun _ _ -> failwith ("Unxpected node. Feature: " ^ str)) in
       let unsupported str = failwith ("Features from version > 13.0 are not supported. Feature: " ^ str) in

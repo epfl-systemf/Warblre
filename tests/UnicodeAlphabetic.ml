@@ -1,5 +1,5 @@
-open Warblre_ocaml.OCamlEngines.UnicodeNotations
-open Warblre_ocaml.OCamlEngines.UnicodeTester
+open Warblre.OCamlEngines.UnicodeNotations
+open Warblre.OCamlEngines.UnicodeTester
 
 let%expect_test "ascii" =
   test_regex

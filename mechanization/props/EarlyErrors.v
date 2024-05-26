@@ -184,7 +184,7 @@ Section EarlyErrors.
       apply List.Exists.false_to_prop in Ex. specialize (Ex _ _ Eq_indexed_j). cbn beta in Ex.
       focus § _ [] _ § auto destruct in Ex.
       + injection e as <- <-. pose proof Zipper.Walk.uniqueness as Falsum. specialize Falsum with (1 := Eq_indexed_i) (2 := Eq_indexed_j). contradiction.
-      + unfold "==" in *. destruct (name =?= name) eqn:Falsum. * discriminate. * contradiction.
+      + rewrite -> EqDec.reflb in Ex. discriminate.
   Qed.
 
   Lemma isCharacterClass_singleton {F: Type} {_: Result.AssertionError F}: forall c, isCharacterClass c = false -> exists v, SingletonClassAtom c v.

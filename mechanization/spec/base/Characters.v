@@ -61,7 +61,7 @@ End CharSet.
 
 Module String.
   Class class (type: Type) := make {
-    eqdec : EqDec type;
+    #[global] eqdec :: EqDec type;
     length: type -> non_neg_integer;
     substring: type -> non_neg_integer -> non_neg_integer -> type;
     advanceStringIndex: type -> non_neg_integer -> non_neg_integer;
@@ -71,10 +71,14 @@ Module String.
   Definition isEmpty `{class} (string: type) := length string == 0.
 End String.
 
+Class CharacterMarker (T: Type): Prop := mk_character_marker {}.
+Class StringMarker (T: Type): Prop := mk_string_marker {}.
+Class UnicodePropertyMarker (T: Type): Prop := mk_unicode_property_marker {}.
+
 Module Character.
   Class class (character input: Type) := make {
     (* The character type and its operations *)
-    eq_dec: EqDec character;
+    #[global] eq_dec :: EqDec character;
     from_numeric_value: nat -> character;
     numeric_value: character -> nat;
     canonicalize: RegExpRecord -> character -> character;
@@ -82,7 +86,7 @@ Module Character.
     numeric_pseudo_bij: forall c, from_numeric_value (numeric_value c) = c;
     numeric_round_trip_order: forall l r, l <= r -> (numeric_value (from_numeric_value l)) <= (numeric_value (from_numeric_value r));
 
-    string_ops: String.class input;
+    #[global] string_ops :: String.class input;
     from_string: input -> list character;
 
     set_type: CharSet.class character;
@@ -95,8 +99,12 @@ Module Character.
     ascii_word_characters: list character;
 
     unicode_property: Type;
-    unicode_property_eqdec: EqDec unicode_property;
+    #[global] unicode_property_eqdec:: EqDec unicode_property;
     code_points_for: unicode_property -> list character;
+
+    #[global] character_marker:: CharacterMarker character;
+    #[global] string_marker:: StringMarker input;
+    #[global] unicode_property_marker::> UnicodePropertyMarker unicode_property;
   }.
 
   Lemma numeric_inj `{class}: forall c c', numeric_value c = numeric_value c' -> c = c'.
@@ -125,13 +133,13 @@ Notation CharSet := (@CharSet.set_type _ Character.set_type).
     - Since the type of characters is NOT a dependent type, the type is not extracted to Obj.t, hence the OCaml API
       does not require a Obj.magic galore.
 *)
+
 Notation Character := Character.character.
 Notation String := Character.input.
 Notation UnicodeProperty := Character.unicode_property.
 
-Instance eqdec_Character `{ci: CharacterInstance Γ Σ}: EqDec Γ := Character.eq_dec.
-#[export] Instance string_string `{ci: CharacterInstance Γ Σ}: String.class String := Character.string_ops.
-#[export] Instance eqdec_String `{ci: CharacterInstance Γ Σ}: EqDec String := @String.eqdec _ (Character.string_ops).
+(* Used in frontend due to bug in coq kernel (see use site). TODO: remove once bug is fixed. *)
+Definition string_string `{ci: CharacterInstance Γ Σ}: String.class String := Character.string_ops.
 
 Module Characters. Section main.
   Context `{ep: CharacterInstance Γ Σ}.

@@ -137,7 +137,7 @@ Module Patterns. Section main.
   | NegativeLookbehind (r: Regex).
 
   Section EqDec.
-    #[export] #[refine] Instance eqdec_CharacterClassEscape: EqDec CharacterClassEscape := {}. decide equality; solve [ apply EqDec.eq_dec | apply (@EqDec.eq_dec _ Character.unicode_property_eqdec) ]. Defined.
+    #[export] #[refine] Instance eqdec_CharacterClassEscape: EqDec CharacterClassEscape := {}. decide equality; solve [ apply EqDec.eq_dec ]. Defined.
     #[export] #[refine] Instance eqdec_ControlEscape: EqDec ControlEscape := {}. decide equality. Defined.
     #[export] #[refine] Instance eqdec_Hex4Digits: EqDec Hex4Digits := {}.
       decide equality; try apply EqDec.eq_dec. Defined.

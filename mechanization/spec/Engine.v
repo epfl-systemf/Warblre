@@ -107,6 +107,9 @@ Module Engine (parameters: EngineParameters).
     parameters.property
     (EqDec.make _ parameters.Property.equal)
     parameters.Property.code_points
+    (mk_character_marker _)
+    (mk_string_marker _)
+    (mk_unicode_property_marker _)
   .
 
   (* Utils *)

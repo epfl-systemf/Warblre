@@ -81,7 +81,7 @@ module Fuzzer (P: EngineParameters) (S: Warblre_js.Encoding.StringLike with type
 
     let exec (regex: (P.character, P.string, P.property) coq_Regex) (flags: Extracted.RegExpFlags.coq_type) (at: int) (str: P.string): (P.string) Extracted.ExecArrayExotic.coq_type option =
       let r0 = initialize regex flags in
-      let r1 = setLastIndex r0 at in
+      let r1 = setLastIndex r0 (BigInt.of_int at) in
       make_output_stateless (exec r1 str)
   end
 
@@ -130,12 +130,12 @@ module Fuzzer (P: EngineParameters) (S: Warblre_js.Encoding.StringLike with type
       | 1 -> Plus
       | 2 -> Question
       | 3 -> let rep = Random.int counted_quantifiers_bound in
-            RepExact(rep)
+            RepExact(BigInt.of_int rep)
       | 4 -> let rep = Random.int counted_quantifiers_bound in
-            RepPartialRange(rep)
+            RepPartialRange(BigInt.of_int rep)
       | 5 -> let minrep = Random.int counted_quantifiers_bound in
             let maxrep = minrep + Random.int counted_quantifiers_bound in
-            RepRange(minrep, maxrep)
+            RepRange(BigInt.of_int minrep, BigInt.of_int maxrep)
       | _ -> failwith "random range error"
 
     let random_quant () : coq_Quantifier =
@@ -143,7 +143,7 @@ module Fuzzer (P: EngineParameters) (S: Warblre_js.Encoding.StringLike with type
       if (Random.bool ()) then Greedy qp else Lazy qp
 
     let random_char_ranges () : (character, P.property) coq_ClassRanges =
-      let sc c = SourceCharacter (P.Character.from_numeric_value (Char.code c)) in
+      let sc c = SourceCharacter (P.Character.from_numeric_value (Host.of_int (Char.code c))) in
       List.fold_left (fun current _: (character, P.property) coq_ClassRanges ->
         if Random.bool() then
           let c = random_char() in
@@ -174,8 +174,8 @@ module Fuzzer (P: EngineParameters) (S: Warblre_js.Encoding.StringLike with type
           let cc: (character, P.property) coq_CharClass = if Random.bool() then NoninvertedCC (r) else InvertedCC(r) in
           CharacterClass (cc)
       ); 
-      ( 3, fun _ -> let c = random_char() in Char (P.Character.from_numeric_value (Char.code c)));
-      ( 1, fun _ -> AtomEsc (DecimalEsc 0));
+      ( 3, fun _ -> let c = random_char() in Char (P.Character.from_numeric_value (BigInt.of_int (Char.code c))));
+      ( 1, fun _ -> AtomEsc (DecimalEsc BigInt.zero));
       ( 1, fun _ -> AtomEsc (GroupEsc (S.of_string "")));
       ( 1, fun _ -> Dot);
     ]
@@ -268,7 +268,7 @@ module Fuzzer (P: EngineParameters) (S: Warblre_js.Encoding.StringLike with type
             if (group_count = 0) then Empty
             else
               let groupid = (Random.int group_count) + 1 in
-              AtomEsc (DecimalEsc groupid)
+              AtomEsc (DecimalEsc (BigInt.of_int groupid))
         | AtomEsc _ -> r
         | Disjunction (r1,r2) -> Disjunction (iter r1, iter r2)
         | Quantified (r1,quant) -> Quantified (iter r1, quant)
@@ -308,7 +308,7 @@ module Fuzzer (P: EngineParameters) (S: Warblre_js.Encoding.StringLike with type
   (* Generate an AST then fills the backreferences numbers *)
   let random_regex (): (character, string, P.property) coq_Regex =
     let ast = RegexGenerator.random_ast (Random.int max_regex_depth) in
-    let group_count = countGroups ast in
+    let group_count = BigInt.to_int (countGroups ast) in
     let named_group_count = (Random.int ((min (List.length group_names) group_count) + 1)) in
     let named_groups_map = RegexGenerator.generate_group_names_map group_count named_group_count in
     RegexGenerator.fill_backref_and_groups_names ast group_count named_groups_map

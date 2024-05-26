@@ -27,7 +27,7 @@ let run (pattern: string) (at: int) (input: string): string =
     }) in
     let r =  JsEngine.initialize regex flags in
     let result = 
-      match JsEngine.exec (JsEngine.setLastIndex r at) (Warblre_js.JsEngines.JsStringLike.of_string input) with
+      match JsEngine.exec (JsEngine.setLastIndex r (Warblre_js.BigInt.of_int at)) (Warblre_js.JsEngines.JsStringLike.of_string input) with
       | Null _ -> "No match found."
       | Exotic ({ array = array ; _}, _) -> Option.get (List.nth array 0)
     in 

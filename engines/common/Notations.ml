@@ -27,7 +27,7 @@ module CharNotations (P: EngineParameters) (S: Encoding.StringLike with type t :
   let (?!) r = NegativeLookahead r
   let (?<!) r = NegativeLookbehind r
 
-  let (!$) n = assert(0 < n); AtomEsc (DecimalEsc n)
+  let (!$) n = assert(0 < n); AtomEsc (DecimalEsc (Host.of_int n))
   let (!&) n = AtomEsc (GroupEsc (S.of_string n))
 
   let lchar (c: P.character list): (P.character, P.string, P.property) coq_Regex =
@@ -37,10 +37,10 @@ module CharNotations (P: EngineParameters) (S: Encoding.StringLike with type t :
 
   let char (c: string): (P.character, P.string, P.property) coq_Regex = lchar (P.String.list_from_string (S.of_string c))
 
-  let ichar (c: int): (P.character, P.string, P.property) coq_Regex = Char (P.Character.from_numeric_value c)
+  let ichar (c: int): (P.character, P.string, P.property) coq_Regex = Char (P.Character.from_numeric_value (Host.of_int c))
 
   let cchar (c: char): (P.character, P.string, P.property) coq_Regex = ichar (Char.code c)
 
-  let sc c = SourceCharacter (P.Character.from_numeric_value (Char.code c))
+  let sc c = SourceCharacter (P.Character.from_numeric_value (Host.of_int (Char.code c)))
 end
 

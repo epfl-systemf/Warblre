@@ -14,16 +14,16 @@ module JsUtf16Character: Engines.Character with type t = Js.String.t = struct
   let compare: t -> t -> int  = [%mel.raw {|
     function (l) { return function (r) { return r.charCodeAt(0) - l.charCodeAt(0); }; }
   |}]
-  let numeric_value:  t -> int= [%mel.raw {|
+  let numeric_value:  t -> BigInt.t = [%mel.raw {|
     function (c) {
       if (c.length !== 1) { throw new RangeError(c); }
-      return c.charCodeAt(0);
+      return BigInt(c.charCodeAt(0));
     }
   |}]
-  let from_numeric_value: int -> t = [%mel.raw {|
-    function (i) { return String.fromCharCode(i); }
+  let from_numeric_value: BigInt.t -> t = [%mel.raw {|
+    function (i) { return String.fromCharCode(Number(i)); }
   |}]
-  let max_numeric_value = 0xFFFF
+  let max_numeric_value = BigInt.of_int (0xFFFF)
 
   let to_upper_case: t -> t = [%mel.raw {|
     function (ch) {
@@ -56,20 +56,20 @@ module JsUnicodeCharacter: Engines.Character with type t = Js.String.t = struct
   let compare: t -> t -> int  = [%mel.raw {|
     function (l) { return function (r) { return r.codePointAt(0) - l.codePointAt(0); }; }
   |}]
-  let numeric_value:  t -> int= [%mel.raw {|
+  let numeric_value:  t -> BigInt.t = [%mel.raw {|
     function (c) {
       return c.codePointAt(0);
     }
   |}]
-  let from_numeric_value: int -> t = [%mel.raw {|
-    function (i) { return String.fromCodePoint(i); }
+  let from_numeric_value: BigInt.t -> t = [%mel.raw {|
+    function (i) { return String.fromCodePoint(Number(i)); }
   |}]
-  let max_numeric_value = 0x10FFFF
+  let max_numeric_value = BigInt.of_int (0x10FFFF)
 
-  let canonicalize rer ch =
+  let canonicalize rer (ch: t): t =
     match rer with
     | { Extracted.RegExpRecord.ignoreCase = false; _ } -> ch
-    | _ -> from_numeric_value (SimpleFold.simple_fold (numeric_value ch))
+    | _ -> from_numeric_value (BigInt.of_int (SimpleFold.simple_fold (BigInt.to_int (numeric_value ch))))
 end
 
 module JsString = struct
@@ -77,15 +77,22 @@ module JsString = struct
   let equal: t -> t -> bool = [%mel.raw {|
     function (l) { return function (r) { return l === r; }; }
   |}]
-  let length (s: t): int = Js.String.length s
-  let substring (str: t) (b: int) (e: int): t = Js.String.slice ~start:b ~end_:e str
+  let length (s: t): BigInt.t = BigInt.of_int (Js.String.length s)
+  let substring (str: t) (b: BigInt.t) (e: BigInt.t): t = Js.String.slice ~start:(BigInt.to_int b) ~end_:(BigInt.to_int e) str
   let empty_string = {js||js}
   let list_to_string s = Stdlib.String.concat "" s
+end
+
+module NoProperty = struct
+  type t = |
+  let equal (_: t) (_: t) = false
+  let code_points (_: t) = failwith "How was the empty type instanciated?"
 end
 
 module JsParameters : Engines.EngineParameters 
   with type character = Js.String.t
   with type string = Js.String.t
+  with type property = NoProperty.t
 = struct
   module Character = JsUtf16Character
   type character = Character.t
@@ -97,7 +104,7 @@ module JsParameters : Engines.EngineParameters
         but any type S with typeclass Indexable S character.
     *)
     let list_from_string (s: t) = Array.to_list (Js.String.split ~sep:"" s)
-    let advanceStringIndex _ i = i + 1
+    let advanceStringIndex _ i = BigInt.add i BigInt.one
     let getStringIndex _ i = i
   end
   type string = String.t
@@ -107,16 +114,14 @@ module JsParameters : Engines.EngineParameters
 
   module CharSets = Engines.CharSets(Character)
 
-  type property = |
-  module Property = struct
-    let equal _ _ = false
-    let code_points _ = failwith "How was the empty type instanciated?"
-  end
+  module Property = NoProperty
+  type property = Property.t
 end
 
 module JsUnicodeParameters : Engines.EngineParameters 
   with type character = Js.String.t
   with type string = Js.String.t
+  with type property = NoProperty.t
 = struct
   module Character = JsUnicodeCharacter
   type character = Character.t
@@ -132,10 +137,10 @@ module JsUnicodeParameters : Engines.EngineParameters
     module Ops = Extracted.API.Utils.UnicodeOps(struct
       type coq_Utf16CodeUnit = Js.String.t
       type coq_Utf16String = Js.String.t
-      let length = Js.String.length
-      let codeUnitAt ls at = Js.String.charAt ~index:at ls
-      let is_leading_surrogate c = Encoding.UnicodeUtils.is_high_surrogate (Character.numeric_value c)
-      let is_trailing_surrogate c = Encoding.UnicodeUtils.is_low_surrogate (Character.numeric_value c)
+      let length ls = BigInt.of_int (Js.String.length ls)
+      let codeUnitAt ls at = Js.String.charAt ~index:(BigInt.to_int at) ls
+      let is_leading_surrogate c = Encoding.UnicodeUtils.is_high_surrogate (BigInt.to_int (Character.numeric_value c))
+      let is_trailing_surrogate c = Encoding.UnicodeUtils.is_low_surrogate (BigInt.to_int (Character.numeric_value c))
     end)
     let advanceStringIndex s i = Ops.advanceStringIndex s i
     let getStringIndex s i = Ops.getStringIndex s i
@@ -148,11 +153,8 @@ module JsUnicodeParameters : Engines.EngineParameters
   module CharSets = Engines.CharSets(Character)
 
   (* TODO: implement *)
-  type property = |
-  module Property = struct
-    let equal _ _ = false
-    let code_points _ = failwith "How was the empty type instanciated?"
-  end
+  module Property = NoProperty
+  type property = Property.t
 end
 
 
@@ -239,12 +241,12 @@ module JsEngine = struct
       'a
       = "map" [@@mel.module "./regexpp-map.mjs"]  [@@mel.scope "RegExpMapper"]
 
-    let parseRegex (str: string): (character, string, JsParameters.property) Extracted.Patterns.coq_Regex = Patterns.(
+    let parseRegex (str: string): (JsParameters.character, JsParameters.string, JsParameters.property) Extracted.Patterns.coq_Regex = Patterns.(
       let ast = parseRegExpLiteral str in
       let wat str = (fun _ _ -> failwith ("Unxpected node. Feature: " ^ str)) in
       let unsupported str = failwith ("Features from version > 13.0 are not supported. Feature: " ^ str) in
       let disjunction = (fun _ children -> Js.Array.reduce ~f:(fun acc child -> Smart.disjunction acc child) ~init:null children) in
-      let char_to_char (c: AST.character) = JsUtf16Character.from_numeric_value (c.value) in
+      let char_to_char (c: AST.character) = JsUtf16Character.from_numeric_value (BigInt.of_int c.value) in
       let last_char (str: Js.String.t) (at: int) = Js.String.charAt ~index:((Js.String.length str) - at - 1) str in
       map ast
         ~onAlternative:(fun _ children -> Js.Array.reduce ~f:(fun acc child -> Smart.seq acc child) ~init:epsilon children)
@@ -265,7 +267,7 @@ module JsEngine = struct
         ~onBackreference:(fun b ->
           (* Test whether the backref is named using "ref"'s type *)
           match Js.Types.classify b.ref with
-          | JSNumber n -> AtomEsc (DecimalEsc (int_of_float n))
+          | JSNumber n -> AtomEsc (DecimalEsc (BigInt.of_float n))
           | JSString n -> AtomEsc (GroupEsc n)
           | _ -> failwith ("Backref's ref did not have the expected type."))
         ~onCapturingGroup:(fun g r ->
@@ -296,17 +298,26 @@ module JsEngine = struct
         ~onGroup:disjunction
         ~onPattern:disjunction
         ~onQuantifier:(fun q r ->
-          let min = q.min in
-          let max = if (Js.Float.isFinite (Js.Int.toFloat q.max)) then Some q.max else None in
+          let min = BigInt.of_int q.min in
+          let max = if (Js.Float.isFinite (Js.Int.toFloat q.max)) then Some (BigInt.of_int q.max) else None in
           (* The AST doesn't explicitly remember the kind of the quantifier; we use the raw text to disambiguate *)
           if (((last_char q.raw 0) = "}") || ((last_char q.raw 1) = "}")) then (
             Smart.quantified r min max q.greedy)
           else (
-            let quantifierPrefix: coq_QuantifierPrefix = match min, max with
-            | 0, None -> Star
-            | 1, None -> Plus
-            | 0, Some 1 -> Question
-            | _, _ -> failwith "Could not find special quantifier from range."
+            (* let quantifierPrefix: coq_QuantifierPrefix = match min, max with
+            | BigInt.zero, None -> Star
+            | BigInt.one, None -> Plus
+            | BigInt.zero, Some BigInt.one -> Question
+            | _, _ -> failwith "Could not find special quantifier from range." *)
+            let quantifierPrefix: coq_QuantifierPrefix = match max with
+            | None -> 
+              if (BigInt.equal min BigInt.zero) then (Star)
+              else if (BigInt.equal min BigInt.one) then (Plus)
+              else failwith "Could not find special quantifier from range."
+            | Some v when BigInt.equal v BigInt.one -> 
+              if (BigInt.equal min BigInt.zero) then (Question)
+              else failwith "Could not find special quantifier from range."
+            | _ -> failwith "Could not find special quantifier from range."
             in
             let quantifier = if q.greedy then Greedy quantifierPrefix else Lazy quantifierPrefix in
             Quantified (r, quantifier)))

@@ -1,6 +1,5 @@
 module Conversion (P: Engines.EngineParameters) (S: Encoding.StringLike with type t := P.string) = struct
   module E = Engines.Engine(P)
-  open E
   module Pr = Printers.Printer(P)(S)
 
   type ('a, 'b) pair = {
@@ -86,13 +85,13 @@ module Conversion (P: Engines.EngineParameters) (S: Encoding.StringLike with typ
     let to_mapped_option (type a b) (f: a -> b) (o: a Js.Nullable.t): b option = Option.map f (Js.Nullable.toOption o) in
     let to_mapped_list (type a b) (f: a -> b) (a: a Js.Array.t): b list = List.map f (Array.to_list a) in
     let to_mapped_tuple (type a b c d) (f: a -> c) (g: b -> d) (p: (a, b) pair): (c * d) = (f p.first, g p.second) in
-    let to_tuple = to_mapped_tuple (fun x -> x) (fun x -> x) in
+    let to_tuple = to_mapped_tuple BigInt.of_int BigInt.of_int in
     (* TODO: conversion *)
     let to_string str = (S.of_string str) in
     r |> Js.Nullable.toOption
       |> Option.map (fun (r: unexotic_match_result) ->
         Extracted.ExecArrayExotic.({
-          index = r.index;
+          index = BigInt.of_int (r.index);
           input = to_string (r.input);
           array = to_mapped_list (to_mapped_option to_string) (r.groups);
           groups = to_mapped_option (to_mapped_list (to_mapped_tuple to_string (to_mapped_option to_string))) (r.namedGroups); 
@@ -101,16 +100,16 @@ module Conversion (P: Engines.EngineParameters) (S: Encoding.StringLike with typ
         })
       )
 
-  let result_to_unexotic_match_result (r: (string) Extracted.ExecArrayExotic.coq_type option): unexotic_match_result Js.Nullable.t =
+  let result_to_unexotic_match_result (r: (P.string) Extracted.ExecArrayExotic.coq_type option): unexotic_match_result Js.Nullable.t =
     let to_mapped_nullable (type a b) (f: a -> b) (o: a option): b Js.Nullable.t = Js.Nullable.fromOption (Option.map f o) in
     let to_mapped_array (type a b) (f: a -> b) (a: a list): b Js.Array.t = Array.of_list (List.map f a) in
     let to_mapped_pair (type a b c d) (f: a -> c) (g: b -> d) (p: a * b): (c, d) pair = { first = f (fst p); second = g (snd p)} in
-    let to_pair = to_mapped_pair (fun x -> x) (fun x -> x) in
+    let to_pair = to_mapped_pair BigInt.to_int BigInt.to_int in
     (* TODO: conversion *)
     let to_string str = (S.to_string str) in
-    r |> Option.map (fun (r: (string) Extracted.ExecArrayExotic.coq_type) ->
+    r |> Option.map (fun (r: (P.string) Extracted.ExecArrayExotic.coq_type) ->
         {
-          index = r.index;
+          index = BigInt.to_int r.index;
           input = to_string (r.input);
           groups = to_mapped_array (to_mapped_nullable to_string) (r.array);
           namedGroups = to_mapped_nullable (to_mapped_array (to_mapped_pair to_string (to_mapped_nullable to_string))) (r.groups); 
@@ -120,9 +119,9 @@ module Conversion (P: Engines.EngineParameters) (S: Encoding.StringLike with typ
       )|> Js.Nullable.fromOption
 
   module MatchResult = struct
-    let ocaml_of_js (r: Js.Re.result Js.nullable): (string) Extracted.ExecArrayExotic.coq_type option =
+    let ocaml_of_js (r: Js.Re.result Js.nullable): (P.string) Extracted.ExecArrayExotic.coq_type option =
       r |> unexotify_match_result |> unexotic_match_result_to_result
-    let js_of_ocaml (r: (string) Extracted.ExecArrayExotic.coq_type option): Js.Re.result Js.nullable =
+    let js_of_ocaml (r: (P.string) Extracted.ExecArrayExotic.coq_type option): Js.Re.result Js.nullable =
       r |> result_to_unexotic_match_result |> exotify_match_result
   end
 end

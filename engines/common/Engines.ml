@@ -6,9 +6,9 @@ module type Character = sig
 
   val equal: t -> t -> bool
   val compare: t -> t -> int
-  val numeric_value: t -> int
-  val from_numeric_value: int -> t
-  val max_numeric_value: int
+  val numeric_value: t -> Host.integer
+  val from_numeric_value: Host.integer -> t
+  val max_numeric_value: Host.integer
   val canonicalize: Extracted.RegExpRecord.coq_type -> t -> t
 end
 
@@ -23,8 +23,8 @@ module CharSet (C: Character) = struct
   let remove_all = S.diff
   let is_empty = S.is_empty
   let contains s c = S.mem c s
-  let range l h = S.of_list (List.map C.from_numeric_value (Extracted.List.Range.Nat.Bounds.range (C.numeric_value l) ((C.numeric_value h) + 1)))
-  let size = S.cardinal
+  let range l h = S.of_list (List.map C.from_numeric_value (Extracted.List.Range.Nat.Bounds.range (C.numeric_value l) (Host.incr (C.numeric_value h))))
+  let size s = Host.of_int (S.cardinal s)
   let unique err s = if S.cardinal s = 1 then S.choose s else Interop.failure err
   let filter s f = S.filter f s
   let exist s p = S.exists p s
@@ -78,11 +78,11 @@ module CharSets (C: Character) = struct
       List.flatten (List.map f ls)
   end
 
-  let to_character_list (ls: char list): t list = List.map (fun c -> from_numeric_value (Char.code c)) ls
+  let to_character_list (ls: char list): t list = List.map (fun c -> from_numeric_value (Host.of_int (Char.code c))) ls
   
-  let all: t list = List.init (max_numeric_value + 1) from_numeric_value
-  let line_terminators: t list = (List.map from_numeric_value Common.line_terminators)
-  let white_spaces: t list = (List.map from_numeric_value Common.white_spaces)
+  let all: t list = List.init (Host.to_int (Host.incr max_numeric_value)) (fun i -> from_numeric_value (Host.of_int i))
+  let line_terminators: t list = (List.map (fun i -> from_numeric_value (Host.of_int i)) Common.line_terminators)
+  let white_spaces: t list = (List.map (fun i -> from_numeric_value (Host.of_int i)) Common.white_spaces)
   let digits: t list = to_character_list Common.digits
   let ascii_word_characters: t list = to_character_list Common.ascii_word_characters
 end

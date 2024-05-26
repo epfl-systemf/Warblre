@@ -4,8 +4,6 @@ open Patterns
 module Printer(P: EngineParameters) (S: Encoding.StringLike with type t := P.string) = struct
   type ocaml_string = string
   module E = Engine(P)
-  (* open E
-  open S *)
 
   module Internal = struct
     module CS = Set.Make(Int)
@@ -27,7 +25,7 @@ module Printer(P: EngineParameters) (S: Encoding.StringLike with type t := P.str
 
     let char_lit_to_string (c: P.character) : ocaml_string =
       let i = P.Character.numeric_value c in
-      if CS.mem i escaped then
+      if CS.mem (Host.to_int i) escaped then
         escape c
       else
         let str = S.to_string (P.String.list_to_string (c :: [])) in
@@ -70,9 +68,9 @@ module Printer(P: EngineParameters) (S: Encoding.StringLike with type t := P.str
       | Star -> "*"
       | Plus -> "+"
       | Question -> "?"
-      | RepExact (i) -> "{" ^ string_of_int i ^ "}"
-      | RepPartialRange (i) -> "{" ^ string_of_int i ^ ",}"
-      | RepRange (imin,imax) -> "{" ^ string_of_int imin ^ "," ^ string_of_int imax ^ "}"
+      | RepExact (i) -> "{" ^ Host.to_string i ^ "}"
+      | RepPartialRange (i) -> "{" ^ Host.to_string i ^ ",}"
+      | RepRange (imin,imax) -> "{" ^ Host.to_string imin ^ "," ^ Host.to_string imax ^ "}"
 
     let quantifier_to_string (q: coq_Quantifier) : ocaml_string =
       match q with
@@ -100,7 +98,7 @@ module Printer(P: EngineParameters) (S: Encoding.StringLike with type t := P.str
 
     let string_range (string_input: ocaml_string) (single_capture: Extracted.Notation.CaptureRange.coq_type) : ocaml_string =
       let { Extracted.Notation.CaptureRange.startIndex = s; Extracted.Notation.CaptureRange.endIndex = e } = single_capture in
-      String.sub string_input s (e-s)
+      String.sub string_input (Host.to_int s) (Host.to_int (Host.sub e s))
 
     let option_to_string (type a) ?(none="Undefined") ?(some_prefix="") (p: a -> ocaml_string) (o: a option) : ocaml_string =
       match o with
@@ -116,12 +114,12 @@ module Printer(P: EngineParameters) (S: Encoding.StringLike with type t := P.str
       prefix ^ String.concat sep (List.map (fun (k, v) -> pa k ^ key_sep ^ pb v) l)
 
     let indexed_list_to_string (type a) ?(nil="[]") ?(prefix="") ?(key_sep=":") ?(sep=" ") (p: a -> ocaml_string) (l: a list) : ocaml_string =
-      let rec indexed (l: a list) (index: int) : (int * a) list =
+      let rec indexed (l: a list) (index: Host.integer) : (Host.integer * a) list =
         match l with
         | [] -> []
-        | h :: t -> (index, h) :: (indexed t (index + 1))
+        | h :: t -> (index, h) :: (indexed t (Host.incr index))
       in
-      keyed_list_to_string ~nil:nil ~prefix:prefix ~key_sep:key_sep ~sep:sep string_of_int p (indexed l 0)
+      keyed_list_to_string ~nil:nil ~prefix:prefix ~key_sep:key_sep ~sep:sep Host.to_string p (indexed l (Host.of_int 0))
 
     let exec_array_exotic_to_string (pretty: bool) (a: E.execArrayExotic) : ocaml_string =
       if pretty then
@@ -129,31 +127,31 @@ module Printer(P: EngineParameters) (S: Encoding.StringLike with type t := P.str
           | None -> List.map (fun l -> (l, None)) l
           | Some r -> List.combine l r
         in
-        let named_captures: ('a * ('a option * (int * int) option)) list option =
+        let named_captures: ('a * ('a option * (Host.integer * Host.integer) option)) list option =
           Option.map (fun l ->
             List.map (fun ((n, l), r) -> (n, (l, r))) (zip_with_opt l (Option.map (List.map snd) a.indices_groups))
           ) a.groups
         in
         String.concat "\n" (List.filter (fun s -> String.length s != 0) (
-          ("Start:" ^ "\027[20G" ^ string_of_int a.index) ::
+          ("Start:" ^ "\027[20G" ^ Host.to_string a.index) ::
           ("Captures:" ^ (
             indexed_list_to_string ~prefix:"\027[20G# " ~key_sep:"\027[32G: " ~sep:"\n\027[20G# " (
               pair_to_string ~start:"" ~sep:"\027[64G" ~endd:"" (
                 option_to_string quoted) (
-                option_to_string ~none:"" (pair_to_string string_of_int string_of_int))))
+                option_to_string ~none:"" (pair_to_string Host.to_string Host.to_string))))
             (zip_with_opt a.array a.indices_array)) ::
           (option_to_string ~none:"" ~some_prefix:"Named captures:"
               (keyed_list_to_string ~prefix:"\027[20G# " ~key_sep:"\027[32G: " ~sep:"\n\027[20G# "
                 S.to_string
                 (pair_to_string ~start:"" ~sep:"\027[64G" ~endd:""
                   (option_to_string quoted)
-                  (option_to_string ~none:"" (pair_to_string string_of_int string_of_int))))
+                  (option_to_string ~none:"" (pair_to_string Host.to_string Host.to_string))))
             named_captures) ::
           []
         ))
       else
         String.concat "\n" (List.filter (fun s -> String.length s != 0) (
-          ("Start: " ^ string_of_int a.index) ::
+          ("Start: " ^ Host.to_string a.index) ::
           ("Captures:" ^ (
             indexed_list_to_string ~nil:"\n\tNone" ~prefix:"\n\t# " ~key_sep:" : " ~sep:"\n\t# "
               (option_to_string quoted)
@@ -167,13 +165,13 @@ module Printer(P: EngineParameters) (S: Encoding.StringLike with type t := P.str
           ("Indices:" ^ (
             option_to_string ~none:"\n\tNone" 
               (indexed_list_to_string ~nil:"\n\tNone" ~prefix:"\n\t# " ~key_sep:" : " ~sep:"\n\t# "
-                (option_to_string ~none:"Undefined" (pair_to_string string_of_int string_of_int)))
+                (option_to_string ~none:"Undefined" (pair_to_string Host.to_string Host.to_string)))
             a.indices_array)) ::
           ("Named indices:" ^ (
             option_to_string ~none:"\n\tNone" 
               (keyed_list_to_string ~nil:"\n\tNone" ~prefix:"\n\t# " ~key_sep:" : " ~sep:"\n\t# "
               S.to_string
-                (option_to_string ~none:"Undefined" (pair_to_string string_of_int string_of_int)))
+                (option_to_string ~none:"Undefined" (pair_to_string Host.to_string Host.to_string)))
             a.indices_groups)) ::
           []
         ))
@@ -195,7 +193,7 @@ module Printer(P: EngineParameters) (S: Encoding.StringLike with type t := P.str
       | CharacterClass cc -> (match cc with
         | NoninvertedCC r -> "[" ^ (range_to_string r) ^ "]"
         | InvertedCC r -> "[^" ^ (range_to_string r) ^ "]")
-      | AtomEsc (DecimalEsc gid) -> "\\" ^ string_of_int gid
+      | AtomEsc (DecimalEsc gid) -> "\\" ^ Host.to_string gid
       | AtomEsc (ACharacterClassEsc esc) -> character_class_escape_to_string esc
       | AtomEsc (ACharacterEsc esc) -> character_escape_to_string esc
       | AtomEsc (GroupEsc name) -> "\\" ^ "k<" ^ S.to_string name ^ ">"
@@ -220,11 +218,11 @@ module Printer(P: EngineParameters) (S: Encoding.StringLike with type t := P.str
     let Extracted.Notation.MatchState.{input = ls; endIndex = endIndex; captures = captures } = m in
     String.concat "\n" (List.filter (fun s -> String.length s != 0) (
           ("Input: " ^ S.to_string (P.String.list_to_string ls)) ::
-          ("End: " ^ string_of_int endIndex) ::
+          ("End: " ^ Host.to_string endIndex) ::
           ("Captures:" ^ (
             (indexed_list_to_string ~nil:"\n\tNone" ~prefix:"\n\t# " ~key_sep:" : " ~sep:"\n\t# "
               (option_to_string ~none:"Undefined"
-                (fun p -> let Extracted.Notation.CaptureRange.{startIndex = s; endIndex = e} = p in pair_to_string string_of_int string_of_int (s, e))))
+                (fun p -> let Extracted.Notation.CaptureRange.{startIndex = s; endIndex = e} = p in pair_to_string Host.to_string Host.to_string (s, e))))
             captures)) ::
           []
         ))

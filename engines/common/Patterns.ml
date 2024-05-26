@@ -17,7 +17,7 @@ module Smart = struct
     | l, Empty -> l
     | l, r -> Seq (l, r)
 
-  let quantified (type c s p) (r: (c, s, p) coq_Regex)  (min: int) (max: int option) (greedy: bool): (c, s, p) coq_Regex =
+  let quantified (type c s p) (r: (c, s, p) coq_Regex)  (min: Host.integer) (max: Host.integer option) (greedy: bool): (c, s, p) coq_Regex =
     let quantifierPrefix: coq_QuantifierPrefix = match max with
       | None -> RepPartialRange (min)
       | Some max -> RepRange (min, max)

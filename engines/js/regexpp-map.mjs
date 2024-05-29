@@ -1,4 +1,3 @@
-/** From https://github.com/Ef55/regexpp-map */
 /**
  * The visitor to map an AST.
  */

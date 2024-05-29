@@ -1,0 +1,5 @@
+{
+  "dependencies": {
+    "@eslint-community/regexpp": "^4.10.0"
+  }
+}

@@ -14,5 +14,5 @@
 
 (package
  (name warblre)
- (synopsis "A mechanization of the specification of ECMAScript regexes.")
+ (synopsis "A mechanization of the specification of ECMAScript regexes")
  (depends ocaml dune coq integers uucp melange ppx_expect))

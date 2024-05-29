@@ -107,7 +107,7 @@ Module Semantics. Section main.
       (* k. Let cc be Canonicalize(rer, ch). *)
       let cc := Character.canonicalize rer chr in
       (* l. If there exists a member a of A such that Canonicalize(rer, a) is cc, let found be true. Otherwise, let found be false. *)
-      let! found =<< CharSet.exist A ( fun a => (Character.canonicalize rer a) == cc ) in
+      let found := CharSet.exist_canonicalized rer A cc in
       (* m. If invert is false and found is false, return failure. *)
       if (invert is false) && (found is false) then
         failure

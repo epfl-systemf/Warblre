@@ -89,6 +89,42 @@ module NoProperty = struct
   let code_points (_: t) = failwith "How was the empty type instanciated?"
 end
 
+module CachedCharSet (C: Engines.Character) = struct
+  module S = Belt.Set.Int
+
+  let from_char (c: C.t): int = BigInt.to_int (C.numeric_value c)
+  let to_char (i: int): C.t = C.from_numeric_value (BigInt.of_int i)
+  let canonicalize (rer: Extracted.RegExpRecord.coq_type) (s: S.t): S.t = S.reduce s S.empty (fun acc e -> S.add acc (from_char (C.canonicalize rer (to_char e))))
+  let map_internal (s: S.t) (f: C.t -> C.t): S.t = S.reduce s S.empty (fun acc e -> S.add acc (from_char (f (to_char e))))
+
+  type t = {
+    set: S.t; 
+    mutable canonicalized_cache: (Extracted.RegExpRecord.coq_type * S.t) option;
+  }
+  let mk s = { set = s; canonicalized_cache = None; }
+
+  let empty: t = mk S.empty
+  let from_list (ls: C.t list): t = mk (List.fold_left (fun s v -> S.add s (from_char v)) S.empty ls)
+  let union (l: t) (r: t): t = mk (S.union l.set r.set)
+  let singleton (e: C.t): t = mk (S.add S.empty (from_char e))
+  let remove_all (l: t) (r: t): t = mk (S.diff l.set r.set)
+  let is_empty (s: t): bool = S.isEmpty s.set
+  let contains (s: t) (c: C.t) = S.has s.set (from_char c)
+  let range (l: C.t) (h: C.t): t = mk (S.fromSortedArrayUnsafe (Belt.Array.range (from_char l) (from_char h)))
+  let size (s: t): BigInt.t = BigInt.of_int (S.size s.set)
+  let unique err (s: t): C.t = if S.size s.set = 1 then to_char (Option.get (S.minimum s.set)) else Interop.failure err
+  let filter (s: t) (p: C.t -> bool): t = mk (S.keep s.set (fun c -> p (to_char c)))
+  let exist_canonicalized (rer) (s: t) c: bool =
+    let i = from_char c in
+    match s.canonicalized_cache with
+    | Some (cached_rer, cached_set) when cached_rer = rer -> S.has cached_set i
+    | _ -> (
+      let canonicalized = canonicalize rer s.set in
+      s.canonicalized_cache <- Some (rer, canonicalized);
+      S.has canonicalized i)
+end
+
+
 module JsParameters : Engines.EngineParameters 
   with type character = Js.String.t
   with type string = Js.String.t
@@ -109,7 +145,7 @@ module JsParameters : Engines.EngineParameters
   end
   type string = String.t
 
-  module CharSet = Engines.CharSet(Character)
+  module CharSet = CachedCharSet(Character)
   type char_set = CharSet.t
 
   module CharSets = Engines.CharSets(Character)
@@ -147,7 +183,7 @@ module JsUnicodeParameters : Engines.EngineParameters
   end
   type string = String.t
 
-  module CharSet = Engines.CharSet(Character)
+  module CharSet = CachedCharSet(Character)
   type char_set = CharSet.t
 
   module CharSets = Engines.CharSets(Character)

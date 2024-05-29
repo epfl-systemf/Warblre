@@ -72,26 +72,35 @@ module Exec (
   module Engine = Warblre_js.Engines.Engine(Parameters)
   module Parser = Warblre_js.JsEngines.Parser(Parameters)(JsEngines.JsStringLike)
 
+  let regex_cache = Belt.MutableMap.String.make ()
+
   let exec: (Js.Re.t -> string -> Js.Re.result Js.nullable) = 
     (*  Note that all inputs are not as strictly typed as the (melange) API might suggest.
         We hence have to use conversion functions (to_string & to_length), per the spec.    
     *)
     fun this input0 -> (
-      let re = Parser.parseRegex ("/" ^ (Js.Re.source this) ^ "/" ^ (Js.Re.flags this)) in
-      let flags0 = to_string (Js.Re.flags this) in
-      let flags1 = Warblre_js.Extracted.({
-        RegExpFlags.d = Js.String.includes ~search:"d" flags0;
-        RegExpFlags.g = Js.String.includes ~search:"g" flags0;
-        RegExpFlags.i = Js.String.includes ~search:"i" flags0;
-        RegExpFlags.m = Js.String.includes ~search:"m" flags0;
-        RegExpFlags.s = Js.String.includes ~search:"s" flags0;
-        RegExpFlags.u = ();
-        RegExpFlags.y = Js.String.includes ~search:"y" flags0;
-      }) in
+      let this_str = "/" ^ (Js.Re.source this) ^ "/" ^ (Js.Re.flags this) in
+
+      if not (Belt.MutableMap.String.has regex_cache this_str) then (
+        let re = Parser.parseRegex this_str in
+        let flags0 = to_string (Js.Re.flags this) in
+        let flags1 = Extracted.({
+          RegExpFlags.d = Js.String.includes ~search:"d" flags0;
+          RegExpFlags.g = Js.String.includes ~search:"g" flags0;
+          RegExpFlags.i = Js.String.includes ~search:"i" flags0;
+          RegExpFlags.m = Js.String.includes ~search:"m" flags0;
+          RegExpFlags.s = Js.String.includes ~search:"s" flags0;
+          RegExpFlags.u = ();
+          RegExpFlags.y = Js.String.includes ~search:"y" flags0;
+        }) in
+        let inst = Engine.initialize re flags1 in
+        Belt.MutableMap.String.update regex_cache this_str (fun _ -> Some inst)
+        );
+
+      let inst0 = Belt.MutableMap.String.getExn regex_cache this_str in
       let at = to_length (Js.Re.lastIndex this) in
       let input1 = to_string input0 in
-      let inst0 = Engine.initialize re flags1 in
-      let inst1 = Engine.setLastIndex inst0 (Warblre_js.BigInt.of_int at) in
+      let inst1 = Engine.setLastIndex inst0 (Host.of_int at) in
       let (res, r) = match Engine.exec inst1 input1 with
       | Null r -> (Js.Nullable.null, r)
       | Exotic (a, r) -> 
@@ -101,7 +110,8 @@ module Exec (
       (* Last index must be mapped back into a UTF16 index *)
       let e = Parameters.String.getStringIndex input1 r.lastIndex in
       if not (get_property this "lastIndex").writable then Js.Exn.raiseTypeError "lastIndex is not writable.";
-      if flags1.g || flags1.y then Js.Re.setLastIndex this (Warblre_js.BigInt.to_int e);
+      if inst1.originalFlags.g || inst1.originalFlags.y then Js.Re.setLastIndex this (Host.to_int e);
+
       res)
 end
 module RegularExec = Exec(JsEngines.JsParameters)
@@ -114,7 +124,7 @@ let exec: (Js.Re.t -> string -> Js.Re.result Js.nullable) Js.Private.Js_OO.Callb
     if as_constructor then Js.Exn.raiseTypeError("'exec' is not a constructor.");
 
     (* Hacky way of thecking that there is an internal [[RegExpMatcher]] slot *)
-    (* The related test instead mention the requirement that the internal slot [[Class]] === RegExp  *)
+    (* The related test instead mention the requirement that the internal slot [[Class]] === RegExp; this most likely comes from an earlier iteration of the spec  *)
     let is_regexp: bool = [%mel.raw{| Object.getPrototypeOf(this) === RegExp.prototype |}] in
     if not is_regexp then Js.Exn.raiseTypeError("'exec' must be called on a RegExp.");
 

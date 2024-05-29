@@ -43,7 +43,7 @@ Module API.
 
       Parameter unique: forall (F: Type) (_: Result.AssertionError F), char_set -> Result character F.
       Parameter filter: char_set -> (character -> bool) -> char_set.
-      Parameter exist: char_set -> (character -> bool) -> bool.
+      Parameter exist_canonicalized: RegExpRecord -> char_set -> character -> bool.
 
       Axiom singleton_size: forall c, size (singleton c) = 1.
       Axiom singleton_unique: forall (F: Type) (af: Result.AssertionError F) c, @unique F af (singleton c) = Success c.
@@ -101,7 +101,7 @@ Module API.
         P.CharSet.range
         P.CharSet.unique
         P.CharSet.filter
-        P.CharSet.exist
+        P.CharSet.exist_canonicalized
         P.CharSet.singleton_size
         P.CharSet.singleton_unique)
       (String.make character

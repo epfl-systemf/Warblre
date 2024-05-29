@@ -27,7 +27,9 @@ module CharSet (C: Character) = struct
   let size s = Host.of_int (S.cardinal s)
   let unique err s = if S.cardinal s = 1 then S.choose s else Interop.failure err
   let filter s f = S.filter f s
-  let exist s p = S.exists p s
+  let map s f = S.map f s
+  let exist s c = S.mem c s
+  let exist_canonicalized (rer) (s: t) cc: bool = S.exists (fun a -> C.equal (C.canonicalize rer a) cc) s
 end
 
 module CharSets (C: Character) = struct

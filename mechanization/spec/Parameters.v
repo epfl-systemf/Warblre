@@ -51,7 +51,8 @@ Module CharSet.
 
     unique: forall {F: Type} {_: Result.AssertionError F}, type -> Result char F;
     filter: type -> (char -> bool) -> type;
-    exist: type -> (char -> bool) -> bool;
+    exist_canonicalized: RegExpRecord -> type -> char -> bool;
+
 
     singleton_size: forall c, size (singleton c) = 1;
     singleton_unique: forall {F: Type} {af: Result.AssertionError F} c, @unique F af (singleton c) = Success c;

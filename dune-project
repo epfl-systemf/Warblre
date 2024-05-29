@@ -15,4 +15,10 @@
 (package
  (name warblre)
  (synopsis "A mechanization of the specification of ECMAScript regexes")
- (depends ocaml dune coq integers uucp melange ppx_expect))
+ (depends
+  (ocaml (= 4.14.2))
+  (coq (= 8.18.0))
+  (integers (= 0.7.0))
+  (uucp (= 15.0.0))
+  (melange (= 3.0.0-414))
+  (ppx_expect (= v0.16.0))))

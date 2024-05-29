@@ -4,13 +4,13 @@ synopsis: "A mechanization of the specification of ECMAScript regexes"
 maintainer: ["Noé De Santo" "Aurèle Barrière"]
 authors: ["Noé De Santo" "Aurèle Barrière" "Clément Pit-Claudel"]
 depends: [
-  "ocaml"
   "dune" {>= "3.14"}
-  "coq"
-  "integers"
-  "uucp"
-  "melange"
-  "ppx_expect"
+  "ocaml" {= "4.14.2"}
+  "coq" {= "8.18.0"}
+  "integers" {= "0.7.0"}
+  "uucp" {= "15.0.0"}
+  "melange" {= "3.0.0-414"}
+  "ppx_expect" {= "v0.16.0"}
   "odoc" {with-doc}
 ]
 build: [

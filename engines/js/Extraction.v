@@ -1,3 +1,14 @@
+(**
+    Extract from Coq to OCaml for Melange.
+    The main difference with the extraction for (pure) OCaml
+    is that we don't extract to int, but to Js.BigInt.
+
+    The reason for that is that we may need to do fuel computation
+    going over the maximal safe int (before losing precision) in JS.
+
+    We use Interop.erase to ensure that inefficient operations are not used.
+*)
+
 From Warblre Require Import Result Base API.
 From Coq Require Import ZArith.
 
@@ -7,7 +18,7 @@ Extraction Language OCaml.
 From Coq Require extraction.ExtrOcamlBasic.
 From Coq Require extraction.ExtrOcamlString.
 
-(* From Coq Require extraction.ExtrOcamlNatInt. *)
+(** nat *)
 Extract Inductive nat => "BigInt.t" [ "BigInt.zero" "BigInt.Nat.succ" ]
  "(fun fO fS n -> if BigInt.equal n BigInt.zero then fO () else fS (BigInt.Nat.pred n))".
 Extract Inlined Constant plus => "BigInt.add".
@@ -27,9 +38,8 @@ Extract Constant Nat.sub => "BigInt.Nat.min".
 
 Extract Constant Nat.compare =>
  "(fun n m -> if BigInt.equal n m then Eq else (if BigInt.lt n m then Lt else Gt))".
-(* === *)
 
-(* From Coq Require extraction.ExtrOcamlZInt. *)
+(** positive *)
 Extract Inductive positive =>
     "BigInt.t"
     [ "(fun p-> BigInt.add BigInt.one (BigInt.shift_left p 1))" "(fun p-> BigInt.shift_left p 1)" "BigInt.one" ]
@@ -42,6 +52,13 @@ Extract Constant Pos.compare =>
  "(fun n m -> if BigInt.equal n m then Eq else (if BigInt.lt n m then Lt else Gt))".
 Extract Inlined Constant Pos.to_nat => "(fun x -> x)".
 
+Extract Constant Pos.add_carry => "Interop.erased".
+Extract Constant Pos.pred_double => "Interop.erased".
+Extract Constant Pos.compare_cont => "Interop.erased".
+Extract Constant Pos.iter_op => "Interop.erased".
+Extract Constant Pos.of_succ_nat => "Interop.erased".
+
+(** Z *)
 Extract Inductive Z =>
     "BigInt.t"
     [ "BigInt.zero" "" "BigInt.neg" ]
@@ -60,32 +77,26 @@ Extract Inlined Constant Z.gtb => "(>)".
 Extract Inlined Constant Z.eqb => "BigInt.equal".
 Extract Constant eqdec_Z => "BigInt.equal".
 
-(* === *)
-
-Extract Constant Pos.add_carry => "Interop.erased".
-Extract Constant Pos.pred_double => "Interop.erased".
-Extract Constant Pos.compare_cont => "Interop.erased".
-Extract Constant Pos.iter_op => "Interop.erased".
-Extract Constant Pos.of_succ_nat => "Interop.erased".
-
 Extract Constant Z.succ_double => "Interop.erased".
 Extract Constant Z.pred_double => "Interop.erased".
 Extract Constant Z.pos_sub => "Interop.erased".
 
 
+(** Result *)
 (* Eliminate the Result monad from the extracted code. *)
 Extract Inductive Result.Result =>
     "Interop.result"
     [ "Interop.success" "Interop.failure" ]
     "(fun fS _ v -> fS v )".
 
+(** Hex *)
 Extract Constant HexDigit.type => "char".
 Extract Constant HexDigit.eq_dec => "Char.equal".
-Extract Constant HexDigit.to_integer => "Interop.Common.parse_hex".
+Extract Constant HexDigit.to_integer => "Interop.parse_hex".
 
+(** Ascii *)
 Extract Constant AsciiLetter.type => "char".
 Extract Constant AsciiLetter.eq_dec => "Char.equal".
 Extract Constant AsciiLetter.numeric_value => "(fun c -> Host.of_int (Char.code c))".
 
 Extraction "Extracted.ml" API.
-

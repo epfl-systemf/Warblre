@@ -1,6 +1,9 @@
 module type EngineParameters = Extracted.API.EngineParameters
 module Engine = Extracted.API.Engine
 
+(*  Defines Character type which is comparable,
+    Which is used by implementations of CharSet.
+*)
 module type Character = sig
   type t
 
@@ -12,6 +15,7 @@ module type Character = sig
   val canonicalize: Extracted.RegExpRecord.coq_type -> t -> t
 end
 
+(* A simple implementation of a CharSet, relying on Set from OCaml's standard library. *)
 module CharSet (C: Character) = struct
   module S = Set.Make(C)
 
@@ -32,6 +36,7 @@ module CharSet (C: Character) = struct
   let exist_canonicalized (rer) (s: t) cc: bool = S.exists (fun a -> C.equal (C.canonicalize rer a) cc) s
 end
 
+(* Some character sets (e.g. the set of all ascii word characters), which are left abstract by the mechanization. *)
 module CharSets (C: Character) = struct
   include C
 

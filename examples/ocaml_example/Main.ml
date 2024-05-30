@@ -12,4 +12,5 @@ let regex =
     (char "🧭"))
 
 let () =
+  (* Just match the regex against the string at index 0. *)
   test_exec ~d:true regex ~at:0 str;

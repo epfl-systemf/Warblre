@@ -1,7 +1,13 @@
 module Engine = Warblre_js.Engines.Engine(Warblre_js.JsEngines.JsParameters)
-module P = Warblre_js.Printers.Printer(Warblre_js.JsEngines.JsParameters)(Warblre_js.JsEngines.JsStringLike)
-open! P
+module Printer = Warblre_js.Printers.Printer(Warblre_js.JsEngines.JsParameters)(Warblre_js.JsEngines.JsStringLike)
 module Parser = Warblre_js.JsEngines.Parser(Warblre_js.JsEngines.JsParameters)(Warblre_js.JsEngines.JsStringLike)
+
+(*
+    A tiny application which retrieves a regex an input string from
+    HTML forms, parses and compiles the former and then runs it against the latter.
+    
+    The result is then printed back on the web page.
+*)
 
 external window: Dom.element = "window"
 external document : Dom.document = "document"
@@ -13,9 +19,14 @@ external get_value : Dom.element -> string = "value" [@@mel.get]
 external set_inner_html : Dom.element -> string -> unit = "innerHTML" [@@mel.set]
 external add_event_listener : Dom.element -> string -> (unit -> unit) -> unit = "addEventListener" [@@mel.send]
 
-let run (pattern: string) (at: int) (input: string): string =
+let parse (regex: string): ((string, string, Engine.property) Warblre_js.Patterns.coq_Regex, string) Either.t =
+  try Either.left (Parser.parseRegex regex)
+  with e -> match Option.bind (Js.Exn.asJsExn e) Js.Exn.message with
+            | None -> Either.right "Unspecified parsing error."
+            | Some msg -> Either.right msg
+
+let run (regex: (string, string, Engine.property) Warblre_js.Patterns.coq_Regex) (at: int) (input: string): string =
   try 
-    let regex = Parser.parseRegex pattern in
     let flags = Warblre_js.Extracted.({
       RegExpFlags.d = false;
       RegExpFlags.g = false;
@@ -37,14 +48,23 @@ let run (pattern: string) (at: int) (input: string): string =
 
 let input_regex () = get_by_id "regex"
 let input_string () = get_by_id "string"
+let output_regex () = get_by_id "pretty-regex"
 let output_string () = get_by_id "output"
+
+(* Retrieves the data from the form, delegates matching to run and display the result. *)
 let recompute () = 
   set_value (output_string ()) "...";
   let pattern = get_value (input_regex ()) in
-  let at = 0 in
-  let input = get_value (input_string ()) in
-  let res = run pattern at input in
-  set_value (output_string ()) res
+  match parse pattern with
+  | Either.Left regex ->
+    let at = 0 in
+    let input = get_value (input_string ()) in
+    let res = run regex at input in
+    set_value (output_regex ()) (Printer.regex_to_string regex);
+    set_value (output_string ()) res
+  | Either.Right msg ->
+    set_value (output_regex ()) msg;
+    set_value (output_string ()) msg
 
 let () = 
   add_event_listener window "load" (fun _ ->

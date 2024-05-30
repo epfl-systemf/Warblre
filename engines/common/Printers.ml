@@ -1,10 +1,12 @@
 open Engines
 open Patterns
 
+(* Prints regexes (and friends) in string format *)
 module Printer(P: EngineParameters) (S: Encoding.StringLike with type t := P.string) = struct
   type ocaml_string = string
   module E = Engine(P)
 
+  (* Internal printer combinators, used by the public ones. *)
   module Internal = struct
     module CS = Set.Make(Int)
 
@@ -181,7 +183,7 @@ module Printer(P: EngineParameters) (S: Encoding.StringLike with type t := P.str
   (*  With delimited=false, the delimiters (/.../) won't be printed.
     In strict mode, the regex will be printed as is.
     In non-strict mode, an equivalent regex (through associativity) might be printed.
-    Additionally, in non-strict mode, parentheses which are not required by most engines (but are mandated by the spec) are not printed. *)
+    Additionally, in non-strict mode, parentheses which are not required by most engines (which comform to the 'browser legacy' syntax) are not printed. *)
   let regex_to_string ?(delimited=true) ?(strict=false) (r: (P.character, P.string, P.property) coq_Regex) : ocaml_string =
     let next (i: int) : int = if strict then i + 1 else i in
     let prio_if_strict (str: ocaml_string) (at: int) (current: int) : ocaml_string = if strict then prio str at current else str in

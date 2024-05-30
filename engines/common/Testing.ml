@@ -1,6 +1,9 @@
 open Engines
 open Printers
 
+(*
+  Some helper functions which combine multiple functions (e.g. compilation >> matching >> pretty_printing) into one, for more conveninent testing.
+*)
 module Tester (P: EngineParameters) (S: Encoding.StringLike with type t := P.string) = struct
   module E = Engine(P)
   open E
@@ -15,6 +18,7 @@ module Tester (P: EngineParameters) (S: Encoding.StringLike with type t := P.str
     Printf.printf "Regex %s on '%s' at %d:\n" (regex_to_string regex) input at;
     Printf.printf "%s\n" (match_result_to_string (matcher ls_input (Host.of_int at)))
 
+  (* Test the regex by using compilePattern (from the backend). *)
   let test_regex regex input at ?(ignoreCase=false) ?(multiline=false) ?(dotAll=false) () =
     let groups = (countGroups regex) in
     let rer = Extracted.({
@@ -31,6 +35,7 @@ module Tester (P: EngineParameters) (S: Encoding.StringLike with type t := P.str
     let res = exec (setLastIndex r (Host.of_int at)) (S.of_string input) in
     Printf.printf "Regex %s on '%s' at %d (using exec):\n%s\n" (regex_to_string regex) input at (exec_result_to_string res)
 
+  (* Test the exec method (from the frontend). *)
   let test_exec ?(d=false) ?(g=false) ?(i=false) ?(m=false) ?(s=false) ?(y=false) regex ?(at=0) input =
     let flags = Extracted.({
       RegExpFlags.d = d;
@@ -59,6 +64,7 @@ module Tester (P: EngineParameters) (S: Encoding.StringLike with type t := P.str
       Printf.printf "Regex %s on '%s' at %d:\n" (regex_to_string regex2) input at;
       Printf.printf "%s\n" (match_result_to_string res2))
 
+  (* Compare the output of two regexes on the same input, to ensure they return the same result. *)
   let compare_regexes r1 r2 input at ?(ignoreCase=false) ?(multiline=false) ?(dotAll=false) () =
     let groups = (countGroups r1) in
     let rer = Extracted.({

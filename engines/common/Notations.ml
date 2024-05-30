@@ -1,9 +1,7 @@
-(** Defines notations to define regexes
-    You should either import Utf16Notations or UnicodeNotations    
-*)
 open Engines
 open Patterns
 
+(* Define notations to defined regexes. *)
 module CharNotations (P: EngineParameters) (S: Encoding.StringLike with type t := P.string) = struct
   let epsilon = Empty
   let group r = Group (None, r)

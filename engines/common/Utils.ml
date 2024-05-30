@@ -1,3 +1,5 @@
+(* Misc utilities for common types. *)
+
 module List = struct
   let nth = List.nth
 

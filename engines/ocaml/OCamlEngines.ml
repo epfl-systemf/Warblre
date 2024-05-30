@@ -1,4 +1,4 @@
-module Utf16 : Encoding.Character with type character = Unsigned.UInt16.t = struct
+module Utf16 = struct
   type character = Unsigned.UInt16.t
   let cmp (l: character) (r: character): int = Unsigned.UInt16.compare l r
 
@@ -36,7 +36,7 @@ module Utf16 : Encoding.Character with type character = Unsigned.UInt16.t = stru
     Buffer.contents b 
 end
 
-module Unicode : Encoding.Character with type character = int = struct
+module Unicode = struct
   type character = int
   let cmp (l: character) (r: character): int = Int.compare l r
 

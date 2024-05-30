@@ -1,5 +1,6 @@
 open Warblre_js
 
+(* Bind some javascript methods/constants. *)
 type 'a descriptor = {
   value: 'a;
   writable: bool;
@@ -72,7 +73,17 @@ module Exec (
   module Engine = Warblre_js.Engines.Engine(Parameters)
   module Parser = Warblre_js.Parser.Parser(Parameters)(JsEngineParameters.JsStringLike)
 
+  (* Caching too many regexes can be detrimental to the memory consumption. *)
   let max_cache_size = 5
+  (*
+    As it is not possible for us to to compile the regex at creation,
+    we have to compile at match time. However, this means
+    recompiling it at every match, which is computationally expensive.
+    
+    To mitigate this issue, we implement a simple cache to avoid
+    repeatedly compiling the same regex if it is used multiple times
+    in a row.
+  *)
   let regex_cache = Belt.MutableMap.String.make ()
 
   let exec: (Js.Re.t -> string -> Js.Re.result Js.nullable) = 
@@ -82,8 +93,9 @@ module Exec (
     fun this input0 -> (
       let this_str = "/" ^ (Js.Re.source this) ^ "/" ^ (Js.Re.flags this) in
 
-      (* If regex is not cached *)
+      (* If not cached *)
       if not (Belt.MutableMap.String.has regex_cache this_str) then (
+        (* Compile & cache *)
         let re = Parser.parseRegex this_str in
         let flags0 = to_string (Js.Re.flags this) in
         let flags1 = Extracted.({
@@ -96,8 +108,7 @@ module Exec (
           RegExpFlags.y = Js.String.includes ~search:"y" flags0;
         }) in
         let inst = Engine.initialize re flags1 in
-        Belt.MutableMap.String.update regex_cache this_str (fun _ -> Some inst)
-        );
+        Belt.MutableMap.String.update regex_cache this_str (fun _ -> Some inst));
 
       let inst0 = Belt.MutableMap.String.getExn regex_cache this_str in
       (* If the cache contains too many regexes *)
@@ -107,8 +118,11 @@ module Exec (
         Belt.MutableMap.String.update regex_cache this_str (fun _ -> Some inst0)
       );
 
+      (* Convert inputs to the correct type. *)
       let at = to_length (Js.Re.lastIndex this) in
       let input1 = to_string input0 in
+
+      (* Match the regex against the input string. *)
       let inst1 = Engine.setLastIndex inst0 (Host.of_int at) in
       let (res, r) = match Engine.exec inst1 input1 with
       | Null r -> (Js.Nullable.null, r)
@@ -126,6 +140,11 @@ end
 module RegularExec = Exec(JsEngineParameters.JsParameters)
 module UnicodeExec = Exec(JsEngineParameters.JsUnicodeParameters)
 
+(*
+  Some quirky behaviors of exec are not implemented in the mechanization of the frontend,
+  as they are tied to the untyped nature of JavaScript, whereas we made the choice to strongly
+  type things in our mechanization of the frontend.
+*)
 let exec: (Js.Re.t -> string -> Js.Re.result Js.nullable) Js.Private.Js_OO.Callback.arity2 = 
   fun [@mel.this] this input -> (
     (* Check that it is not being called as a constructor. *)
@@ -133,14 +152,20 @@ let exec: (Js.Re.t -> string -> Js.Re.result Js.nullable) Js.Private.Js_OO.Callb
     if as_constructor then Js.Exn.raiseTypeError("'exec' is not a constructor.");
 
     (* Hacky way of thecking that there is an internal [[RegExpMatcher]] slot *)
-    (* The related test instead mention the requirement that the internal slot [[Class]] === RegExp; this most likely comes from an earlier iteration of the spec  *)
+    (* The related test instead mention the requirement that the internal slot [[Class]] === RegExp; this test likely comes from an earlier iteration of the spec  *)
     let is_regexp: bool = [%mel.raw{| Object.getPrototypeOf(this) === RegExp.prototype |}] in
     if not is_regexp then Js.Exn.raiseTypeError("'exec' must be called on a RegExp.");
 
+    (* Call the correct engine, depending on whether unicode mode is enabled. *)
     if (Js.String.includes ~search:"u" (to_string (Js.Re.flags this))) then UnicodeExec.exec this input
     else RegularExec.exec this input
   )
 
+(*
+  Override the value of RegExp.prototype.exec 
+  The spec mandates that all the other regex functions funnel
+  through it, so overriding that function alone should be sufficient.
+*)
 let set_regex_exec (f: (Js.Re.t -> Js.String.t -> Js.Re.result Js.nullable)[@mel.this]): unit =
   set_field regexp_prototype "exec" f;
   set_field regexp_prototype_exec "prototype" Js.undefined;

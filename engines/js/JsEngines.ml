@@ -334,7 +334,7 @@ module Parser(P: Engines.EngineParameters)(S: Encoding.StringLike with type t :=
         let max = if (Js.Float.isFinite (Js.Int.toFloat q.max)) then Some (BigInt.of_int q.max) else None in
         (* The AST doesn't explicitly remember the kind of the quantifier; we use the raw text to disambiguate *)
         if (((last_char q.raw 0) = "}") || ((last_char q.raw 1) = "}")) then (
-          Smart.quantified r min max q.greedy)
+          quantified r min max q.greedy)
         else (
           let quantifierPrefix: coq_QuantifierPrefix = match max with
           | None -> 

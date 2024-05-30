@@ -72,6 +72,7 @@ module Exec (
   module Engine = Warblre_js.Engines.Engine(Parameters)
   module Parser = Warblre_js.JsEngines.Parser(Parameters)(JsEngines.JsStringLike)
 
+  let max_cache_size = 5
   let regex_cache = Belt.MutableMap.String.make ()
 
   let exec: (Js.Re.t -> string -> Js.Re.result Js.nullable) = 
@@ -81,6 +82,7 @@ module Exec (
     fun this input0 -> (
       let this_str = "/" ^ (Js.Re.source this) ^ "/" ^ (Js.Re.flags this) in
 
+      (* If regex is not cached *)
       if not (Belt.MutableMap.String.has regex_cache this_str) then (
         let re = Parser.parseRegex this_str in
         let flags0 = to_string (Js.Re.flags this) in
@@ -98,6 +100,13 @@ module Exec (
         );
 
       let inst0 = Belt.MutableMap.String.getExn regex_cache this_str in
+      (* If the cache contains too many regexes *)
+      if (Belt.MutableMap.String.size regex_cache > max_cache_size) then (
+        (* Clear the cache, and only keep this regex in it *)
+        Belt.MutableMap.String.clear regex_cache;
+        Belt.MutableMap.String.update regex_cache this_str (fun _ -> Some inst0)
+      );
+
       let at = to_length (Js.Re.lastIndex this) in
       let input1 = to_string input0 in
       let inst1 = Engine.setLastIndex inst0 (Host.of_int at) in

@@ -364,7 +364,7 @@ module Fuzzer (P: EngineParameters) (S: Warblre_js.Encoding.StringLike with type
 
 end
 
-module F = Fuzzer(Warblre_js.JsEngines.JsParameters)(Warblre_js.JsEngines.JsStringLike)
+module F = Fuzzer(Warblre_js.JsEngineParameters.JsParameters)(Warblre_js.JsEngineParameters.JsStringLike)
 open F
 let () =
   let start_from = 0 in

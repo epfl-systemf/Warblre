@@ -1,7 +1,12 @@
-module Conversion (P: Engines.EngineParameters) (S: Encoding.StringLike with type t := P.string) = struct
-  module E = Engines.Engine(P)
-  module Pr = Printers.Printer(P)(S)
-
+(*
+  The regex functions typically return array (or object) exotic, i.e.
+  arrays which have fields (or objects which can be indexed). 
+  
+  Melange doesn't really provide tools to deal with them, so we provide
+  so functions to transform some specific object exotic into more practical
+  types ('unexotify'), and reversly ('exotify').
+*)
+module ArrayExotic (P: Engines.EngineParameters) (S: Encoding.StringLike with type t := P.string) = struct
   type ('a, 'b) pair = {
     first: 'a;
     second: 'b;
@@ -84,7 +89,6 @@ module Conversion (P: Engines.EngineParameters) (S: Encoding.StringLike with typ
     let to_mapped_list (type a b) (f: a -> b) (a: a Js.Array.t): b list = List.map f (Array.to_list a) in
     let to_mapped_tuple (type a b c d) (f: a -> c) (g: b -> d) (p: (a, b) pair): (c * d) = (f p.first, g p.second) in
     let to_tuple = to_mapped_tuple BigInt.of_int BigInt.of_int in
-    (* TODO: conversion *)
     let to_string str = (S.of_string str) in
     r |> Js.Nullable.toOption
       |> Option.map (fun (r: unexotic_match_result) ->

@@ -66,11 +66,11 @@ module Exec (
   Parameters: Engines.EngineParameters 
     with type character = Js.String.t
     with type string = Js.String.t
-    with type property = JsEngines.NoProperty.t
+    with type property = JsEngineParameters.NoProperty.t
 ) = struct
-  module Conversion = Conversion.Conversion(Parameters)(JsEngines.JsStringLike)
+  module ArrayExotic = ArrayExotic.ArrayExotic(Parameters)(JsEngineParameters.JsStringLike)
   module Engine = Warblre_js.Engines.Engine(Parameters)
-  module Parser = Warblre_js.JsEngines.Parser(Parameters)(JsEngines.JsStringLike)
+  module Parser = Warblre_js.Parser.Parser(Parameters)(JsEngineParameters.JsStringLike)
 
   let max_cache_size = 5
   let regex_cache = Belt.MutableMap.String.make ()
@@ -113,7 +113,7 @@ module Exec (
       let (res, r) = match Engine.exec inst1 input1 with
       | Null r -> (Js.Nullable.null, r)
       | Exotic (a, r) -> 
-        (Conversion.MatchResult.js_of_ocaml (Some a), r)
+        (ArrayExotic.MatchResult.js_of_ocaml (Some a), r)
       in
 
       (* Last index must be mapped back into a UTF16 index *)
@@ -123,8 +123,8 @@ module Exec (
 
       res)
 end
-module RegularExec = Exec(JsEngines.JsParameters)
-module UnicodeExec = Exec(JsEngines.JsUnicodeParameters)
+module RegularExec = Exec(JsEngineParameters.JsParameters)
+module UnicodeExec = Exec(JsEngineParameters.JsUnicodeParameters)
 
 let exec: (Js.Re.t -> string -> Js.Re.result Js.nullable) Js.Private.Js_OO.Callback.arity2 = 
   fun [@mel.this] this input -> (

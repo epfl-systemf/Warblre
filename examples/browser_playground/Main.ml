@@ -1,6 +1,6 @@
-module Engine = Warblre_js.Engines.Engine(Warblre_js.JsEngines.JsParameters)
-module Printer = Warblre_js.Printers.Printer(Warblre_js.JsEngines.JsParameters)(Warblre_js.JsEngines.JsStringLike)
-module Parser = Warblre_js.JsEngines.Parser(Warblre_js.JsEngines.JsParameters)(Warblre_js.JsEngines.JsStringLike)
+module Engine = Warblre_js.Engines.Engine(Warblre_js.JsEngineParameters.JsParameters)
+module Printer = Warblre_js.Printers.Printer(Warblre_js.JsEngineParameters.JsParameters)(Warblre_js.JsEngineParameters.JsStringLike)
+module Parser = Warblre_js.Parser.Parser(Warblre_js.JsEngineParameters.JsParameters)(Warblre_js.JsEngineParameters.JsStringLike)
 
 (*
     A tiny application which retrieves a regex an input string from
@@ -38,7 +38,7 @@ let run (regex: (string, string, Engine.property) Warblre_js.Patterns.coq_Regex)
     }) in
     let r =  Engine.initialize regex flags in
     let result = 
-      match Engine.exec (Engine.setLastIndex r (Warblre_js.BigInt.of_int at)) (Warblre_js.JsEngines.JsStringLike.of_string input) with
+      match Engine.exec (Engine.setLastIndex r (Warblre_js.BigInt.of_int at)) (Warblre_js.JsEngineParameters.JsStringLike.of_string input) with
       | Null _ -> "No match found."
       | Exotic ({ array = array ; _}, _) -> Option.get (List.nth array 0)
     in 

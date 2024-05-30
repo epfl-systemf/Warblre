@@ -1,3 +1,8 @@
+(*
+  API to use JavaScript's BigInt
+  See https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/BigInt
+*)
+
 type t = Js.Bigint.t
 
 let zero: t = [%mel.raw {| BigInt(0) |}]
@@ -76,22 +81,23 @@ let shift_left: t -> int -> t = [%mel.raw {|
   } }
 |}]
 
+(* Operations preventing their result from going below zero. *)
 module Nat = struct
-    let succ: t -> t = [%mel.raw {|
-      function (n) {
-        return n + BigInt(1);
-      }
-    |}]
-    let pred: t -> t = [%mel.raw {|
-      function (n) {
-        let p = n - BigInt(1);
-        return p < BigInt(0) ? BigInt(0) : p;
-      }
-    |}]
-    let min: t -> t -> t = [%mel.raw {|
-      function (l) { return function(r) {
-        let p = l - r;
-        return p < BigInt(0) ? BigInt(0) : p;
-      } }
-    |}]
-  end
+  let succ: t -> t = [%mel.raw {|
+    function (n) {
+      return n + BigInt(1);
+    }
+  |}]
+  let pred: t -> t = [%mel.raw {|
+    function (n) {
+      let p = n - BigInt(1);
+      return p < BigInt(0) ? BigInt(0) : p;
+    }
+  |}]
+  let min: t -> t -> t = [%mel.raw {|
+    function (l) { return function(r) {
+      let p = l - r;
+      return p < BigInt(0) ? BigInt(0) : p;
+    } }
+  |}]
+end

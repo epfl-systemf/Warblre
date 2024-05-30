@@ -277,11 +277,16 @@ module Parser(P: Engines.EngineParameters)(S: Encoding.StringLike with type t :=
     let ast = parseRegExpLiteral str in
     let wat str = (fun _ _ -> failwith ("Unxpected node. Feature: " ^ str)) in
     let unsupported str = failwith ("Features from version > 13.0 are not supported. Feature: " ^ str) in
-    let disjunction = (fun _ children -> Js.Array.reduce ~f:(fun acc child -> Smart.disjunction acc child) ~init:null children) in
+    let reduce (a: 'a Js.Array.t) (f: 'a -> 'a -> 'a) (when_empty: unit -> 'a): 'a =
+      match Js.Array.shift a with
+      | None -> when_empty ()
+      | Some h -> Js.Array.reduce ~f:f ~init:h a
+    in
+    let disjunction = (fun _ children -> reduce children (fun acc child -> Disjunction (acc, child)) (fun _ -> failwith "Empty disjunction")) in
     let char_to_char (c: AST.character) = P.Character.from_numeric_value (BigInt.of_int c.value) in
     let last_char (str: Js.String.t) (at: int) = Js.String.charAt ~index:((Js.String.length str) - at - 1) str in
     map ast
-      ~onAlternative:(fun _ children -> Js.Array.reduce ~f:(fun acc child -> Smart.seq acc child) ~init:epsilon children)
+      ~onAlternative:(fun _ children -> reduce children (fun acc child -> Seq (acc, child)) (fun _ -> failwith "Empty sequence"))
       ~onBoundaryAssertion:(fun a ->
         match a.kind with
         | "start" -> InputStart

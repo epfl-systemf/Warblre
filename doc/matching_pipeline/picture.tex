@@ -1,0 +1,43 @@
+\PassOptionsToPackage{svgnames,dvipsnames}{xcolor}
+\documentclass[tikz,convert=pdf2svg]{standalone}
+
+\usepackage{tikz}
+\usetikzlibrary{positioning,decorations.pathreplacing,calc}
+\usetikzlibrary{overlay-beamer-styles}
+\usepackage{amssymb}
+\newcommand{\okcheck}[0]{\textcolor{ForestGreen}{\checkmark{}}}
+\newcommand{\nocheck}[0]{\textcolor{Red}{\raisebox{\depth}{$\chi{}$}}}
+\newcommand{\disj}[0]{\mathbin{|}}
+\newcommand{\hole}[0]{\square}
+
+\begin{document}
+\begin{tikzpicture}[node distance=20pt]
+    \node [draw, fill=gray] (parse) {\texttt{Parsing}};
+    \node [draw, right=of parse, fill=ForestGreen, fill opacity=0.8, text opacity=1.0] (ee) {\texttt{Early Errors}};
+    \node [draw, right=of ee, fill=ForestGreen, fill opacity=0.8, text opacity=1.0] (compile) {\texttt{Compilation}};
+    \node [draw, right=of compile, fill=ForestGreen, fill opacity=0.8, text opacity=1.0] (exec) {\texttt{Matching}};
+
+    \node [below left=of parse] (regex_lit) {$a \disj{} b$};
+    \node [below=of exec] (input) {(``ab'',0)};
+    \node [below right=of exec] (output) {} [sibling distance = 0.75em, level distance = 5pt,edge from parent/.style={}]
+        child { node[anchor=base, text height=2ex, text depth=0.5ex, inner sep=1.5pt] {``} } % ''
+        child { node[anchor=base, text height=2ex, text depth=0.5ex, inner sep=1.5pt] (match) {a} }
+        child { node[anchor=base, text height=2ex, text depth=0.5ex, inner sep=1.5pt] {b} }
+        child { node[anchor=base, text height=2ex, text depth=0.5ex, inner sep=1.5pt] {''} };
+    
+    \draw [-stealth] (parse) -- (ee)
+        node [midway, below=10pt] {$\hole{} \disj{} \hole{}$} [sibling distance = 25pt, level distance = 25pt, edge from parent/.style={draw,-}]
+            child { node [text height=2ex] {$a$} }
+            child { node [text height=2ex] {$b$} };
+    \draw [-stealth] (ee) -- (compile)
+        node [midway, below=10pt] {\okcheck{}};
+    \draw [-stealth] (compile) -- (exec)
+        node [midway, below=10pt] {m};
+    \draw [-stealth] (input) -- (exec);
+
+    \draw [-stealth] (regex_lit) |- (parse);
+    \draw [-stealth] (exec) -| (output);
+
+    \draw [very thick] ([yshift=0.5ex]match.south west) -| (match.east);
+\end{tikzpicture}
+\end{document}

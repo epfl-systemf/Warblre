@@ -90,7 +90,7 @@ module Parser(P: Engines.EngineParameters)(S: Encoding.StringLike with type t :=
     let char_to_char (c: AST.character) = P.Character.from_numeric_value (BigInt.of_int c.value) in
     let last_char (str: Js.String.t) (at: int) = Js.String.charAt ~index:((Js.String.length str) - at - 1) str in
     map ast
-      ~onAlternative:(fun _ children -> reduce children (fun acc child -> Seq (acc, child)) (fun _ -> failwith "Empty sequence"))
+      ~onAlternative:(fun _ children -> reduce children (fun acc child -> Seq (acc, child)) (fun _ -> Empty))
       ~onBoundaryAssertion:(fun a ->
         match a.kind with
         | "start" -> InputStart

@@ -15,7 +15,7 @@ Module EndToEnd.
       Semantics.compilePattern r rer = m -> { m: list Character -> non_neg_integer -> MatchResult | Semantics.compilePattern r rer = Success m }
     with
     | Success v => fun eq => exist _ v eq
-    | Failure CompileError.AssertionFailed => fun eq => match (Compile.compilePattern r rer) P0 P1 eq with end
+    | Error CompileError.AssertionFailed => fun eq => match (Compile.compilePattern r rer) P0 P1 eq with end
     end eq_refl.
 
   Definition regex_match `{Parameters} (r: Regex) (rer: RegExpRecord) (input: list Character) (start: non_neg_integer)
@@ -40,6 +40,6 @@ Module EndToEnd.
     with
     | Success false => fun eq => proj1_sig (regex_match r rer input start P0 (EarlyErrors.earlyErrors r eq) P1)
     | Success true => fun _ => None
-    | Failure SyntaxError.AssertionFailed => fun eq => match EarlyErrors.Safety_earlyErrors _ eq with end
+    | Error SyntaxError.AssertionFailed => fun eq => match EarlyErrors.Safety_earlyErrors _ eq with end
     end eq_refl.
 End EndToEnd.

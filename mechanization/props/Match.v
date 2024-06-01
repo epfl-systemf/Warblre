@@ -33,7 +33,7 @@ Module Correctness.
     -> directionalProgress dir x y
     -> progress dir x (Success (Some y))
   | pMismatch: forall dir x, progress dir x failure
-  | pError: forall dir x f, progress dir x (Failure f).
+  | pError: forall dir x f, progress dir x (Error f).
   #[export]
   Hint Constructors progress: core.
 
@@ -362,7 +362,7 @@ Module Correctness.
     (** Some (internal) tactics to reason with the matcher_invariant. You should most likely use the 'API' defined later. *)
     Ltac base_reasoning := autounfold with result_wrappers in *; Result.inject_all; subst; repeat lazymatch goal with
     | [ |- ?x = ?x \/ _ ] => left; reflexivity
-    | [ |- Failure _ = Success None \/ _ ] => right
+    | [ |- Error _ = Success None \/ _ ] => right
     end.
 
     Ltac search := intros; base_reasoning; lazymatch goal with
@@ -411,8 +411,8 @@ Module Correctness.
     Lemma mi_application_failure: forall (m: Matcher) dir rer x c f
       (MI: matcher_invariant m dir rer)
       (V_x: MatchState.Valid (MatchState.input x) rer x)
-      (Eq_z: m x c = Failure f),
-      exists y, MatchState.Valid (MatchState.input x) rer y /\ progress dir x (Success (Some y)) /\ c y = Failure f.
+      (Eq_z: m x c = Error f),
+      exists y, MatchState.Valid (MatchState.input x) rer y /\ progress dir x (Success (Some y)) /\ c y = Error f.
     Proof. intros. specialize (MI x c V_x) as [H | H]. - rewrite -> Eq_z in H. discriminate. - rewrite -> Eq_z in H. apply H. Qed.
 
 
@@ -456,7 +456,7 @@ Module Correctness.
             lazymatch r with
             | Success (Some ?y) => apply (mi_application_match m dir rer x c y H) in In as As; [ | .. | By ]
             | Success ?y        => apply (mi_application_success m dir rer x c y H) in In as As; [ | .. | By ]
-            | Failure ?f        => apply (mi_application_failure m dir rer x c f H) in In as As; [ | .. | By ]
+            | Error ?f        => apply (mi_application_failure m dir rer x c f H) in In as As; [ | .. | By ]
             | ?r                => apply (mi_application_generic m dir rer x c r H) in In as As; [ | .. | By ]
             | ?T => fail "Target hypothesis has incorrect type:" T
             end
@@ -524,7 +524,7 @@ Module Correctness.
       - search. +  Zhelper. MatchState.solve_with lia. + apply Progress.step. lia.
       - search. +  Zhelper. MatchState.solve_with lia. + apply Progress.step. lia.
       - Result.inject_all; subst.
-        ltac2:(retrieve (List.Indexing.Int.indexing _ _ = Failure _) as H).
+        ltac2:(retrieve (List.Indexing.Int.indexing _ _ = Error _) as H).
         apply List.Indexing.Int.failure_bounds in H.
         quick_math.
         destruct V_x as [ Eq_str [ [ ? ? ] _ ]]. rewrite -> directional_min_rewrite in * by lia.
@@ -631,7 +631,7 @@ Module Correctness.
           (* Most cases are 'just' a recursive call; use Ind *)
           1-6: fold_matchers; Result.inject_all; subst; eapply Ind; eassumption.
           + (* Capture reset failed due to OOB update => prove this actually cannot happen. *)
-            ltac2:(retrieve (List.Update.Nat.Batch.update _ (MatchState.captures x) _ = Failure _) as Falsum).
+            ltac2:(retrieve (List.Update.Nat.Batch.update _ (MatchState.captures x) _ = Error _) as Falsum).
             apply List.Update.Nat.Batch.failure_bounds in Falsum.
             destruct V_x as [ _ [ _ [ VCL_x _ ]]]. rewrite -> VCL_x in *. repeat rewrite Nat.add_sub in *.
             unfold Captures.Valid in V_captures. contradiction.
@@ -717,7 +717,7 @@ Module Correctness.
           rewrite -> directional_min_rewrite  in * by assumption.
 
           (* There must be an offset i (0 <= i < r) where the indexing fails *)
-          match goal with | [ H: List.Exists.exist _ _ = Failure _ |- _ ] => rename H into Indexing_failure end.
+          match goal with | [ H: List.Exists.exist _ _ = Error _ |- _ ] => rename H into Indexing_failure end.
           apply List.Exists.failure_kind in Indexing_failure.
           destruct Indexing_failure as [ i [ j [ Eq_indexed Indexing_failure ]]].
           pose proof (List.Range.Int.Bounds.indexing _ _ _ _ Eq_indexed) as ->. apply List.Indexing.Int.success_bounds in Eq_indexed.
@@ -726,13 +726,13 @@ Module Correctness.
           (* Conclude by case analysis *)
           focus § _ [] _ § auto destruct in Indexing_failure; injection Indexing_failure as ->;
             match goal with
-            | [ H: List.Indexing.Int.indexing _ _ = Failure _ |- _ ] =>
+            | [ H: List.Indexing.Int.indexing _ _ = Error _ |- _ ] =>
                 apply List.Indexing.Int.failure_bounds in H as [Indexing_failure | Indexing_failure]
             end; destruct dir.
           all: cbn in *; lia.
         - (* The capture group does not exist; we prove it is actually impossible. *)
           injection Matching as ->.
-          match goal with | [ H: List.Indexing.Nat.indexing _ _ = Failure _ |- _ ] => rename H into Eq_failure end.
+          match goal with | [ H: List.Indexing.Nat.indexing _ _ = Error _ |- _ ] => rename H into Eq_failure end.
           apply List.Indexing.Nat.failure_bounds in Eq_failure.
           destruct V_x as (_ & _ & ? & _). pose proof (NonNegInt.pos n). lia.
       Qed.
@@ -761,24 +761,24 @@ Module Correctness.
         specialize IH with (1 := H)
     end.
 
-    Lemma isWordChar_failure: forall rer x f, isWordChar rer (MatchState.input x) (MatchState.endIndex x) = Failure f -> ~ MatchState.Valid (MatchState.input x) rer x.
+    Lemma isWordChar_failure: forall rer x f, isWordChar rer (MatchState.input x) (MatchState.endIndex x) = Error f -> ~ MatchState.Valid (MatchState.input x) rer x.
     Proof.
       unfold isWordChar. cbn. intros rer x f H Falsum.
-      focus § _ [] _ § auto destruct in H. ltac2:(retrieve (List.Indexing.Int.indexing _ _ = Failure _) as H').
+      focus § _ [] _ § auto destruct in H. ltac2:(retrieve (List.Indexing.Int.indexing _ _ = Error _) as H').
       apply List.Indexing.Int.failure_bounds in H'. quick_math. MatchState.solve_with lia.
     Qed.
-    Lemma isWordChar_failure_min: forall rer x f, isWordChar rer (MatchState.input x) (MatchState.endIndex x - 1)%Z = Failure f -> ~ MatchState.Valid (MatchState.input x) rer x.
+    Lemma isWordChar_failure_min: forall rer x f, isWordChar rer (MatchState.input x) (MatchState.endIndex x - 1)%Z = Error f -> ~ MatchState.Valid (MatchState.input x) rer x.
     Proof.
       unfold isWordChar. cbn. intros rer x f H Falsum.
-      focus § _ [] _ § auto destruct in H. ltac2:(retrieve (List.Indexing.Int.indexing _ _ = Failure _) as H').
+      focus § _ [] _ § auto destruct in H. ltac2:(retrieve (List.Indexing.Int.indexing _ _ = Error _) as H').
       apply List.Indexing.Int.failure_bounds in H'. quick_math. MatchState.solve_with lia.
     Qed.
 
     Ltac pinpoint_failure := repeat match goal with
-      | [ H: _ = Failure _ |- _ ] => progress (focus § _ [] _ § auto destruct in H); injection H as ->
-      | [ H: List.Update.Nat.One.update _ _ _ = Failure _ |- _ ] => apply List.Update.Nat.One.failure_bounds in H
-      | [ H: List.Indexing.Int.indexing _ _ = Failure _ |- _ ] => apply List.Indexing.Int.failure_bounds in H
-      | [ H: isWordChar _ _ _ = Failure _ |- _ ] => apply isWordChar_failure in H + apply isWordChar_failure_min in H
+      | [ H: _ = Error _ |- _ ] => progress (focus § _ [] _ § auto destruct in H); injection H as ->
+      | [ H: List.Update.Nat.One.update _ _ _ = Error _ |- _ ] => apply List.Update.Nat.One.failure_bounds in H
+      | [ H: List.Indexing.Int.indexing _ _ = Error _ |- _ ] => apply List.Indexing.Int.failure_bounds in H
+      | [ H: isWordChar _ _ _ = Error _ |- _ ] => apply isWordChar_failure in H + apply isWordChar_failure_min in H
       end.
 
     Lemma compileSubPattern: forall root rer,
@@ -864,7 +864,7 @@ Module Correctness.
             ltac2:(retrieve ((if _ then _ else _) = Success _) as H0).
             focus § _ [] _ § auto destruct in H0.
             search.
-        + (* Failure occured => toward contradiction *)
+        + (* Error occured => toward contradiction *)
           apply_mi IH0 in Matching as (y & V_y & P_y & Eq_f) by assumption.
           focus § _ [] _ § auto destruct in Eq_f.
           * (* Cause: call to continuation *)
@@ -872,7 +872,7 @@ Module Correctness.
             search.
           * (* Cause: capture update *)
             injection Eq_f as ->.
-            match goal with | [ H: _ = Failure ?f |- _ ] => focus § _ [] _ § auto destruct in H end.
+            match goal with | [ H: _ = Error ?f |- _ ] => focus § _ [] _ § auto destruct in H end.
             -- (* Count left paren is -1 *)
                 quick_math. lia.
             -- (* Update oob *)
@@ -882,7 +882,7 @@ Module Correctness.
                MatchState.solve_with lia.
           * (* Cause: invalid range *)
             injection Eq_f as ->.
-            lazymatch goal with | [ H: _ = Failure _ |- _ ] => destruct dir; focus § _ [] _ § auto destruct in H; injection H as <- end. 
+            lazymatch goal with | [ H: _ = Error _ |- _ ] => destruct dir; focus § _ [] _ § auto destruct in H; injection H as <- end. 
             all: boolean_simplifier; quick_math; Progress.normalize; lia.
       - (* Match start *)
         injection Eq_m as <-. run matcher as Matching; try search.
@@ -950,7 +950,7 @@ Module Correctness.
       specialize (G x (fun y => y) V_x).
       (* Match either failed or succeeded *)
       destruct G as [ -> | (y & ? & ? & <-) ].
-      + (* Failure => vacuously true *)
+      + (* Error => vacuously true *)
         constructor.
       + (* Success => Direct from matcher invariant *)
         Progress.solve.
@@ -994,7 +994,7 @@ Module Correctness.
     specialize (G x (fun y => y) V_x).
     (* Match either failed or succeeded *)
     destruct G as [ -> | (y & ? & ? & <-) ].
-    + (* Failure => vacuously true *)
+    + (* Error => vacuously true *)
       easy.
     + (* Success => contradiction, due to continuation *)
       easy.
@@ -1025,7 +1025,7 @@ Module Correctness.
       specialize (G x (fun y => y) V_x).
       (* Match either failed or succeeded *)
       destruct G as [ -> | (y & ? & ? & <-) ].
-      + (* Failure => vacuously true *)
+      + (* Error => vacuously true *)
         easy.
       + (* Success => contradiction, due to continuation *)
         easy.

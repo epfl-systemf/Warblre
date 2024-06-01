@@ -31,7 +31,7 @@ Module Return.
   Definition loop {S T R F} (out_of_fuel: F) (fuel: nat) (init: S) (step: S -> Result (Return (S + T) R) F): Result (Return T R) F :=
     let fix iter (fuel: nat) (current: S + T): Result (Return T R) F :=
       match fuel with
-      | 0 => Failure out_of_fuel
+      | 0 => Error out_of_fuel
       | S fuel' =>
         match current with
         | inl s =>

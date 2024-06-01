@@ -78,7 +78,7 @@ Module List.
     Lemma success {T F: Type} {_: Result.AssertionError F}: forall (ls: list T) v, unique ls = Success v -> ls = v :: nil.
     Proof. intros. destruct ls; cbn. - Result.assertion_failed_helper. - destruct ls. + cbn in H. injection H as <-. reflexivity. + Result.assertion_failed_helper. Qed.
 
-    Lemma failure_bounds {T F: Type} {_: Result.AssertionError F}: forall (ls: list T) f, unique ls = Failure f -> (length ls <> 1)%nat.
+    Lemma failure_bounds {T F: Type} {_: Result.AssertionError F}: forall (ls: list T) f, unique ls = Error f -> (length ls <> 1)%nat.
     Proof. intros. destruct ls; cbn. - lia. - destruct ls; cbn. + discriminate. + lia. Qed.
 
     Lemma head {T F: Type} {_: Result.AssertionError F}: forall h (t: list T) v, unique (h :: t) = Success v -> h = v.
@@ -94,7 +94,7 @@ Module List.
     Definition fold_left_result {S T F: Type} (r: T -> S -> Result T F) (ls: list S) (zero: T): Result T F :=
       fold_left_result0 r ls (Success zero).
 
-    Lemma zero_failure0 {S T F: Type}: forall (r: T -> S -> Result T F) (ls: list S) (f: F), fold_left_result0 r ls (Failure f) = (Failure f).
+    Lemma zero_failure0 {S T F: Type}: forall (r: T -> S -> Result T F) (ls: list S) (f: F), fold_left_result0 r ls (Error f) = (Error f).
     Proof. intros r ls f. destruct ls; reflexivity. Qed.
 
     Lemma cons0 {S T F: Type}: forall (r: T -> S -> Result T F) (h: S) (t: list S) (zero: Result T F),
@@ -137,7 +137,7 @@ Module List.
       Proof. intros. pose proof ((ex_intro (fun v => _ = Success v) v) H) as Bounds_i. rewrite -> success_bounds0 in Bounds_i. assumption. Qed.
 
       Lemma failure_is_assertion {T F: Type} {f: Result.AssertionError F}: forall (ls: list T) (i: nat) (f': F),
-        indexing ls i = Result.Failure f' -> {| Result.f := f' |} = f.
+        indexing ls i = Result.Error f' -> {| Result.f := f' |} = f.
       Proof.
         intros ls i f' Eq_indexed. unfold indexing in *. 
         destruct (List.nth_error _ _) in *; try discriminate.
@@ -145,11 +145,11 @@ Module List.
       Qed.
 
       Lemma failure_kind {T F: Type} {_: Result.AssertionError F}: forall (ls: list T) (i: nat) (f: F),
-        indexing ls i = Result.Failure f -> indexing ls i = Result.assertion_failed.
+        indexing ls i = Result.Error f -> indexing ls i = Result.assertion_failed.
       Proof. intros ls i f H. pose proof (failure_is_assertion ls i f H) as [=]. Result.assertion_failed_helper. Qed.
 
       Lemma failure_rewrite {T F: Type} {_: Result.AssertionError F}: forall (ls: list T) (i: nat) (f: F),
-        indexing ls i = Result.Failure f -> indexing ls i = Result.assertion_failed /\ @Result.Failure T F f = Result.assertion_failed.
+        indexing ls i = Result.Error f -> indexing ls i = Result.assertion_failed /\ @Result.Error T F f = Result.assertion_failed.
       Proof. intros ls i f H. pose proof (failure_is_assertion ls i f H) as [=]. Result.assertion_failed_helper. Qed.
 
       Lemma failure_bounds0 {T F: Type} {f: Result.AssertionError F}: forall (ls: list T) (i: nat), @indexing T F f ls i = Result.assertion_failed <-> (length ls <= i )%nat.
@@ -160,7 +160,7 @@ Module List.
         - split; discriminate.
         - split; reflexivity.
       Qed.
-      Lemma failure_bounds {T F: Type} {f: Result.AssertionError F}: forall (ls: list T) (i: nat) (f': F), @indexing T F f ls i = Result.Failure f' -> (length ls <= i )%nat.
+      Lemma failure_bounds {T F: Type} {f: Result.AssertionError F}: forall (ls: list T) (i: nat) (f': F), @indexing T F f ls i = Result.Error f' -> (length ls <= i )%nat.
       Proof. intros. pose proof H as H'. apply failure_is_assertion in H. rewrite <- failure_bounds0. Result.assertion_failed_helper. Qed.
 
       Lemma nil {T F: Type} {_: Result.AssertionError F}: forall (i: nat),
@@ -243,7 +243,7 @@ Module List.
       Proof. intros. pose proof ((ex_intro (fun v => _ = Success v) v) H) as Bounds_i. rewrite -> success_bounds0 in Bounds_i. assumption. Qed.
 
       Lemma failure_is_assertion {T F: Type} {f: Result.AssertionError F}: forall (ls: list T) (i: Z) (f': F),
-          indexing ls i = Result.Failure f' -> {| Result.f := f' |} = f.
+          indexing ls i = Result.Error f' -> {| Result.f := f' |} = f.
       Proof.
         unfold indexing. intros ls i f' Eq_indexed. destruct i.
         - apply Nat.failure_is_assertion in Eq_indexed. assumption.
@@ -252,11 +252,11 @@ Module List.
       Qed.
 
       Lemma failure_kind {T F: Type} {_: Result.AssertionError F}: forall (ls: list T) (i: Z) (f: F),
-        indexing ls i = Result.Failure f -> indexing ls i = Result.assertion_failed.
+        indexing ls i = Result.Error f -> indexing ls i = Result.assertion_failed.
       Proof. intros ls i f H. pose proof (failure_is_assertion ls i f H) as [=]. Result.assertion_failed_helper. Qed.
 
       Lemma failure_rewrite {T F: Type} {_: Result.AssertionError F}: forall (ls: list T) (i: Z) (f: F),
-        indexing ls i = Result.Failure f -> indexing ls i = Result.assertion_failed /\ @Result.Failure T F f = Result.assertion_failed.
+        indexing ls i = Result.Error f -> indexing ls i = Result.assertion_failed /\ @Result.Error T F f = Result.assertion_failed.
       Proof. intros ls i f H. pose proof (failure_is_assertion ls i f H) as [=]. Result.assertion_failed_helper. Qed.
 
       Lemma failure_bounds0 {T F: Type} {f: Result.AssertionError F}: forall (ls: list T) (i: Z), @indexing T F f ls i = Result.assertion_failed <-> (i < 0 \/ (Z.of_nat (length ls)) <= i )%Z.
@@ -267,7 +267,7 @@ Module List.
         - cbn. split. + lia. + reflexivity.
       Qed.
 
-      Lemma failure_bounds {T F: Type} {f: Result.AssertionError F}: forall (ls: list T) (i: Z) (f': F), @indexing T F f ls i = Result.Failure f' -> (i < 0 \/ (Z.of_nat (length ls)) <= i )%Z.
+      Lemma failure_bounds {T F: Type} {f: Result.AssertionError F}: forall (ls: list T) (i: Z) (f': F), @indexing T F f ls i = Result.Error f' -> (i < 0 \/ (Z.of_nat (length ls)) <= i )%Z.
       Proof. intros. pose proof H as H'. apply failure_is_assertion in H. rewrite <- failure_bounds0. Result.assertion_failed_helper. Qed.
 
       Lemma nil: forall {T F: Type} {f: Result.AssertionError F} (i: Z),
@@ -373,7 +373,7 @@ Module List.
         Proof. intros h t i v. cbn. destruct (update v t i); reflexivity. Qed.
 
         Lemma failure_is_assertion {T F: Type} {f: Result.AssertionError F}: forall (ls: list T) (i: nat) (v: T) (f': F),
-          update v ls i = Result.Failure f' -> {| Result.f := f' |} = f.
+          update v ls i = Result.Error f' -> {| Result.f := f' |} = f.
         Proof.
           induction ls; intros i v f'.
           - cbn. Result.assertion_failed_helper. intros [=<-]. reflexivity.
@@ -384,7 +384,7 @@ Module List.
         Qed.
 
         Lemma failure_kind {T F: Type} {_: Result.AssertionError F}: forall (ls: list T) (i: nat) (v: T) (f: F),
-          update v ls i = Result.Failure f -> update v ls i = Result.assertion_failed.
+          update v ls i = Result.Error f -> update v ls i = Result.assertion_failed.
         Proof. intros ls i v f H. pose proof (failure_is_assertion ls i v f H) as [=]. Result.assertion_failed_helper. Qed.
 
         Lemma failure_bounds0 {T F: Type} {f: Result.AssertionError F}: forall (ls: list T) (i: nat) (v: T),
@@ -398,7 +398,7 @@ Module List.
         Qed.
 
         Lemma failure_bounds {T F: Type} {f: Result.AssertionError F}: forall (ls: list T) (i: nat) (v: T) (f': F),
-          @update T F f v ls i = Result.Failure f' -> (length ls <= i)%nat.
+          @update T F f v ls i = Result.Error f' -> (length ls <= i)%nat.
         Proof. intros. pose proof H as H'. apply failure_is_assertion in H. rewrite <- failure_bounds0 with (v := v). Result.assertion_failed_helper. Qed.
 
         Lemma success_length {T F: Type} {_: Result.AssertionError F}: forall (ls ls': list T) (i: nat) (v: T),
@@ -463,7 +463,7 @@ Module List.
         Proof. intros ls i is v. cbn. destruct (One.update v ls i) eqn:Eq. - reflexivity. - destruct is; reflexivity. Qed.
 
         Lemma failure_is_assertion {T F: Type} {f: Result.AssertionError F}: forall (is: list nat) (ls: list T) (v: T) (f': F),
-          update v ls is = Result.Failure f' -> {| Result.f := f' |} = f.
+          update v ls is = Result.Error f' -> {| Result.f := f' |} = f.
         Proof.
           induction is; intros ls v f' H.
           - discriminate.
@@ -473,7 +473,7 @@ Module List.
         Qed.
 
         Lemma failure_bounds {T F: Type} {f: Result.AssertionError F}: forall (is: list nat) (ls: list T) (v: T) (f': F),
-          @update T F f v ls is = Result.Failure f' -> ~ Forall.Forall is (fun i => i < length ls)%nat.
+          @update T F f v ls is = Result.Error f' -> ~ Forall.Forall is (fun i => i < length ls)%nat.
         Proof.
           induction is; intros; intros Falsum.
           - discriminate.
@@ -523,7 +523,7 @@ Module List.
     end.
 
     Lemma failure_kind {T F: Type} {_: Result.AssertionError F}: forall ls p f,
-      @exist T F ls p = Failure f -> exists i v, Indexing.Int.indexing ls i = Success v /\ p v = Failure f.
+      @exist T F ls p = Error f -> exists i v, Indexing.Int.indexing ls i = Success v /\ p v = Error f.
     Proof.
       induction ls; intros p f Ex; try discriminate.
       cbn in Ex. destruct (p a) as [ [ | ] | ] eqn:Eq.
@@ -631,7 +631,7 @@ Module List.
       end.
 
     Lemma failure_kind {T F: Type} {_: Result.AssertionError F}: forall ls g f,
-      @filter T F ls g = Failure f -> exists i v, Indexing.Nat.indexing ls i = Success v /\ g v = Failure f.
+      @filter T F ls g = Error f -> exists i v, Indexing.Nat.indexing ls i = Success v /\ g v = Error f.
     Proof.
       induction ls; intros g f Ex; try discriminate.
       cbn in Ex. destruct (g a) as [ [ | ] | ] eqn:Eq.

@@ -30,6 +30,6 @@ Instance compile_assertion_error: Result.AssertionError CompileError := { f := C
 #[export]
 Instance match_assertion_error: Result.AssertionError MatchError := { f := MatchError.AssertionFailed }.
 
-Notation compile_assertion_failed := (Failure CompileError.AssertionFailed).
-Notation out_of_fuel := (Failure MatchError.OutOfFuel).
-Notation match_assertion_failed := (Failure MatchError.AssertionFailed).
+Notation compile_assertion_failed := (Error CompileError.AssertionFailed).
+Notation out_of_fuel := (Error MatchError.OutOfFuel).
+Notation match_assertion_failed := (Error MatchError.AssertionFailed).

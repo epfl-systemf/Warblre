@@ -86,7 +86,7 @@ Extract Constant Z.pos_sub => "Interop.erased".
 (* Eliminate the Result monad from the extracted code. *)
 Extract Inductive Result.Result =>
     "Interop.result"
-    [ "Interop.success" "Interop.failure" ]
+    [ "Interop.success" "Interop.error" ]
     "(fun fS _ v -> fS v )".
 
 (** Hex *)

@@ -12,10 +12,10 @@ Extract Constant Pos.to_nat => "(fun c -> c)".
 
 (** Result *)
 (* Eliminate the Result monad from the extracted code. *)
-(* If Failure was to be constructed in Coq, an exception will be thrown instead in OCaml. *)
+(* If Error was to be constructed in Coq, an exception will be thrown instead in OCaml. *)
 Extract Inductive Result.Result =>
     "Interop.result"
-    [ "Interop.success" "Interop.failure" ]
+    [ "Interop.success" "Interop.error" ]
     "(fun fS _ v -> fS v )".
 
 (** Hex *)

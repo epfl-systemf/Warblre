@@ -58,7 +58,7 @@ Module NonNegInt.
       + specialize (IHn ltac:(lia)) as [ p Eq_p ]. exists (Pos.succ p). apply succ. assumption.
   Qed.
 
-  Lemma failure {F: Type} {_: Result.AssertionError F}: forall n f, to_positive n = Failure f -> n = 0.
+  Lemma failure {F: Type} {_: Result.AssertionError F}: forall n f, to_positive n = Error f -> n = 0.
   Proof. intros. destruct n eqn:Eq_n. - reflexivity. - pose proof (to_positive_completeness (S n0) ltac:(lia)) as [ ? ? ]. congruence. Qed.
 End NonNegInt.
 

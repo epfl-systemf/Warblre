@@ -13,7 +13,7 @@ Notation "'step{' dir '}' e " := (if dir == forward then (e + 1)%Z else (e - 1)%
 
 Ltac clear_result := autounfold with result_wrappers in *; repeat match goal with
 | [ E: Success _ = Success _ |- _ ] => injection E as E
-| [ E: Failure _ = Failure _ |- _ ] => injection E as E
+| [ E: Error _ = Error _ |- _ ] => injection E as E
 end.
 
 Module Definitions.

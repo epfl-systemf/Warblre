@@ -8,7 +8,7 @@ Section Compile.
   Context `{specParameters: Parameters}.
     Import Patterns.
 
-    Lemma wordCharacters {F: Type} {_: Result.AssertionError F}: forall rer f, wordCharacters rer <> Failure f.
+    Lemma wordCharacters {F: Type} {_: Result.AssertionError F}: forall rer f, wordCharacters rer <> Error f.
     Proof.
       intros rer f. unfold wordCharacters. clear_result. focus § _ (_ [] _) § auto destruct.
     Qed.
@@ -100,8 +100,8 @@ Section Compile.
       induction r; intros ctx rer dir H EE_r; dependent destruction EE_r; cbn; try discriminate.
       - focus § _ (_ [] _) § auto destruct; dependent destruction H0.
         + boolean_simplifier. spec_reflector Nat.leb_spec0. cbn in *. rewrite -> H in *. contradiction.
-        + repeat match goal with | [ H: _ = Failure _ |- _ ] => focus § _ [] _ § auto destruct in H; try injection H as -> end.
-        + repeat match goal with | [ H: _ = Failure _ |- _ ] => focus § _ [] _ § auto destruct in H; try injection H as -> end.
+        + repeat match goal with | [ H: _ = Error _ |- _ ] => focus § _ [] _ § auto destruct in H; try injection H as -> end.
+        + repeat match goal with | [ H: _ = Error _ |- _ ] => focus § _ [] _ § auto destruct in H; try injection H as -> end.
         + boolean_simplifier. spec_reflector Nat.eqb_spec. contradiction.
         + destruct (groupSpecifiersThatMatch (AtomEsc (GroupEsc id)) ctx id) eqn:Eq_gstm; try discriminate.
           destruct p. apply EarlyErrors.groupSpecifiersThatMatch_head_is_group in Eq_gstm as [ ? [ ? -> ] ].

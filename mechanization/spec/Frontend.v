@@ -194,7 +194,7 @@ Section BuiltinExec.
              | None => Success None
              end in
         match groupNames with
-        | nil => Failure MatchError.AssertionFailed
+        | nil => Error MatchError.AssertionFailed
         | gn::groupNames' =>
             let! next =<< makeMatchIndicesGroupList S indices' groupNames' in
             match gn with
@@ -220,7 +220,7 @@ Section BuiltinExec.
           | indices_zero::indices' =>
               let! groups =<< makeMatchIndicesGroupList S indices' groupNames in
               Success (Some groups)
-          | nil => Failure MatchError.AssertionFailed
+          | nil => Error MatchError.AssertionFailed
           end
       end.
 
@@ -608,7 +608,7 @@ End API.
               | Exotic result rx =>
                   (* 1. Let matchStr be ? ToString(? Get(result, "0")). *)
                   let! matchStrop =<< get_zero (array result) in
-                  let! matchStr =<< match matchStrop with | None => Failure MatchError.AssertionFailed | Some s => Success s end in
+                  let! matchStr =<< match matchStrop with | None => Error MatchError.AssertionFailed | Some s => Success s end in
                   (* 2. Perform ! CreateDataPropertyOrThrow(A, ! ToString(𝔽(n)), matchStr). *)
                   let A := app A (matchStr::nil) in
                   (* 3. If matchStr is the empty String, then *)
@@ -656,7 +656,7 @@ and performs the following steps when called: *)
           | true =>
               (* iv. Let matchStr be ? ToString(? Get(match, "0")). *)
               let! matchStrop =<< get_zero (array match_result) in
-              let! matchStr =<< match matchStrop with | None => Failure MatchError.AssertionFailed | Some s => Success s end in
+              let! matchStr =<< match matchStrop with | None => Error MatchError.AssertionFailed | Some s => Success s end in
               (* v. If matchStr is the empty String, then *)
               let! rx =<<
                    if (isemptystring matchStr) then
@@ -707,7 +707,7 @@ the String did not match. *)
   Definition StringPrototypeMatchAll (R:RegExpInstance) (S:list Character): Result.Result (list ArrayExotic * RegExpInstance) MatchError :=
     (* b. iii. If ? ToString(flags) does not contain "g", throw a TypeError exception. *)
     match (g (OriginalFlags R)) with
-    | false => Failure MatchError.AssertionFailed
+    | false => Error MatchError.AssertionFailed
     | true =>
         (* 5. Return ? Invoke(rx, @@matchAll, « S »). *)
         PrototypeMatchAll R S

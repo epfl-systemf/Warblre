@@ -254,7 +254,7 @@ Section EarlyErrors.
 
   Section Safety.
 
-    Lemma Safety_characterValue: forall ca, isCharacterClass ca = false -> characterValue ca <> Failure SyntaxError.AssertionFailed.
+    Lemma Safety_characterValue: forall ca, isCharacterClass ca = false -> characterValue ca <> Error SyntaxError.AssertionFailed.
     Proof.
       intros ca H.
       destruct ca; Result.assertion_failed_helper.
@@ -264,21 +264,21 @@ Section EarlyErrors.
       destruct seq; Result.assertion_failed_helper.
     Qed.
 
-    Lemma Safety_class_ranges: forall c, earlyErrors_class_ranges c <> Failure SyntaxError.AssertionFailed.
+    Lemma Safety_class_ranges: forall c, earlyErrors_class_ranges c <> Error SyntaxError.AssertionFailed.
     Proof.
       induction c; Result.assertion_failed_helper.
       cbn. focus § _ (_ [] _) § auto destruct; subst; focus § _ [] _ § auto destruct in AutoDest_0; try easy;
         repeat lazymatch goal with
         | [ f: SyntaxError |- _ ] => destruct f
         | [ _: context[ if ?b then _ else _ ] |- _ ] => destruct b eqn:?Eq
-        | [ H0: isCharacterClass ?c = false, H1: StaticSemantics.characterValue ?c = Failure SyntaxError.AssertionFailed |- _ ] => exfalso; apply (Safety_characterValue _ H0 H1)
+        | [ H0: isCharacterClass ?c = false, H1: StaticSemantics.characterValue ?c = Error SyntaxError.AssertionFailed |- _ ] => exfalso; apply (Safety_characterValue _ H0 H1)
         end; boolean_simplifier; try discriminate.
     Qed.
 
-    Definition Safety_char_class: forall cc, earlyErrors_char_class cc <> Failure SyntaxError.AssertionFailed.
+    Definition Safety_char_class: forall cc, earlyErrors_char_class cc <> Error SyntaxError.AssertionFailed.
     Proof. destruct cc; cbn; apply Safety_class_ranges. Qed.
 
-    Lemma Safety_rec: forall r ctx, earlyErrors_rec r ctx <> Failure SyntaxError.AssertionFailed.
+    Lemma Safety_rec: forall r ctx, earlyErrors_rec r ctx <> Error SyntaxError.AssertionFailed.
     Proof.
       induction r; intros ctx H; cbn in H; Result.assertion_failed_helper.
       - focus § _ [] _ § auto destruct in H.
@@ -293,7 +293,7 @@ Section EarlyErrors.
       - apply (IHr _ H).
     Qed.
 
-    Lemma Safety_earlyErrors: forall r, earlyErrors r nil <> Failure SyntaxError.AssertionFailed.
+    Lemma Safety_earlyErrors: forall r, earlyErrors r nil <> Error SyntaxError.AssertionFailed.
     Proof.
       intros r H. unfold earlyErrors in H. focus § _ [] _ § auto destruct in H.
       - apply (Safety_rec _ _ H).

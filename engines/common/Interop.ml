@@ -7,7 +7,7 @@ let parse_hex ls =
 
 type ('a, 'b) result = 'a
 let success (type a) (v: a): a = v
-let failure (type a b) (_: a): b = failwith "Success.failure"
+let error (type a b) (_: a): b = failwith "Success.error"
 
 (*
    A function which should never be used by the extracted code.

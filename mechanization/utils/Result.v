@@ -1,11 +1,12 @@
 Declare Scope result_flow.
 
+Inductive Result (S F: Type) :=
+| Success (s: S)
+| Error (f: F).
+Arguments Success {S F} s.
+Arguments Error {S F} f.
+
 Module Result.
-  Inductive Result (S F: Type) :=
-  | Success (s: S)
-  | Failure (f: F).
-  Arguments Success {S F} s.
-  Arguments Failure {S F} f.
 
   Class AssertionError (F: Type) := { f: F }.
 
@@ -13,7 +14,7 @@ Module Result.
 
   Definition bind {S T F: Type} (r: Result S F) (f: S -> Result T F): Result T F := match r with
   | Success s => f s
-  | Failure f => Failure f
+  | Error f => Error f
   end.
 
   Definition map {S T F: Type} (r: Result S F) (f: S -> T): Result T F := bind r (fun s => Success (f s)).
@@ -30,13 +31,13 @@ Module Result.
 
   Definition assertion_failed {S F: Type} {failure: AssertionError F}: Result S F :=
     let (f) := failure in
-    Failure f.
+    Error f.
 
   Ltac inject_all := repeat match goal with
   | [ H: Success _ = Success _ |- _ ] => injection H as H
-  | [ H: Failure _ = Failure _ |- _ ] => injection H as H
-  | [ _: Success _ = Failure _ |- _ ] => discriminate
-  | [ _: Failure _ = Success _ |- _ ] => discriminate
+  | [ H: Error _   = Error _   |- _ ] => injection H as H
+  | [ _: Success _ = Error _   |- _ ] => discriminate
+  | [ _: Error _   = Success _ |- _ ] => discriminate
   end.
 
   Ltac assertion_failed_helper := repeat
@@ -44,7 +45,7 @@ Module Result.
   ||  match goal with
       | [ f: AssertionError _ |- _ ] => destruct f as [f]
       | [ E: {| f := _ |} = {| f := _ |} |- _ ] => injection E as ->
-      | [ E: Failure _ = Failure _ |- _ ] => injection E as ->
+      | [ E: Error _ = Error _ |- _ ] => injection E as ->
       end); try easy.
 
   Module Conversions.
@@ -70,24 +71,23 @@ Module Result.
       Notation "'if!' b 'then' tf 'else' ff" := (match (b: Result bool _) with
       | Success true => tf
       | Success false => ff
-      | Failure f => Failure f
+      | Error f => Error f
       end) (at level 20, b at level 100, tf at level 100, ff at level 100): result_flow.
 
       Notation "l '&&!' r" := (match (l: Result bool _) with
       | Success true => (r: Result bool _)
       | Success false => Success false
-      | Failure f => Failure f
+      | Error f => Error f
       end) (at level 40, left associativity): result_flow.
 
       Notation "l '||!' r" := (match (l: Result bool _) with
       | Success true => Success true
       | Success false => (r: Result bool _)
-      | Failure f => Failure f
+      | Error f => Error f
       end) (at level 50, left associativity): result_flow.
     End Boolean.
   End Notations.
 End Result.
-Export Result(Result, Success, Failure).
 
 From Warblre Require Import Typeclasses.
 #[refine] Instance eqdec_result {T F: Type} `{EqDec T} `{EqDec F}: EqDec (Result T F) := {}. decide equality; apply EqDec.eq_dec. Defined.

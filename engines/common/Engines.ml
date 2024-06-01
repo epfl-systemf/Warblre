@@ -29,7 +29,7 @@ module CharSet (C: Character) = struct
   let contains s c = S.mem c s
   let range l h = S.of_list (List.map C.from_numeric_value (Extracted.List.Range.Nat.Bounds.range (C.numeric_value l) (Host.incr (C.numeric_value h))))
   let size s = Host.of_int (S.cardinal s)
-  let unique err s = if S.cardinal s = 1 then S.choose s else Interop.failure err
+  let unique err s = if S.cardinal s = 1 then S.choose s else Interop.error err
   let filter s f = S.filter f s
   let map s f = S.map f s
   let exist s c = S.mem c s

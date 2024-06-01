@@ -1,6 +1,9 @@
 From Warblre Require Import Result.
 
+(** Facilities used to implement functions which mix general recursion and imperative return. *)
+
 Module Return.
+  (* Continue means that the the computation has not yet returned; Returned mean that no more computations should be done. *)
   Inductive Return (S R: Type) :=
   | Continue: S -> Return S R
   | Returned : R -> Return S R.
@@ -22,11 +25,14 @@ Module Return.
     | Returned r => Returned r
     end.
 
+  (* Exit by either getting the returned value, or by taking the computed expression as the result. *)
   Definition exit {S} (m: Return S S): S :=
     match m with
     | Continue s => s
     | Returned s => s
     end.
+
+  (** Fuel based recursion, allowing imperative return. *)
 
   Definition loop {S T R F} (out_of_fuel: F) (fuel: nat) (init: S) (step: S -> Result (Return (S + T) R) F): Result (Return T R) F :=
     let fix iter (fuel: nat) (current: S + T): Result (Return T R) F :=

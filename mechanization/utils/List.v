@@ -3,20 +3,10 @@ From Warblre Require Import Tactics Focus Result.
 
 Import Result.Notations.
 
-Theorem pseudo_nat_ind: forall P: Z -> Prop,
-          P (Z.of_nat 0) ->
-          (forall n: nat, P (Z.of_nat n) -> P (Z.of_nat (S n))) ->
-          (forall p: positive, P (Zneg p)) ->
-          forall z: Z, P z.
-Proof.
-  intros P H0 Hind Hneg z. destruct z.
-  - apply H0.
-  - rewrite <- positive_nat_Z.
-    induction (Pos.to_nat p).
-    + apply H0.
-    + apply Hind. apply IHn.
-  - apply Hneg.
-Qed.
+(** Contains some extra operations and list,
+    mostly involving the Result monad,
+    and many lemmas about these operations.
+*)
 
 Module List.
   Local Close Scope nat.
@@ -106,13 +96,15 @@ Module List.
     Proof. intros r h t acc. destruct t. - cbn; destruct (r acc h); reflexivity. - cbn. reflexivity. Qed.
   End FoldResult.
 
-  Local Notation "'Zextend' f" := (fun ls i => match i with
-    | Z0 => f ls 0%nat
-    | Zpos i => f ls (Pos.to_nat i)
-    | Zneg _ => Result.assertion_failed
-    end) (at level 0, only parsing).
+  Definition lift_to_Z {T U F: Type} `{Result.AssertionError F} (f: list T -> nat -> Result U F): list T -> Z -> Result U F :=
+    fun ls i => match i with
+                | Z0 => f ls 0%nat
+                | Zpos i => f ls (Pos.to_nat i)
+                | Zneg _ => Result.assertion_failed
+                end.
 
-  Local Notation "'Lextend' f" := (fun ls is => List.FoldResult.fold_left_result0 f is (Success ls)) (at level 0, only parsing).
+  Definition lift_to_list {T F I: Type} `{Result.AssertionError F} (f: T -> I -> Result T F): T -> list I -> Result T F :=
+    fun init ls => List.FoldResult.fold_left_result0 f ls (Success init).
 
   Module Indexing.
     Module Nat.
@@ -199,12 +191,6 @@ Module List.
         intros. destruct (concat' tl tr i) as [[ ? ?] | [ ? ? ]]; subst; [left; split | right; split]; assumption.
       Qed.
 
-      (* Lemma concat_left {T F: Type} {_: Result.AssertionError F}: forall (tl tr: list T) (i: nat) v, indexing (tl ++ tr) i = v -> (i < List.length tl)%nat ->  indexing tl i = v.
-      Proof. intros. destruct (concat tl tr i v ltac:(eassumption)) as [ [ _ ? ] | [ ? _ ] ]; solve [ symmetry; assumption | lia ]. Qed.
-
-      Lemma concat_right {T F: Type} {_: Result.AssertionError F}: forall (tl tr: list T) (i: nat) v, indexing (tl ++ tr) i = v -> (List.length tl <= i)%nat ->  indexing tr (i - List.length tl) = v.
-      Proof. intros. destruct (concat tl tr i v ltac:(eassumption)) as [ [ ? _ ] | [ _ ? ] ]; solve [ symmetry; assumption | lia ]. Qed. *)
-
       Lemma concat_left {T F: Type} {_: Result.AssertionError F}: forall (i: nat) (tl tr: list T) v, indexing tl i = Success v -> indexing (tl ++ tr) (i)%nat = Success v.
       Proof.
         induction i; intros tl tr v H.
@@ -228,7 +214,7 @@ Module List.
     End Nat.
 
     Module Int.
-      Definition indexing {T F: Type} {_: Result.AssertionError F}: list T -> Z -> Result.Result T F := Zextend Nat.indexing.
+      Definition indexing {T F: Type} {_: Result.AssertionError F}: list T -> Z -> Result.Result T F := lift_to_Z Nat.indexing.
 
       Lemma success_bounds0 {T F: Type} {_: Result.AssertionError F}: forall (ls: list T) (i: Z),
         (exists v, indexing ls i = Success v) <-> (0 <= i /\ i < Z.of_nat (length ls))%Z.
@@ -248,7 +234,7 @@ Module List.
         unfold indexing. intros ls i f' Eq_indexed. destruct i.
         - apply Nat.failure_is_assertion in Eq_indexed. assumption.
         - apply Nat.failure_is_assertion in Eq_indexed. assumption.
-        - Result.assertion_failed_helper.
+        - cbn in Eq_indexed. Result.assertion_failed_helper.
       Qed.
 
       Lemma failure_kind {T F: Type} {_: Result.AssertionError F}: forall (ls: list T) (i: Z) (f: F),
@@ -262,8 +248,8 @@ Module List.
       Lemma failure_bounds0 {T F: Type} {f: Result.AssertionError F}: forall (ls: list T) (i: Z), @indexing T F f ls i = Result.assertion_failed <-> (i < 0 \/ (Z.of_nat (length ls)) <= i )%Z.
       Proof.
         unfold indexing. intros ls i. destruct i.
-        - rewrite -> Nat.failure_bounds0. lia.
-        - rewrite -> Nat.failure_bounds0. lia.
+        - unfold lift_to_Z. rewrite -> Nat.failure_bounds0. lia.
+        - unfold lift_to_Z. rewrite -> Nat.failure_bounds0. lia.
         - cbn. split. + lia. + reflexivity.
       Qed.
 
@@ -456,7 +442,7 @@ Module List.
       End One.
 
       Module Batch.
-        Definition update {T F: Type} {_: Result.AssertionError F} (v: T) := Lextend (One.update v).
+        Definition update {T F: Type} {_: Result.AssertionError F} (v: T) := lift_to_list (One.update v).
 
         Lemma step {T F: Type} {_: Result.AssertionError F}: forall (ls: list T) (i: nat) (is: list nat) (v: T),
           update v ls (i :: is) = let! ls' =<< One.update v ls i in update v ls' is.
@@ -716,14 +702,22 @@ Module List.
         Lemma indexing {F: Type} {f: Result.AssertionError F}: forall i b l v,
           Indexing.Int.indexing (range b l) i = Success v -> v = (b + i)%Z.
         Proof.
-          induction i using pseudo_nat_ind.
+          destruct i as [ | p | p ].
           - intros. cbn in *.
             destruct l; try Result.assertion_failed_helper. cbn in *.
             injection H as [=->]. lia.
-          - intros. cbn in *. rewrite -> SuccNat2Pos.id_succ in H.
-            destruct l; try Result.assertion_failed_helper. cbn in *.
-            specialize (IHi (b + 1)%Z l). cbn in IHi.
-            rewrite -> Indexing.Int.of_nat in *. specialize (IHi _ H). lia.
+          - induction p using POrderedType.Positive_as_DT.peano_rect.
+            + intros. cbn in H.
+              destruct l; try Result.assertion_failed_helper. cbn in *.
+              rewrite -> Pos2Nat.inj_1 in H.
+              rewrite -> Indexing.Nat.cons in H.
+              destruct l; try Result.assertion_failed_helper. cbn in *.
+              injection H as [=->]. reflexivity.
+            + intros. cbn in *. rewrite -> Pos2Nat.inj_succ in H.
+              destruct l; try Result.assertion_failed_helper. cbn in *.
+              specialize (IHp (b + 1)%Z l). cbn in IHp.
+              rewrite -> Indexing.Nat.cons in H.
+              specialize (IHp _ H). lia.
           - intros. cbn in H. Result.assertion_failed_helper.
         Qed.
 

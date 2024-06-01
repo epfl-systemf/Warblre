@@ -62,7 +62,7 @@ Module Correctness.
           |- _ ] => is_var c; lazymatch goal with
                     | [ _: (s <= e)%Z |- _ ] => fail
                     | [ |- _ ] => let H := fresh "VCR_" s "_" e in
-                                  cbn in Indexed; focus § _ [] _ § auto destruct in Indexed;
+                                  cbn in Indexed; focus <! _ [] _ !> auto destruct in Indexed;
                                   pose proof (VCs _ _ Indexed) as H;
                                   dependent destruction H
                     end
@@ -202,7 +202,7 @@ Module Correctness.
               |- List.Forall.Forall ?ls' (CaptureRange.Valid ?input) ] =>
               apply List.Update.Nat.One.prop_preservation with (1 := H1) (3 := H3);
               (* Goal: CaptureRange.Valid _ ?v *)
-              try solve [ focus § _ [] _ § auto destruct in Eq; injection Eq as <-; constructor; (assumption + lia) ]
+              try solve [ focus <! _ [] _ !> auto destruct in Eq; injection Eq as <-; constructor; (assumption + lia) ]
           end.
     (* Solves the current goal by 1. normalizing the states 2. leveraging assumptions and reflexivity *)
     Local Ltac solve_impl t := solve [ normalize; unfold OnInput, Valid; (solvers t || t) ].
@@ -387,11 +387,11 @@ Module Correctness.
         let x := fresh "x" in
         let c := fresh "c" in
         let Vx := fresh "V_" x in
-        intros x c Vx; destruct m eqn:H; cbn in H; focus § _ [] _ § auto destruct in H
+        intros x c Vx; destruct m eqn:H; cbn in H; focus <! _ [] _ !> auto destruct in H
     | [ |- ?res = _ \/ (exists y : MatchState, MatchState.Valid (MatchState.input ?x) _ y /\ progress _ ?x (Success (Some y)) /\ ?c y = ?res)] =>
-        destruct res eqn:H; cbn in H; focus § _ [] _ § auto destruct in H
+        destruct res eqn:H; cbn in H; focus <! _ [] _ !> auto destruct in H
     | [ H: ?m ?x ?c = ?res |- ?res = _ \/ (exists y : MatchState, MatchState.Valid (MatchState.input ?x) _ y /\ progress _ ?x (Success (Some y)) /\ ?c y = ?res)] =>
-        cbn in H; focus § _ [] _ § auto destruct in H
+        cbn in H; focus <! _ [] _ !> auto destruct in H
     end; autounfold with result_wrappers in *; repeat match goal with [ H: Success _ = Success _ |- _ ] => injection H as H end.
 
     Lemma mi_application_match: forall (m: Matcher) dir rer x c z
@@ -609,7 +609,7 @@ Module Correctness.
             apply_mi MI_m in Matching as [ ? | (y0 & ? & ? & Matching) ] by MatchState.solve; [ search | ].
             unfold Definitions.RepeatMatcher.continuation in Matching.
             fold_matchers.
-            focus § _ [] _ § auto destruct in Matching; [ search | ].
+            focus <! _ [] _ !> auto destruct in Matching; [ search | ].
             unfold conditional_matcher_invariant in IHfuel.
             lazymatch type of Matching with 
             | _ _ ?n_min ?n_max _ _ _ _ ?y ?k = _ => specialize IHfuel with (min := n_min) (max := n_max) (x := y) (c := k)
@@ -724,7 +724,7 @@ Module Correctness.
           rewrite -> List.Range.Int.Bounds.length in *. cbn in *.
 
           (* Conclude by case analysis *)
-          focus § _ [] _ § auto destruct in Indexing_failure; injection Indexing_failure as ->;
+          focus <! _ [] _ !> auto destruct in Indexing_failure; injection Indexing_failure as ->;
             match goal with
             | [ H: List.Indexing.Int.indexing _ _ = Error _ |- _ ] =>
                 apply List.Indexing.Int.failure_bounds in H as [Indexing_failure | Indexing_failure]
@@ -764,18 +764,18 @@ Module Correctness.
     Lemma isWordChar_failure: forall rer x f, isWordChar rer (MatchState.input x) (MatchState.endIndex x) = Error f -> ~ MatchState.Valid (MatchState.input x) rer x.
     Proof.
       unfold isWordChar. cbn. intros rer x f H Falsum.
-      focus § _ [] _ § auto destruct in H. ltac2:(retrieve (List.Indexing.Int.indexing _ _ = Error _) as H').
+      focus <! _ [] _ !> auto destruct in H. ltac2:(retrieve (List.Indexing.Int.indexing _ _ = Error _) as H').
       apply List.Indexing.Int.failure_bounds in H'. quick_math. MatchState.solve_with lia.
     Qed.
     Lemma isWordChar_failure_min: forall rer x f, isWordChar rer (MatchState.input x) (MatchState.endIndex x - 1)%Z = Error f -> ~ MatchState.Valid (MatchState.input x) rer x.
     Proof.
       unfold isWordChar. cbn. intros rer x f H Falsum.
-      focus § _ [] _ § auto destruct in H. ltac2:(retrieve (List.Indexing.Int.indexing _ _ = Error _) as H').
+      focus <! _ [] _ !> auto destruct in H. ltac2:(retrieve (List.Indexing.Int.indexing _ _ = Error _) as H').
       apply List.Indexing.Int.failure_bounds in H'. quick_math. MatchState.solve_with lia.
     Qed.
 
     Ltac pinpoint_failure := repeat match goal with
-      | [ H: _ = Error _ |- _ ] => progress (focus § _ [] _ § auto destruct in H); injection H as ->
+      | [ H: _ = Error _ |- _ ] => progress (focus <! _ [] _ !> auto destruct in H); injection H as ->
       | [ H: List.Update.Nat.One.update _ _ _ = Error _ |- _ ] => apply List.Update.Nat.One.failure_bounds in H
       | [ H: List.Indexing.Int.indexing _ _ = Error _ |- _ ] => apply List.Indexing.Int.failure_bounds in H
       | [ H: isWordChar _ _ _ = Error _ |- _ ] => apply isWordChar_failure in H + apply isWordChar_failure_min in H
@@ -802,14 +802,14 @@ Module Correctness.
       - (* AtomEscape *)
         destruct ae.
         + (* Numbered backref *)
-          focus § _ [] _ § auto destruct in Eq_m; injection Eq_m as <-.
+          focus <! _ [] _ !> auto destruct in Eq_m; injection Eq_m as <-.
           apply backreferenceMatcher. quick_math. assumption.
         + (* Character class *)
-          destruct esc; focus § _ [] _ § auto destruct in Eq_m; injection Eq_m as <-; apply characterSetMatcher.
+          destruct esc; focus <! _ [] _ !> auto destruct in Eq_m; injection Eq_m as <-; apply characterSetMatcher.
         + (* Character *)
-          destruct esc; focus § _ [] _ § auto destruct in Eq_m; injection Eq_m as <-; apply characterSetMatcher.
+          destruct esc; focus <! _ [] _ !> auto destruct in Eq_m; injection Eq_m as <-; apply characterSetMatcher.
         + (* Named backref *)
-          focus § _ [] _ § auto destruct in Eq_m; injection Eq_m as <-.
+          focus <! _ [] _ !> auto destruct in Eq_m; injection Eq_m as <-.
           ltac2:(retrieve (List.Unique.unique _ = Success _) as H0).
           ltac2:(retrieve (NonNegInt.to_positive _ = Success _) as H1).
           apply backreferenceMatcher. quick_math. cbn in *.
@@ -827,14 +827,14 @@ Module Correctness.
           apply NonNegInt.to_positive_soundness in H1.
           lia.
       - (* Character class *)
-        focus § _ [] _ § auto destruct in Eq_m; auto using Compile.compileCharacterClass.
+        focus <! _ [] _ !> auto destruct in Eq_m; auto using Compile.compileCharacterClass.
         injection Eq_m as <-. apply characterSetMatcher.
       - (* Disjunction *)
-        focus § _ [] _ § auto destruct in Eq_m. injection Eq_m as <-.
+        focus <! _ [] _ !> auto destruct in Eq_m. injection Eq_m as <-.
         compileSubPattern_helper.
         run matcher as Matching; try ltac2:(retrieve (s _ _ = _) as H0); rewrite <- Matching, <- ?H0 in *; auto.
       - (* Quantifier *)
-        focus § _ [] _ § auto destruct in Eq_m. injection Eq_m as <-. apply repeatMatcher.
+        focus <! _ [] _ !> auto destruct in Eq_m. injection Eq_m as <-. apply repeatMatcher.
         + intros i v Eq_indexed.
           pose proof (List.Indexing.Nat.success_bounds _ _ _ Eq_indexed). rewrite -> List.Range.Nat.Bounds.length in *.
           apply List.Range.Nat.Bounds.indexing in Eq_indexed.
@@ -843,36 +843,36 @@ Module Correctness.
         + compileSubPattern_helper. assumption.
       - (* Sequence *)
         destruct dir; cbn in *.
-        + focus § _ [] _ § auto destruct in Eq_m. injection Eq_m as <-.
+        + focus <! _ [] _ !> auto destruct in Eq_m. injection Eq_m as <-.
           compileSubPattern_helper.
           run matcher as Matching; rewrite <- Matching.
           * apply_mi IH0 by assumption. apply_mi IH2 by MatchState.solve. right. search. Progress.normalize. lia.
           * apply_mi IH0 by assumption. apply_mi IH2 by MatchState.solve. right. search. Progress.normalize. lia.
-        + focus § _ [] _ § auto destruct in Eq_m. injection Eq_m as <-.
+        + focus <! _ [] _ !> auto destruct in Eq_m. injection Eq_m as <-.
           compileSubPattern_helper.
           run matcher as Matching; rewrite <- Matching.
           * apply_mi IH2 by assumption. apply_mi IH0 by MatchState.solve. right. search. Progress.normalize. lia.
           * apply_mi IH2 by assumption. apply_mi IH0 by MatchState.solve. right. search. Progress.normalize. lia.
       - (* (Capturing) Group *)
-        focus § _ [] _ § auto destruct in Eq_m. injection Eq_m as <-.
+        focus <! _ [] _ !> auto destruct in Eq_m. injection Eq_m as <-.
         compileSubPattern_helper.
         run matcher as Matching.
         + (* Run succeeded *)
           apply_mi IH0 in Matching as [? | (y & V_y & P_y & Eq_s)] by assumption.
           * subst. left. reflexivity.
-          * focus § _ [] _ § auto destruct in Eq_s.
+          * focus <! _ [] _ !> auto destruct in Eq_s.
             ltac2:(retrieve ((if _ then _ else _) = Success _) as H0).
-            focus § _ [] _ § auto destruct in H0.
+            focus <! _ [] _ !> auto destruct in H0.
             search.
         + (* Error occured => toward contradiction *)
           apply_mi IH0 in Matching as (y & V_y & P_y & Eq_f) by assumption.
-          focus § _ [] _ § auto destruct in Eq_f.
+          focus <! _ [] _ !> auto destruct in Eq_f.
           * (* Cause: call to continuation *)
-            match goal with | [ H: _ = Success ?s |- _ ] => check_type s (list (option CaptureRange)); focus § _ [] _ § auto destruct in H end.
+            match goal with | [ H: _ = Success ?s |- _ ] => check_type s (list (option CaptureRange)); focus <! _ [] _ !> auto destruct in H end.
             search.
           * (* Cause: capture update *)
             injection Eq_f as ->.
-            match goal with | [ H: _ = Error ?f |- _ ] => focus § _ [] _ § auto destruct in H end.
+            match goal with | [ H: _ = Error ?f |- _ ] => focus <! _ [] _ !> auto destruct in H end.
             -- (* Count left paren is -1 *)
                 quick_math. lia.
             -- (* Update oob *)
@@ -882,7 +882,7 @@ Module Correctness.
                MatchState.solve_with lia.
           * (* Cause: invalid range *)
             injection Eq_f as ->.
-            lazymatch goal with | [ H: _ = Error _ |- _ ] => destruct dir; focus § _ [] _ § auto destruct in H; injection H as <- end. 
+            lazymatch goal with | [ H: _ = Error _ |- _ ] => destruct dir; focus <! _ [] _ !> auto destruct in H; injection H as <- end. 
             all: boolean_simplifier; quick_math; Progress.normalize; lia.
       - (* Match start *)
         injection Eq_m as <-. run matcher as Matching; try search.
@@ -899,13 +899,13 @@ Module Correctness.
       - (* Non word boundary *)
         injection Eq_m as <-. run matcher as Matching; try search; injection Matching as <-; pinpoint_failure; contradiction.
       - (* Lookahead *)
-        focus § _ [] _ § auto destruct in Eq_m. injection Eq_m as <-. apply positiveLookaroundMatcher with (dir' := forward). auto.
+        focus <! _ [] _ !> auto destruct in Eq_m. injection Eq_m as <-. apply positiveLookaroundMatcher with (dir' := forward). auto.
       - (* Negative lookahead *)
-        focus § _ [] _ § auto destruct in Eq_m. injection Eq_m as <-. apply negativeLookaroundMatcher with (dir' := forward). auto.
+        focus <! _ [] _ !> auto destruct in Eq_m. injection Eq_m as <-. apply negativeLookaroundMatcher with (dir' := forward). auto.
       - (* Lookbehind *)
-        focus § _ [] _ § auto destruct in Eq_m. injection Eq_m as <-. apply positiveLookaroundMatcher with (dir' := backward). auto.
+        focus <! _ [] _ !> auto destruct in Eq_m. injection Eq_m as <-. apply positiveLookaroundMatcher with (dir' := backward). auto.
       - (* Negative lookbehind *)
-        focus § _ [] _ § auto destruct in Eq_m. injection Eq_m as <-. apply negativeLookaroundMatcher with (dir' := backward). auto.
+        focus <! _ [] _ !> auto destruct in Eq_m. injection Eq_m as <-. apply negativeLookaroundMatcher with (dir' := backward). auto.
     Qed.
   End main. End MatcherInvariant.
 
@@ -935,12 +935,12 @@ Module Correctness.
   Proof.
     intros r rer input i m EE_root Eq_rer Eq_m.
     unfold compilePattern in *.
-    focus § _ [] _ § auto destruct in Eq_m. injection Eq_m as <-. ltac2:(retrieve (compileSubPattern r _ _ _ = Success _) as H0).
-    cbn. focus § _ _ _ [] § auto destruct.
+    focus <! _ [] _ !> auto destruct in Eq_m. injection Eq_m as <-. ltac2:(retrieve (compileSubPattern r _ _ _ = Success _) as H0).
+    cbn. focus <! _ _ _ [] !> auto destruct.
     - constructor.
     - boolean_simplifier. spec_reflector Nat.leb_spec0.
       (* Assert that the start state is valid *)
-      focus § _ _ [] _ § do (fun y => remember y as x eqn:Eq_x).
+      focus <! _ _ [] _ !> remember as x with equality Eq_x.
       assert (MatchState.Valid (MatchState.input x) rer x) as V_x. {
         subst. apply initialState_validity. assumption.
       }
@@ -980,11 +980,11 @@ Module Correctness.
   Proof.
     intros r rer input i m EE_root Eq_rer Eq_m.
     unfold compilePattern in *.
-    focus § _ [] _ § auto destruct in Eq_m. injection Eq_m as <-. ltac2:(retrieve (compileSubPattern r _ _ _ = Success _) as H0).
-    cbn. focus § _ (_ [] _) § auto destruct.
+    focus <! _ [] _ !> auto destruct in Eq_m. injection Eq_m as <-. ltac2:(retrieve (compileSubPattern r _ _ _ = Success _) as H0).
+    cbn. focus <! _ (_ [] _) !> auto destruct.
     boolean_simplifier. spec_reflector Nat.leb_spec0.
     (* Assert that the start state is valid *)
-    focus § _ (_ (_ [] _) _) § do (fun y => remember y as x eqn:Eq_x).
+    focus <! _ (_ (_ [] _) _) !> remember as x with equality Eq_x.
     assert (MatchState.Valid (MatchState.input x) rer x) as V_x. {
       subst. apply initialState_validity. assumption.
     }
@@ -1010,12 +1010,12 @@ Module Correctness.
   Proof.
     intros r rer input i m EE_root Eq_rer Eq_m Bound_i.
     unfold compilePattern in *.
-    focus § _ [] _ § auto destruct in Eq_m. injection Eq_m as <-. ltac2:(retrieve (compileSubPattern r _ _ _ = Success _) as H0).
-    cbn. focus § _ (_ [] _) § auto destruct.
+    focus <! _ [] _ !> auto destruct in Eq_m. injection Eq_m as <-. ltac2:(retrieve (compileSubPattern r _ _ _ = Success _) as H0).
+    cbn. focus <! _ (_ [] _) !> auto destruct.
     - boolean_simplifier. spec_reflector Nat.leb_spec0. lia.
     - boolean_simplifier. spec_reflector Nat.leb_spec0.
       (* Assert that the start state is valid *)
-      focus § _ (_ (_ [] _) _) § do (fun y => remember y as x eqn:Eq_x).
+      focus <! _ (_ (_ [] _) _) !> remember as x with equality Eq_x.
       assert (MatchState.Valid (MatchState.input x) rer x) as V_x. {
         subst. apply initialState_validity. assumption.
       }

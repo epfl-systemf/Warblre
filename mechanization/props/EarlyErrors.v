@@ -182,7 +182,7 @@ Section EarlyErrors.
       rewrite -> Zipper.Zip.id in *.
       apply List.Exists.false_to_prop in Ex. specialize (Ex _ _ Eq_indexed_i).
       apply List.Exists.false_to_prop in Ex. specialize (Ex _ _ Eq_indexed_j). cbn beta in Ex.
-      focus § _ [] _ § auto destruct in Ex.
+      focus <! _ [] _ !> auto destruct in Ex.
       + injection e as <- <-. pose proof Zipper.Walk.uniqueness as Falsum. specialize Falsum with (1 := Eq_indexed_i) (2 := Eq_indexed_j). contradiction.
       + rewrite -> EqDec.reflb in Ex. discriminate.
   Qed.
@@ -267,7 +267,7 @@ Section EarlyErrors.
     Lemma Safety_class_ranges: forall c, earlyErrors_class_ranges c <> Error SyntaxError.AssertionFailed.
     Proof.
       induction c; Result.assertion_failed_helper.
-      cbn. focus § _ (_ [] _) § auto destruct; subst; focus § _ [] _ § auto destruct in AutoDest_0; try easy;
+      cbn. focus <! _ (_ [] _) !> auto destruct; subst; focus <! _ [] _ !> auto destruct in AutoDest_0; try easy;
         repeat lazymatch goal with
         | [ f: SyntaxError |- _ ] => destruct f
         | [ _: context[ if ?b then _ else _ ] |- _ ] => destruct b eqn:?Eq
@@ -281,11 +281,11 @@ Section EarlyErrors.
     Lemma Safety_rec: forall r ctx, earlyErrors_rec r ctx <> Error SyntaxError.AssertionFailed.
     Proof.
       induction r; intros ctx H; cbn in H; Result.assertion_failed_helper.
-      - focus § _ [] _ § auto destruct in H.
+      - focus <! _ [] _ !> auto destruct in H.
       - apply (Safety_char_class _ H).
-      - focus § _ [] _ § auto destruct in H; subst. + apply (IHr2 _ H). + destruct f. apply (IHr1 _ AutoDest_).
-      - focus § _ [] _ § auto destruct in H. Result.assertion_failed_helper. apply (IHr _ AutoDest_).
-      - focus § _ [] _ § auto destruct in H; subst. + apply (IHr2 _ H). + destruct f. apply (IHr1 _ AutoDest_).
+      - focus <! _ [] _ !> auto destruct in H; subst. + apply (IHr2 _ H). + destruct f. apply (IHr1 _ AutoDest_).
+      - focus <! _ [] _ !> auto destruct in H. Result.assertion_failed_helper. apply (IHr _ AutoDest_).
+      - focus <! _ [] _ !> auto destruct in H; subst. + apply (IHr2 _ H). + destruct f. apply (IHr1 _ AutoDest_).
       - apply (IHr _ H).
       - apply (IHr _ H).
       - apply (IHr _ H).
@@ -295,12 +295,12 @@ Section EarlyErrors.
 
     Lemma Safety_earlyErrors: forall r, earlyErrors r nil <> Error SyntaxError.AssertionFailed.
     Proof.
-      intros r H. unfold earlyErrors in H. focus § _ [] _ § auto destruct in H.
+      intros r H. unfold earlyErrors in H. focus <! _ [] _ !> auto destruct in H.
       - apply (Safety_rec _ _ H).
       - Result.assertion_failed_helper.
         apply List.Exists.failure_kind in AutoDest_ as (_ & ? & _ & H).
         apply List.Exists.failure_kind in H as (_ & ? & _ & H).
-        focus § _ [] _ § auto destruct in H.
+        focus <! _ [] _ !> auto destruct in H.
     Qed.
   End Safety.
 
@@ -324,7 +324,7 @@ Section EarlyErrors.
       induction c; intros H; cbn in *.
       - constructor.
       - constructor. apply IHc. apply H.
-      - focus § _ [] _ § auto destruct in H. boolean_simplifier. focus § _ [] _ § auto destruct in AutoDest_0. subst. injection AutoDest_0 as ?.
+      - focus <! _ [] _ !> auto destruct in H. boolean_simplifier. focus <! _ [] _ !> auto destruct in AutoDest_0. subst. injection AutoDest_0 as ?.
         apply Completeness_isCharacterClass_false in H0 as (cl & ?). apply Completeness_isCharacterClass_false in H1 as (ch & ?).
         apply Pass_RangeCR with (cl := cl) (ch := ch); try assumption.
         + destruct s1;
@@ -365,38 +365,38 @@ Section EarlyErrors.
       - constructor.
       - constructor.
       - constructor. destruct ae; cbn in EE_r; constructor.
-        + focus § _ [] _ § auto destruct in EE_r. unfold capturingGroupNumber,positive_to_non_neg,positive_to_nat in *. focus § _ [] _ § auto destruct in AutoDest_.
+        + focus <! _ [] _ !> auto destruct in EE_r. unfold capturingGroupNumber,positive_to_non_neg,positive_to_nat in *. focus <! _ [] _ !> auto destruct in AutoDest_.
           * lia.
           * spec_reflector Nat.leb_spec0. lia.
-        + focus § _ [] _ § auto destruct in EE_r. spec_reflector Nat.eqb_spec.
+        + focus <! _ [] _ !> auto destruct in EE_r. spec_reflector Nat.eqb_spec.
           pose proof (groupSpecifiersThatMatch_singleton _ id RP).
           unfold groupSpecifiersThatMatch in *. rewrite <- Root_r in *.
           rewrite -> Zipper.Zip.id in *.
           lia.
       - constructor. apply Completeness_char_class. apply EE_r.
       - constructor.
-        + cbn in EE_r. focus § _ [] _ § auto destruct in EE_r. apply IHr1; try assumption.
-        + cbn in EE_r. focus § _ [] _ § auto destruct in EE_r. apply IHr2; try assumption.
-      - constructor. cbn in EE_r. focus § _ [] _ § auto destruct in EE_r. apply IHr; try assumption.
+        + cbn in EE_r. focus <! _ [] _ !> auto destruct in EE_r. apply IHr1; try assumption.
+        + cbn in EE_r. focus <! _ [] _ !> auto destruct in EE_r. apply IHr2; try assumption.
+      - constructor. cbn in EE_r. focus <! _ [] _ !> auto destruct in EE_r. apply IHr; try assumption.
         apply Completeness_quantifier.
-        cbn in EE_r. focus § _ [] _ § auto destruct in EE_r. injection EE_r as EE_r. apply EE_r.
+        cbn in EE_r. focus <! _ [] _ !> auto destruct in EE_r. injection EE_r as EE_r. apply EE_r.
       - constructor.
-        + cbn in EE_r. focus § _ [] _ § auto destruct in EE_r. apply IHr1; try assumption.
-        + cbn in EE_r. focus § _ [] _ § auto destruct in EE_r. apply IHr2; try assumption.
-      - constructor. cbn in EE_r. focus § _ [] _ § auto destruct in EE_r. apply IHr; try assumption.
-      - constructor.
-      - constructor.
+        + cbn in EE_r. focus <! _ [] _ !> auto destruct in EE_r. apply IHr1; try assumption.
+        + cbn in EE_r. focus <! _ [] _ !> auto destruct in EE_r. apply IHr2; try assumption.
+      - constructor. cbn in EE_r. focus <! _ [] _ !> auto destruct in EE_r. apply IHr; try assumption.
       - constructor.
       - constructor.
-      - constructor. cbn in EE_r. focus § _ [] _ § auto destruct in EE_r. apply IHr; try assumption.
-      - constructor. cbn in EE_r. focus § _ [] _ § auto destruct in EE_r. apply IHr; try assumption.
-      - constructor. cbn in EE_r. focus § _ [] _ § auto destruct in EE_r. apply IHr; try assumption.
-      - constructor. cbn in EE_r. focus § _ [] _ § auto destruct in EE_r. apply IHr; try assumption.
+      - constructor.
+      - constructor.
+      - constructor. cbn in EE_r. focus <! _ [] _ !> auto destruct in EE_r. apply IHr; try assumption.
+      - constructor. cbn in EE_r. focus <! _ [] _ !> auto destruct in EE_r. apply IHr; try assumption.
+      - constructor. cbn in EE_r. focus <! _ [] _ !> auto destruct in EE_r. apply IHr; try assumption.
+      - constructor. cbn in EE_r. focus <! _ [] _ !> auto destruct in EE_r. apply IHr; try assumption.
       Qed.
 
     Lemma earlyErrors: forall r, earlyErrors r nil = Success false -> Pass_Regex r nil.
     Proof.
-      intros r H. unfold earlyErrors in H. focus § _ [] _ § auto destruct in H. apply rec with (root := r); solve [ assumption | reflexivity ].
+      intros r H. unfold earlyErrors in H. focus <! _ [] _ !> auto destruct in H. apply rec with (root := r); solve [ assumption | reflexivity ].
     Qed.
   End Completeness.
 End EarlyErrors.

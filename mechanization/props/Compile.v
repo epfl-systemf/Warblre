@@ -10,7 +10,7 @@ Section Compile.
 
     Lemma wordCharacters {F: Type} {_: Result.AssertionError F}: forall rer f, wordCharacters rer <> Error f.
     Proof.
-      intros rer f. unfold wordCharacters. clear_result. focus § _ (_ [] _) § auto destruct.
+      intros rer f. unfold wordCharacters. clear_result. focus <! _ (_ [] _) !> auto destruct.
     Qed.
 
     Lemma compileToCharSet_ClassAtom_rel_ind: forall (P: ClassAtom -> Prop),
@@ -66,15 +66,15 @@ Section Compile.
       induction crs; intros rer H; dependent destruction H; cbn.
       - easy.
       - specialize IHcrs with (1 := H).
-        focus § _ (_ [] _) § auto destruct; destruct f; try easy.
+        focus <! _ (_ [] _) !> auto destruct; destruct f; try easy.
         + congruence.
         + exfalso. apply (compileToCharSet_ClassAtom _ _ ltac:(eassumption)).
       - specialize IHcrs with (1 := H2).
-        focus § _ (_ [] _) § auto destruct; destruct f; try easy.
+        focus <! _ (_ [] _) !> auto destruct; destruct f; try easy.
         + pose proof (compileToCharSet_ClassAtom_singleton _ _ _ _ H ltac:(eassumption)) as ->.
           pose proof (compileToCharSet_ClassAtom_singleton _ _ _ _ H0 ltac:(eassumption)) as ->.
           unfold characterRange in *. repeat rewrite -> CharSet.singleton_size,CharSet.singleton_unique in *.
-          cbn in AutoDest_2. focus § _ [] _ § auto destruct in AutoDest_2.
+          cbn in AutoDest_2. focus <! _ [] _ !> auto destruct in AutoDest_2.
           boolean_simplifier. spec_reflector Nat.leb_spec0.
           apply Character.numeric_round_trip_order in H1.
           contradiction.
@@ -88,8 +88,8 @@ Section Compile.
       compileCharacterClass cc rer <> compile_assertion_failed.
     Proof.
       intros [ crs | crs ] rer H; dependent destruction H.
-      - cbn. focus § _ (_ [] _) § auto destruct; destruct f; try easy. exfalso. apply (compileToCharSet _ _ H ltac:(eassumption)).
-      - cbn. focus § _ (_ [] _) § auto destruct; destruct f; try easy. exfalso. apply (compileToCharSet _ _ H ltac:(eassumption)).
+      - cbn. focus <! _ (_ [] _) !> auto destruct; destruct f; try easy. exfalso. apply (compileToCharSet _ _ H ltac:(eassumption)).
+      - cbn. focus <! _ (_ [] _) !> auto destruct; destruct f; try easy. exfalso. apply (compileToCharSet _ _ H ltac:(eassumption)).
     Qed.
 
     Lemma compileSubPattern: forall r ctx rer dir,
@@ -98,10 +98,10 @@ Section Compile.
       compileSubPattern r ctx rer dir <> compile_assertion_failed.
     Proof.
       induction r; intros ctx rer dir H EE_r; dependent destruction EE_r; cbn; try discriminate.
-      - focus § _ (_ [] _) § auto destruct; dependent destruction H0.
+      - focus <! _ (_ [] _) !> auto destruct; dependent destruction H0.
         + boolean_simplifier. spec_reflector Nat.leb_spec0. cbn in *. rewrite -> H in *. contradiction.
-        + repeat match goal with | [ H: _ = Error _ |- _ ] => focus § _ [] _ § auto destruct in H; try injection H as -> end.
-        + repeat match goal with | [ H: _ = Error _ |- _ ] => focus § _ [] _ § auto destruct in H; try injection H as -> end.
+        + repeat match goal with | [ H: _ = Error _ |- _ ] => focus <! _ [] _ !> auto destruct in H; try injection H as -> end.
+        + repeat match goal with | [ H: _ = Error _ |- _ ] => focus <! _ [] _ !> auto destruct in H; try injection H as -> end.
         + boolean_simplifier. spec_reflector Nat.eqb_spec. contradiction.
         + destruct (groupSpecifiersThatMatch (AtomEsc (GroupEsc id)) ctx id) eqn:Eq_gstm; try discriminate.
           destruct p. apply EarlyErrors.groupSpecifiersThatMatch_head_is_group in Eq_gstm as [ ? [ ? -> ] ].
@@ -109,25 +109,25 @@ Section Compile.
           apply List.Unique.head in AutoDest_1. subst. cbn in *. lia.
         + boolean_simplifier. spec_reflector Nat.eqb_spec.
           apply List.Unique.failure_bounds in AutoDest_1. contradiction.
-      - focus § _ (_ [] _) § auto destruct; destruct f; try easy.
+      - focus <! _ (_ [] _) !> auto destruct; destruct f; try easy.
         exfalso. apply (compileCharacterClass _ _ H0 ltac:(eassumption)).
-      - focus § _ (_ [] _) § auto destruct; destruct f; try easy.
+      - focus <! _ (_ [] _) !> auto destruct; destruct f; try easy.
         + exfalso. apply IHr2 with (3 := ltac:(eassumption)); assumption.
         + exfalso. apply IHr1 with (3 := ltac:(eassumption)); assumption.
-      - focus § _ (_ [] _) § auto destruct. destruct f; try easy.
+      - focus <! _ (_ [] _) !> auto destruct. destruct f; try easy.
         exfalso. apply IHr with (3 := ltac:(eassumption)); assumption.
-      - focus § _ (_ [] _) § auto destruct; destruct f; try easy.
+      - focus <! _ (_ [] _) !> auto destruct; destruct f; try easy.
         + exfalso. apply IHr2 with (3 := ltac:(eassumption)); assumption.
         + exfalso. apply IHr1 with (3 := ltac:(eassumption)); assumption.
-      - focus § _ (_ [] _) § auto destruct; destruct f; try easy.
+      - focus <! _ (_ [] _) !> auto destruct; destruct f; try easy.
         exfalso. apply IHr with (3 := ltac:(eassumption)); assumption.
-      - focus § _ (_ [] _) § auto destruct; destruct f; try easy.
+      - focus <! _ (_ [] _) !> auto destruct; destruct f; try easy.
         exfalso. apply IHr with (3 := ltac:(eassumption)); assumption.
-      - focus § _ (_ [] _) § auto destruct; destruct f; try easy.
+      - focus <! _ (_ [] _) !> auto destruct; destruct f; try easy.
         exfalso. apply IHr with (3 := ltac:(eassumption)); assumption.
-      - focus § _ (_ [] _) § auto destruct; destruct f; try easy.
+      - focus <! _ (_ [] _) !> auto destruct; destruct f; try easy.
         exfalso. apply IHr with (3 := ltac:(eassumption)); assumption.
-      - focus § _ (_ [] _) § auto destruct; destruct f; try easy.
+      - focus <! _ (_ [] _) !> auto destruct; destruct f; try easy.
         exfalso. apply IHr with (3 := ltac:(eassumption)); assumption.
     Qed.
 
@@ -136,7 +136,7 @@ Section Compile.
       EarlyErrors.Pass_Regex r nil ->
       compilePattern r rer <> compile_assertion_failed.
     Proof.
-      intros r rer H0 H1. unfold compilePattern. focus § _ (_ [] _) § auto destruct; destruct f; try easy.
+      intros r rer H0 H1. unfold compilePattern. focus <! _ (_ [] _) !> auto destruct; destruct f; try easy.
       rewrite <- (Zipper.Zip.id r) in H0.
       exfalso. apply (compileSubPattern _ _ _ _ H0 H1 AutoDest_).
     Qed.

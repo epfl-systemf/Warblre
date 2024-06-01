@@ -1,5 +1,5 @@
 From Coq Require Import PeanoNat List Bool.
-From Warblre Require Import Result List Base Result Patterns Node NodeProps Characters Coercions Typeclasses.
+From Warblre Require Import Result List Base Errors Result Patterns Node NodeProps Typeclasses.
 
 Import Coercions.
 Import Result.Notations.

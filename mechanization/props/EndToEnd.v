@@ -1,4 +1,4 @@
-From Warblre Require Import Result Base Patterns Notation StaticSemantics Semantics EarlyErrors Compile Match RegExpRecord.
+From Warblre Require Import Result Base Errors Patterns Notation StaticSemantics Semantics EarlyErrors Compile Match RegExpRecord.
 
 Import Result.Notations.
 Local Open Scope result_flow.

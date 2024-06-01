@@ -4,6 +4,8 @@ From Warblre Require Import RegExpRecord Tactics List Result Numeric Typeclasses
 Import Result.Notations.
 Local Open Scope result_flow.
 
+(** Types to represent and operations to manipulate basic character type. *)
+
 Module HexDigit.
   Parameter type: Type.
   Inductive Hex4Digits := hex4 (_0 _1 _2 _3: type).

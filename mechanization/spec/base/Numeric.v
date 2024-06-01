@@ -1,6 +1,8 @@
 From Coq Require Import ZArith Lia.
 From Warblre Require Import Result.
 
+(** Numeric datatypes, operations and notations. *)
+
 Import Result.Notations.
 Local Open Scope result_flow.
 

@@ -2,6 +2,14 @@ From Coq Require Import ZArith.
 From Warblre Require Import Result Numeric Characters Patterns Notation Parameters.
 Set Warnings "-uniform-inheritance".
 
+(** Since the specification isn't "strongly" typed,
+    we use coercions to automatically convert between types
+    when the specification does this implicitly.
+
+    Additionally, coercions are used to wrap values into the Result monad.
+*)
+(* TODO: remove? *)
+
 Create HintDb result_wrappers.
 
 Module Coercions.

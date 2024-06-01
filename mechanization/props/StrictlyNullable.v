@@ -1,5 +1,5 @@
 From Coq Require Import PeanoNat ZArith Bool Lia List.
-From Warblre Require Import Tactics Focus Result Base Patterns Node StaticSemantics Notation List Semantics Match EarlyErrors RegExpRecord.
+From Warblre Require Import Tactics Focus Result Base Errors Patterns Node StaticSemantics Notation List Semantics Match EarlyErrors RegExpRecord.
 
 Import Notation.
 Import Patterns.

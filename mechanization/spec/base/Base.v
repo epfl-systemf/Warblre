@@ -1,7 +1,18 @@
 From Coq Require Import ZArith Lia List ListSet Bool.
 From Warblre Require Import Tactics List Result.
-From Warblre Require Export Typeclasses Characters Numeric Coercions Errors.
 From Warblre Require Export Parameters.
+
+(** The base files.
+
+    These files contains some 'basic' definitions from the specification which
+    are not directly related to regexes.
+    These include mostly numeric definitions, as well as some notations.
+
+    Importing this file will import all of the basic definitions.
+*)
+
+(* Exports all of the other 'base' files *)
+From Warblre Require Export Typeclasses Characters Numeric Coercions.
 
 (** Notations for list operations *)
 
@@ -17,6 +28,10 @@ Definition indexing {I T F: Type} {f: Result.AssertionError F} {indexer: Indexer
 Definition update {I T F: Type} {f: Result.AssertionError F} {indexer: Indexer I} (ls: list T) (i: I) (v: T) :=
   update_using T F f ls i v.
 
+(*  A weirdness of the specifiaction is that it sometimes defines lists whose indices start at 1 
+    It turns out that theses lists are exactly the lists which are indexed using positive integers.
+    Hence, we implement this behavior here, in the nat_indexer and pos_indexer.
+*)
 #[export]
 Instance nat_indexer: Indexer nat := {
   index_using := fun T F f ls i => if (i =? 0)%nat then Result.assertion_failed else @List.Indexing.Nat.indexing T F f ls (i - 1);

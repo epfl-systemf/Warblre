@@ -1,5 +1,5 @@
 From Coq Require Import Bool ZArith.
-From Warblre Require Import Tactics Specialize Focus Result Base Patterns Node StaticSemantics Notation Semantics Coercions.
+From Warblre Require Import Tactics Specialize Focus Result Base Errors Patterns Node StaticSemantics Notation Semantics Coercions.
 
 Import Result.Notations. Local Open Scope result_flow.
 Import Coercions.

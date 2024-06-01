@@ -1,5 +1,5 @@
 From Coq Require Import PeanoNat ZArith Bool Lia Program.Equality List Program.Wf.
-From Warblre Require Import RegExpRecord Tactics Focus Result Base Patterns StaticSemantics Node Notation List Typeclasses.
+From Warblre Require Import RegExpRecord Tactics Focus Result Base Patterns Errors StaticSemantics Node Notation List Typeclasses.
 
 Import Result.Notations.
 Import Result.Notations.Boolean.

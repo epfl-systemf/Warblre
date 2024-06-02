@@ -4,10 +4,10 @@ open Warblre_js.Printers
 (* the different frontend functions we can test *)
 type frontend_function =
   | Exec
-  (* | Search
+  | Search
   | Test
   | Match
-  | MatchAll *)
+  (* | MatchAll *)
 
 (** * Fuzzer parameters  *)
 
@@ -40,13 +40,13 @@ let max_regex_depth = 20
 (** * Calling the Node Matcher (V8 backtracking)  *)
 
 (* sending the type of frontend function to the JS matcher *)
-let frontend_func (f:frontend_function) : string =
+let frontend_func_to_string (f: frontend_function) : string =
   match f with
   | Exec -> "exec"
-  (* | Search -> "search"
+  | Search -> "search"
   | Test -> "test"
   | Match -> "match"
-  | MatchAll -> "matchAll" *)
+  (* | MatchAll -> "matchAll" *)
 
 (* geting the result of a command as a string *)
 
@@ -54,35 +54,90 @@ module Fuzzer (P: EngineParameters) (S: Warblre_js.Encoding.StringLike with type
   open Warblre_js
   open Warblre_js.Extracted.Patterns
 
+  module Engine = Engine(P)
+  module Printer = Printer(P)(S)
+  let result_to_string: P.string Extracted.ExecArrayExotic.coq_type option -> string =
+    Printer.Internal.option_to_string ~none:"No match" (Printer.array_exotic_to_string ~pretty:false)
+
   (* The JS engine we will be comparing to. *)
   module JsEngine = struct
     module H = Warblre_js.HostEngine.HostEngine(P)(S)
     open H
 
-    let exec (regex: (P.character, P.string, P.property) coq_Regex) (flags: Extracted.RegExpFlags.coq_type) (at: int) (str: P.string):
-    (P.string) Extracted.ExecArrayExotic.coq_type option =
+    let exec (regex: (P.character, P.string, P.property) coq_Regex) (flags: Extracted.RegExpFlags.coq_type) (at: int) (str: P.string): string =
       let r = initialize regex flags in
       setLastIndex r at;
-      exec r str
+      result_to_string (exec r str)
+
+    let search (regex: (P.character, P.string, P.property) coq_Regex) (flags: Extracted.RegExpFlags.coq_type) (at: int) (str: P.string): string =
+      let r = initialize regex flags in
+      setLastIndex r at;
+      string_of_int (search r str)
+
+    let test (regex: (P.character, P.string, P.property) coq_Regex) (flags: Extracted.RegExpFlags.coq_type) (at: int) (str: P.string): string =
+      let r = initialize regex flags in
+      setLastIndex r at;
+      string_of_bool (test r str)
+
+    let rmatch (regex: (P.character, P.string, P.property) coq_Regex) (flags: Extracted.RegExpFlags.coq_type) (at: int) (str: P.string): string =
+      let r = initialize regex flags in
+      setLastIndex r at;
+      match rmatch r str with
+      | Left (Some r) -> String.concat "\n" (List.map S.to_string r)
+      | Left None -> "No match"
+      | Right r -> result_to_string r
+
+    let run (regex: (P.character, P.string, P.property) coq_Regex) (flags: Extracted.RegExpFlags.coq_type) (at: int) (str: P.string) (f: frontend_function): string =
+      match f with
+      | Exec -> exec regex flags at str
+      | Search -> search regex flags at str
+      | Test -> test regex flags at str
+      | Match -> rmatch regex flags at str
   end
   
-  module E = Engine(P)
-  open E
-  module Pr = Printer(P)(S)
-  open Pr
 
   (* Engine extracted from our mechanization. *)
   module RefEngine = struct
 
-    let make_output_stateless (res: (P.character, P.string, P.property) Extracted.execResult): (P.string) Extracted.ExecArrayExotic.coq_type option =
+    let make_exec_output_stateless (res: (P.character, P.string, P.property) Extracted.execResult): (P.string) Extracted.ExecArrayExotic.coq_type option =
       match res with
       | Null _ -> None
       | Exotic (a, _) -> Some a
 
-    let exec (regex: (P.character, P.string, P.property) coq_Regex) (flags: Extracted.RegExpFlags.coq_type) (at: int) (str: P.string): (P.string) Extracted.ExecArrayExotic.coq_type option =
-      let r0 = initialize regex flags in
-      let r1 = setLastIndex r0 (BigInt.of_int at) in
-      make_output_stateless (exec r1 str)
+    let make_match_output_stateless (res: (P.character, P.string, P.property) Extracted.protoMatchResult): (P.string list option, P.string Extracted.ExecArrayExotic.coq_type option) Either.t =
+      match res with
+      | GlobalResult (r, _) -> Either.left r
+      | NonGlobalResult r -> Either.right (make_exec_output_stateless r)
+
+    let exec (regex: (P.character, P.string, P.property) coq_Regex) (flags: Extracted.RegExpFlags.coq_type) (at: int) (str: P.string): string =
+      let r0 = Engine.initialize regex flags in
+      let r1 = Engine.setLastIndex r0 (BigInt.of_int at) in
+      result_to_string (make_exec_output_stateless (Engine.exec r1 str))
+
+    let search (regex: (P.character, P.string, P.property) coq_Regex) (flags: Extracted.RegExpFlags.coq_type) (at: int) (str: P.string): string =
+      let r0 = Engine.initialize regex flags in
+      let r1 = Engine.setLastIndex r0 (BigInt.of_int at) in
+      BigInt.to_string (fst (Engine.search r1 str))
+
+    let test (regex: (P.character, P.string, P.property) coq_Regex) (flags: Extracted.RegExpFlags.coq_type) (at: int) (str: P.string): string =
+      let r0 = Engine.initialize regex flags in
+      let r1 = Engine.setLastIndex r0 (BigInt.of_int at) in
+      string_of_bool (fst (Engine.test r1 str))
+
+    let rmatch (regex: (P.character, P.string, P.property) coq_Regex) (flags: Extracted.RegExpFlags.coq_type) (at: int) (str: P.string): string =
+      let r0 = Engine.initialize regex flags in
+      let r1 = Engine.setLastIndex r0 (BigInt.of_int at) in
+      match make_match_output_stateless (Engine.rmatch r1 str) with
+      | Left (Some r) -> String.concat "\n" (List.map S.to_string r)
+      | Left None -> "No match"
+      | Right r -> result_to_string r
+
+    let run (regex: (P.character, P.string, P.property) coq_Regex) (flags: Extracted.RegExpFlags.coq_type) (at: int) (str: P.string) (f: frontend_function): string =
+      match f with
+      | Exec -> exec regex flags at str
+      | Search -> search regex flags at str
+      | Test -> test regex flags at str
+      | Match -> rmatch regex flags at str
   end
 
 
@@ -94,28 +149,28 @@ module Fuzzer (P: EngineParameters) (S: Warblre_js.Encoding.StringLike with type
       A setup as in https://github.com/janestreet/async/blob/master/example/timeouts.ml might allow to do just that.
       TODO: maybe JS allows to do this more easily.
   *)
-  let compare_engines (regex: (character, string, P.property) coq_Regex) (flags: Extracted.RegExpFlags.coq_type) (index: int) (str: ocaml_string) (_: frontend_function): comparison_result =
-    let result_to_string = Internal.option_to_string ~none:"No match" (array_exotic_to_string ~pretty:false) in
+  let compare_engines (regex: (Engine.character, Engine.string, P.property) coq_Regex) (flags: Extracted.RegExpFlags.coq_type) (index: int) (str: string) (f: frontend_function): comparison_result =
     let sep = String.init 100 (fun _ -> '-') in
-    Printf.printf "\027[36mJS Regex:\027[0m %s\n" (regex_to_string regex);
+    Printf.printf "\027[36mJS Regex:\027[0m %s\n" (Printer.regex_to_string regex);
     Printf.printf "\027[36mString:\027[0m \"%s\"\n%!" str;
     Printf.printf "\027[36mLastIndex:\027[0m \"%s\"\n%!" (string_of_int index);
-    Printf.printf "\027[36mFlags:\027[0m \"%s\"\n%!" (flags_to_string flags);
-    (* Printf.printf "\027[36mFunction:\027[0m \"%s\"\n%!" (frontend_func f); *)
+    Printf.printf "\027[36mFlags:\027[0m \"%s\"\n%!" (Printer.flags_to_string flags);
+    Printf.printf "\027[36mFunction:\027[0m \"%s\"\n%!" (frontend_func_to_string f);
     Printf.printf "\027[91m%s\027[0m\n" sep;
     Printf.printf "\027[35mIrregexp (node) result:\027[0m\n%!";
     let input = S.of_string str in
-    let node_result = JsEngine.exec regex flags index input in
-    Printf.printf "%s\n" (result_to_string node_result);
+    let node_result = JsEngine.run regex flags index input f in
+    Printf.printf "%s\n" node_result;
     Printf.printf "\027[91m%s\027[0m\n" sep;
     Printf.printf "\027[35mWarblre result:\027[0m\n%!";
-    let ref_result = RefEngine.exec regex flags index input in
-    Printf.printf "%s\n" (result_to_string ref_result);
-    (* The outputs are compared in string format;
+    let ref_result = RefEngine.run regex flags index input f in
+    Printf.printf "%s\n" ref_result;
+    (* The outputs are compared in string format
+        This is the easy solution since, depending on the frontend function, the output type can differ.
         A better (but more complicated) approach would be to compare the generated
         JavaScript objects.
     *)
-    if String.compare (result_to_string node_result) (result_to_string ref_result) != 0 then Different else Same
+    if String.compare (node_result) (ref_result) != 0 then Different else Same
 
   (** * Generating random regexes *)
 
@@ -142,9 +197,9 @@ module Fuzzer (P: EngineParameters) (S: Warblre_js.Encoding.StringLike with type
       let qp = random_qp () in
       if (Random.bool ()) then Greedy qp else Lazy qp
 
-    let random_char_ranges () : (character, P.property) coq_ClassRanges =
+    let random_char_ranges () : (Engine.character, P.property) coq_ClassRanges =
       let sc c = SourceCharacter (P.Character.from_numeric_value (Host.of_int (Char.code c))) in
-      List.fold_left (fun current _: (character, P.property) coq_ClassRanges ->
+      List.fold_left (fun current _: (Engine.character, P.property) coq_ClassRanges ->
         if Random.bool() then
           let c = random_char() in
           ClassAtomCR (sc c, current)
@@ -155,7 +210,7 @@ module Fuzzer (P: EngineParameters) (S: Warblre_js.Encoding.StringLike with type
           RangeCR (sc (fst cs), sc (snd cs), current)
       ) EmptyCR (List.init (Random.int 3) (fun x -> x))
 
-    let randome_group_name (): string = 
+    let randome_group_name (): P.string = 
       let i = Random.int (List.length group_names) in
       S.of_string (List.nth group_names i)
 
@@ -167,11 +222,11 @@ module Fuzzer (P: EngineParameters) (S: Warblre_js.Encoding.StringLike with type
     *)
 
     (* Table used to generate regex without children (i.e. leafs of the AST) *)
-    let ticketTableNonRec: (int * (unit -> (character, string, P.property) coq_Regex)) list = [
+    let ticketTableNonRec: (int * (unit -> (Engine.character, Engine.string, P.property) coq_Regex)) list = [
       ( 1, fun _ -> Empty);
-      ( 1, fun _: (character, string, P.property) coq_Regex ->
+      ( 1, fun _: (Engine.character, Engine.string, P.property) coq_Regex ->
           let r = random_char_ranges () in
-          let cc: (character, P.property) coq_CharClass = if Random.bool() then NoninvertedCC (r) else InvertedCC(r) in
+          let cc: (Engine.character, P.property) coq_CharClass = if Random.bool() then NoninvertedCC (r) else InvertedCC(r) in
           CharacterClass (cc)
       ); 
       ( 3, fun _ -> let c = random_char() in Char (P.Character.from_numeric_value (BigInt.of_int (Char.code c))));
@@ -180,7 +235,7 @@ module Fuzzer (P: EngineParameters) (S: Warblre_js.Encoding.StringLike with type
       ( 1, fun _ -> Dot);
     ]
 
-    let ticketTableRec: (int * (int -> (int -> (character, string, P.property) coq_Regex) -> (character, string, P.property) coq_Regex)) list = [
+    let ticketTableRec: (int * (int -> (int -> (Engine.character, Engine.string, P.property) coq_Regex) -> (Engine.character, Engine.string, P.property) coq_Regex)) list = [
       ( 3, fun depth random_ast -> 
             let r1 = random_ast (depth-1) in
             let r2 = random_ast (depth-1) in
@@ -236,7 +291,7 @@ module Fuzzer (P: EngineParameters) (S: Warblre_js.Encoding.StringLike with type
       ticketTableRec
       ])
 
-    let rec random_ast (depth:int) : (character, string, P.property) coq_Regex =
+    let rec random_ast (depth:int) : (Engine.character, Engine.string, P.property) coq_Regex =
       if (depth = 0) then
         (* The regex cannot have further children -> use the "childless" table *)
         let rand = Random.int (Lookup.cardinal base_lookup) in
@@ -253,10 +308,10 @@ module Fuzzer (P: EngineParameters) (S: Warblre_js.Encoding.StringLike with type
         Assign the names to the groups.
     *)
     module M = Map.Make(Int)
-    let fill_backref_and_groups_names (r: (character, string, P.property) coq_Regex) (group_count: int) (names_map: string M.t) : (character, string, P.property) coq_Regex =
+    let fill_backref_and_groups_names (r: (Engine.character, Engine.string, P.property) coq_Regex) (group_count: int) (names_map: Engine.string M.t) : (Engine.character, Engine.string, P.property) coq_Regex =
       let group_id = ref 0 in
       let names = List.map snd (List.of_seq (M.to_seq names_map)) in
-      let rec iter (r: (character, string, P.property) coq_Regex)  =
+      let rec iter (r: (Engine.character, Engine.string, P.property) coq_Regex)  =
         match r with
         | Empty | Char _ | Dot| CharacterClass _ -> r
         | AtomEsc (GroupEsc _) ->
@@ -288,11 +343,11 @@ module Fuzzer (P: EngineParameters) (S: Warblre_js.Encoding.StringLike with type
       assert(group_count = (!group_id));
       res
 
-    let generate_group_names_map (group_count: int) (map_size: int): string M.t =
+    let generate_group_names_map (group_count: int) (map_size: int): Engine.string M.t =
       assert (map_size <= group_count);
       assert (map_size <= List.length group_names);
       let names = ref (List.map S.of_string group_names) in
-      let result: string M.t ref = ref M.empty in
+      let result: Engine.string M.t ref = ref M.empty in
       let count = ref 0 in
       while !count < map_size do
         let i = Random.int group_count in
@@ -306,9 +361,9 @@ module Fuzzer (P: EngineParameters) (S: Warblre_js.Encoding.StringLike with type
   end
 
   (* Generate an AST then fills the backreferences numbers *)
-  let random_regex (): (character, string, P.property) coq_Regex =
+  let random_regex (): (Engine.character, Engine.string, P.property) coq_Regex =
     let ast = RegexGenerator.random_ast (Random.int max_regex_depth) in
-    let group_count = BigInt.to_int (countGroups ast) in
+    let group_count = BigInt.to_int (Engine.countGroups ast) in
     let named_group_count = (Random.int ((min (List.length group_names) group_count) + 1)) in
     let named_groups_map = RegexGenerator.generate_group_names_map group_count named_group_count in
     RegexGenerator.fill_backref_and_groups_names ast group_count named_groups_map
@@ -324,18 +379,17 @@ module Fuzzer (P: EngineParameters) (S: Warblre_js.Encoding.StringLike with type
       y = Random.bool();
     }
 
-  (* does not generate matchall if there is no global flag *)
-  let random_frontend (_: bool) : frontend_function =
-    match (Random.int(1)) with
+  let random_frontend () : frontend_function =
+    match (Random.int(4)) with
     | 0 -> Exec
-    (* | 1 -> Search
+    | 1 -> Search
     | 2 -> Test
     | 3 -> Match
-    | 4 -> MatchAll *)
+    (* | 4 -> MatchAll *)
     | _ -> failwith "random range error"
 
   (** * Creating Random Strings  *)
-  let random_string () : ocaml_string =
+  let random_string () : string =
     let size = (Random.int max_string_length) in
     String.init size (fun _ -> RegexGenerator.random_char ())
 
@@ -351,7 +405,7 @@ module Fuzzer (P: EngineParameters) (S: Warblre_js.Encoding.StringLike with type
       let flags = random_flags () in
       let lastindex = Random.int(max_string_length) in
       let str = random_string () in
-      let f = random_frontend (flags.g) in
+      let f = random_frontend () in
       if (i >= start_from) then (
         Printf.printf "\027[91m%s %*d %s\027[0m\n" sep iter_witdth i sep;
         if (compare_engines rgx flags lastindex str f = Different) then (

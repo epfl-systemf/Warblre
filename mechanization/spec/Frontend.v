@@ -65,8 +65,8 @@ Module RegExpInstance. Section main.
       lastIndex: integer;
     }.
 
-  Definition setLastIndex (r: type) (index: non_neg_integer): type :=
-    make (originalSource r) (originalFlags r) (regExpRecord r) (regExpMatcher r) (NonNegInt.to_int index).
+  Definition setLastIndex (r: type) (index: integer): type :=
+    make (originalSource r) (originalFlags r) (regExpRecord r) (regExpMatcher r) index.
 End main. End RegExpInstance.
 Notation RegExpInstance := RegExpInstance.type.
 Notation reg_exp_instance := RegExpInstance.make.
@@ -176,6 +176,10 @@ Notation exec_array_exotic := ExecArrayExotic.make.
 Inductive ExecResult {C S UP: Type} `{CharacterMarker C} `{StringMarker S} `{UnicodePropertyMarker UP} :=
 | Null: RegExpInstance -> ExecResult (*+ also returns modifications to the RegExpInstance Object +*)
 | Exotic: ExecArrayExotic -> RegExpInstance -> ExecResult.
+
+Inductive ProtoMatchResult {C S UP: Type} `{CharacterMarker C} `{StringMarker S} `{UnicodePropertyMarker UP}  :=
+| GlobalResult : option (list S) -> RegExpInstance -> ProtoMatchResult 
+| NonGlobalResult : ExecResult -> ProtoMatchResult.
 
 Section BuiltinExec.
   Context `{specParameters: Parameters}.
@@ -462,7 +466,7 @@ Section BuiltinExec.
             (*>> i. If global is true or sticky is true, then <<*)
             let R := if (orb global sticky) then
                        (*>> 1. Perform ? Set(R, "lastIndex", +0𝔽, true). <<*)
-                       RegExpInstance.setLastIndex R 0
+                       RegExpInstance.setLastIndex R 0%Z
                      else R in
             (*>> ii. Return null. <<*)
             Success (Terminates (Null R))
@@ -480,7 +484,7 @@ Section BuiltinExec.
             (*>> i. If sticky is true, then <<*)
             if sticky then
               (*>> 1. Perform ? Set(R, "lastIndex", +0𝔽, true). <<*)
-              let R := RegExpInstance.setLastIndex R 0 in
+              let R := RegExpInstance.setLastIndex R 0%Z in
               (*>> 2. Return null. <<*)
               Success (Terminates (Null R))
             else
@@ -508,7 +512,7 @@ Section BuiltinExec.
         (*>> 16. If global is true or sticky is true, then <<*)
         let R := if (orb global sticky) then
                              (*>> a. Perform ? Set(R, "lastIndex", 𝔽(e), true). <<*)
-                             RegExpInstance.setLastIndex R e
+                             RegExpInstance.setLastIndex R (NonNegInt.to_int e)
                            else R in
         (*>> 17. Let n be the number of elements in r.[[Captures]]. <<*)
         let n := List.length (MatchState.captures r) in
@@ -570,122 +574,73 @@ Section API.
   Definition regExpExec (R: RegExpInstance) (S: String): Result.Result ExecResult MatchError :=
     (*>> 4. Return ? RegExpBuiltinExec(R, S). <<*)
     regExpBuiltinExec R S.
-End API.
 
-(* 
-  (* 22.2.6.12 RegExp.prototype [ @@search ] ( string ) *)
-  Definition PrototypeSearch (R:RegExpInstance) (S:list Character) : Result.Result (integer * RegExpInstance) MatchError :=
-    (* NOTE: The "lastIndex" and "global" properties of this RegExpRecord object are ignored when performing the search. The "lastIndex" property is left unchanged. *)
-    (* 1. Let rx be the this value. *)
+  (** >>
+      22.2.6.8 RegExp.prototype [ @@match ] ( string )
+
+      This method performs the following steps when called:
+  <<*)
+  Definition get_head {A:Type} (l:list A) : Result A MatchError :=
+    match l with
+    | nil => Result.assertion_failed
+    | a :: _ => Success a
+    end.
+
+
+  Definition prototypeMatch (R: RegExpInstance) (S: String): Result.Result ProtoMatchResult MatchError :=
+    (*>> 1. Let rx be the this value. <<*)
     let rx := R in
-    (* 2. If rx is not an Object, throw a TypeError exception. *)
-    (* 3. Let S be ? ToString(string). *)
-    (* 4. Let previousLastIndex be ? Get(rx, "lastIndex"). *)
-    let previousLastIndex := lastIndex rx in
-    (* 5. If SameValue(previousLastIndex, +0𝔽) is false, then *)
-    let rx := if (BinInt.Z.eqb previousLastIndex integer_zero) then rx else
-                (* a. Perform ? Set(rx, "lastIndex", +0𝔽, true). *)
-                setlastindex rx integer_zero in
-    (* 6. Let result be ? RegExpExec(rx, S). *)
-    let! result =<< RegExpExec rx S in
-    let rx := match result with | Null x => x | Exotic _ x => x end in
-    (* 7. Let currentLastIndex be ? Get(rx, "lastIndex"). *)
-    let currentLastIndex := lastIndex rx in
-     (* 8. If SameValue(currentLastIndex, previousLastIndex) is false, then *)
-    let rx := if (BinInt.Z.eqb currentLastIndex previousLastIndex) then rx
-(* a. Perform ? Set(rx, "lastIndex", previousLastIndex, true). *)
-                   else setlastindex rx previousLastIndex in
-    match result with
-    | Null _ =>
-        (* 9. If result is null, return -1𝔽. *)
-        Success (integer_minus_one, rx)
-    | Exotic ArrayEx _ =>
-        (* 10. Return ? Get(result, "index"). *)
-        Success (BinInt.Z.of_nat (index ArrayEx), rx)
-    end.
-    
-
-  (* 22.2.6.16 RegExp.prototype.test ( S ) *)
-  Definition PrototypeTest (R:RegExpInstance) (S:list Character): Result.Result (bool * RegExpInstance) MatchError :=
-    (* 1. Let R be the this value. *)
-    let R := R in
-    (* 2. If R is not an Object, throw a TypeError exception. *)
-    (* 3. Let string be ? ToString(S). *)
-    let string := S in
-    (* 4. Let match be ? RegExpExec(R, string). *)
-    let! match_res =<< RegExpExec R string in
-    (* 5. If match is not null, return true; else return false. *)
-    match match_res with
-    | Exotic A rx => Success (true, rx)
-    | Null rx => Success (false, rx)
-    end.
-
-  (* 22.2.6.8 RegExp.prototype [ @@match ] ( string ) *)
-
-  Inductive ProtoMatchResult :=
-  | GlobalResult : option (list (list Character)) -> RegExpInstance -> ProtoMatchResult 
-  | NonGlobalResult : ExecResult -> ProtoMatchResult.
-
-  Definition isemptystring (S:list Character) : bool :=
-    match S with
-    | nil => true
-    | _ => false
-    end.
-
-  Definition PrototypeMatch (R:RegExpInstance) (S:list Character): Result.Result ProtoMatchResult MatchError :=
-    (* 1. Let rx be the this value. *)
-    let rx := R in
-    (* 2. If rx is not an Object, throw a TypeError exception. *)
-    (* 3. Let S be ? ToString(string). *)
+    (*>> 2. If rx is not an Object, throw a TypeError exception. <<*)
+    (*>> 3. Let S be ? ToString(string). <<*)
     let S := S in
-    (* 4. Let flags be ? ToString(? Get(rx, "flags")). *)
-    let flags := OriginalFlags rx in
-    match (g flags) with
-    (* 5. If flags does not contain "g", then *)
+    (*>> 4. Let flags be ? ToString(? Get(rx, "flags")). <<*)
+    let flags := RegExpInstance.originalFlags rx in
+    match (RegExpFlags.g flags) with
+    (*>> 5. If flags does not contain "g", then <<*)
     | false =>
-        (* a. Return ? RegExpExec(rx, S). *)
-        let! exec_res =<< RegExpExec rx S in
+        (*>> a. Return ? RegExpExec(rx, S). <<*)
+        let! exec_res =<< regExpExec rx S in
         Success (NonGlobalResult exec_res)
-    (* 6. Else, *)
+    (*>> 6. Else, <<*)
     | true =>
-        (* a. If flags contains "u", let fullUnicode be true. Otherwise, let fullUnicode be false. *)
-        let fullUnicode := u flags in
-        (* b. Perform ? Set(rx, "lastIndex", +0𝔽, true). *)
-        let rx := setlastindex rx integer_zero in
-        (* c. Let A be ! ArrayCreate(0). *)
+        (*>> a. If flags contains "u", let fullUnicode be true. Otherwise, let fullUnicode be false. <<*)
+        let fullUnicode := RegExpFlags.u flags in
+        (*>> b. Perform ? Set(rx, "lastIndex", +0𝔽, true). <<*)
+        let rx := RegExpInstance.setLastIndex rx 0%Z in
+        (*>> c. Let A be ! ArrayCreate(0). <<*)
         let A := nil in
-        (* d. Let n be 0. *)
+        (*>> d. Let n be 0. <<*)
         let n := 0 in
-        (* e. Repeat, *)
-        let fix repeatloop (A:list (list Character)) (rx:RegExpInstance) (fuel:nat) (n:nat): Result.Result (option (list (list Character)) * RegExpInstance) MatchError :=
+        (*>> e. Repeat, <<*)
+        let fix repeatloop (A: list (String)) (rx: RegExpInstance) (fuel: nat) (n: nat): Result.Result (option (list (String)) * RegExpInstance) MatchError :=
           match fuel with
           | O => out_of_fuel
           | S fuel' =>
-              (* i. Let result be ? RegExpExec(rx, S). *)
-              let! result =<< RegExpExec rx S in
+              (*>> i. Let result be ? RegExpExec(rx, S). <<*)
+              let! result =<< regExpExec rx S in
               match result with
-              (* ii. If result is null, then *)
+              (*>> ii. If result is null, then <<*)
               | Null rx =>
-                  (* 1. If n = 0, return null. *)
+                  (*>> 1. If n = 0, return null. <<*)
                   if (Nat.eqb n O)%nat then Success (None, rx)
-                  else          (* Return A. *)
-                    Success (Some A, rx)
-              (* iii. Else, *)
+                  (*>> 2. Return A. <<*)
+                  else Success (Some A, rx)
+              (*>> iii. Else, <<*)
               | Exotic result rx =>
-                  (* 1. Let matchStr be ? ToString(? Get(result, "0")). *)
-                  let! matchStrop =<< get_zero (array result) in
+                  (*>> 1. Let matchStr be ? ToString(? Get(result, "0")). <<*)
+                  let! matchStrop =<< get_head (ExecArrayExotic.array result) in
                   let! matchStr =<< match matchStrop with | None => Error MatchError.AssertionFailed | Some s => Success s end in
-                  (* 2. Perform ! CreateDataPropertyOrThrow(A, ! ToString(𝔽(n)), matchStr). *)
-                  let A := app A (matchStr::nil) in
-                  (* 3. If matchStr is the empty String, then *)
-                  let! rx =<< if (isemptystring matchStr) then
-                         (* a. Let thisIndex be ℝ(? ToLength(? Get(rx, "lastIndex"))). *)
-                         let thisIndex := lastIndex rx in
-                         let! thisIndexnat =<< to_non_neg thisIndex in
-                         (* b. Let nextIndex be AdvanceStringIndex(S, thisIndex, fullUnicode). *)
-                         let! nextIndex =<< AdvanceStringIndex S thisIndexnat fullUnicode in
-                         (* c. Perform ? Set(rx, "lastIndex", 𝔽(nextIndex), true). *)
-                         Success (setlastindex rx (BinInt.Z.of_nat nextIndex))
+                  (*>> 2. Perform ! CreateDataPropertyOrThrow(A, ! ToString(𝔽(n)), matchStr). <<*)
+                  let A := app A (matchStr :: nil) in
+                  (*>> 3. If matchStr is the empty String, then <<*)
+                  let! rx =<< if (String.length matchStr == 0) then
+                         (*>> a. Let thisIndex be ℝ(? ToLength(? Get(rx, "lastIndex"))). <<*)
+                         let thisIndex := RegExpInstance.lastIndex rx in
+                         let! thisIndexnat =<< NonNegInt.of_int thisIndex in
+                         (*>> b. Let nextIndex be AdvanceStringIndex(S, thisIndex, fullUnicode). <<*)
+                         let nextIndex := String.advanceStringIndex S thisIndexnat in
+                         (*>> c. Perform ? Set(rx, "lastIndex", 𝔽(nextIndex), true). <<*)
+                         Success (RegExpInstance.setLastIndex rx (BinInt.Z.of_nat nextIndex))
                        else Success rx in
                   (* 4. Set n to n + 1. *)
                   let n:= n + 1 in
@@ -693,9 +648,78 @@ End API.
               end
           end in
         (* we know there are at most length S + 1 iterations since the index strictly increases *)
-        let! (repeat_result, rx) =<< repeatloop A rx ((List.length S) +2) n in
+        let! (repeat_result, rx) =<< repeatloop A rx ((String.length S) +2) n in
         Success (GlobalResult repeat_result rx)
     end.
+
+  (** >>
+      22.2.6.12 RegExp.prototype [ @@search ] ( string )
+
+      This method performs the following steps when called:
+  <<*)
+  Definition prototypeSearch (R: RegExpInstance) (S: String) : Result.Result (integer * RegExpInstance) MatchError :=
+    (*+ NOTE: The "lastIndex" and "global" properties of this RegExpRecord object are ignored when performing the search. The "lastIndex" property is left unchanged. +*)
+    (*>> 1. Let rx be the this value. <<*)
+    let rx := R in
+    (*>> 2. If rx is not an Object, throw a TypeError exception. <<*)
+    (*>> 3. Let S be ? ToString(string). <<*)
+    (*>> 4. Let previousLastIndex be ? Get(rx, "lastIndex"). <<*)
+    let previousLastIndex := RegExpInstance.lastIndex rx in
+    (*>> 5. If SameValue(previousLastIndex, +0𝔽) is false, then <<*)
+    let rx :=
+      if (BinInt.Z.eqb previousLastIndex 0%Z) == false
+        (* a. Perform ? Set(rx, "lastIndex", +0𝔽, true). *)
+        then RegExpInstance.setLastIndex rx 0%Z
+        else rx
+    in
+    (*>> 6. Let result be ? RegExpExec(rx, S). <<*)
+    let! result =<< regExpExec rx S in
+    (*+ Emulate rx's mutation during exec +*)
+    let rx := match result with | Null x => x | Exotic _ x => x end in
+    (*>> 7. Let currentLastIndex be ? Get(rx, "lastIndex"). <<*)
+    (*+ Add conversion +*)
+    let! currentLastIndex =<< NonNegInt.of_int (RegExpInstance.lastIndex rx) in
+    (*>> 8. If SameValue(currentLastIndex, previousLastIndex) is false, then <<*)
+    let rx :=
+      if (BinInt.Z.eqb (NonNegInt.to_int currentLastIndex) previousLastIndex) == false
+        (* a. Perform ? Set(rx, "lastIndex", previousLastIndex, true). *)
+        then RegExpInstance.setLastIndex rx previousLastIndex
+        else rx
+    in
+    match result with
+    | Null _ =>
+        (*>> 9. If result is null, return -1𝔽. <<*)
+        Success ((-1)%Z, rx)
+    | Exotic ArrayEx _ =>
+        (*>> 10. Return ? Get(result, "index"). <<*)
+        Success (BinInt.Z.of_nat (ExecArrayExotic.index ArrayEx), rx)
+    end.
+
+
+  (** >>
+      22.2.6.16 RegExp.prototype.test ( S )
+
+      This method performs the following steps when called:
+  <<*)
+  Definition prototypeTest (R: RegExpInstance) (S: String): Result.Result (bool * RegExpInstance) MatchError :=
+    (*>> 1. Let R be the this value. <<*)
+    let R := R in
+    (*>> 2. If R is not an Object, throw a TypeError exception. <<*)
+    (*>> 3. Let string be ? ToString(S). <<*)
+    let string := S in
+    (* 4. Let match be ? RegExpExec(R, string). *)
+    let! match_res =<< regExpExec R string in
+    (* 5. If match is not null, return true; else return false. *)
+    match match_res with
+    | Exotic A rx => Success (true, rx)
+    | Null rx => Success (false, rx)
+    end.
+End API.
+
+    
+(*
+
+
 
 
   (* 22.2.9.1 CreateRegExpStringIterator ( R, S, global, fullUnicode ) *)

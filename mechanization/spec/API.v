@@ -129,6 +129,7 @@ Module API.
     Notation MatchResult := (@Notation.MatchResult character _).
     Notation RegExpInstance := (@RegExpInstance.type _ _ _ _ _ _).
     Notation ExecResult := (@ExecResult character string property _ _ _).
+    Notation ProtoMatchResult := (@ProtoMatchResult character string property _ _ _).
 
     (* API *)
     Definition countGroups: Regex -> non_neg_integer :=
@@ -143,9 +144,15 @@ Module API.
       @Frontend.regExpInitialize parameters.
     Definition setLastIndex :=
       @Frontend.RegExpInstance.setLastIndex character string property _ _ _.
+    Definition execArrayExotic := @Frontend.ExecArrayExotic string (mk_string_marker _).
     Definition exec: RegExpInstance -> string -> Result ExecResult _ :=
       @Frontend.regExpExec parameters.
-    Definition execArrayExotic := @Frontend.ExecArrayExotic string (mk_string_marker _).
+    Definition search: RegExpInstance -> string -> Result.Result (integer * RegExpInstance) _ :=
+      @Frontend.prototypeSearch parameters.
+    Definition rmatch: RegExpInstance -> string -> Result.Result ProtoMatchResult _ :=
+      @Frontend.prototypeMatch parameters.
+    Definition test: RegExpInstance -> string -> Result.Result (bool * RegExpInstance) _ :=
+      @Frontend.prototypeTest parameters.
   End Engine.
 
   (*  Other utils, such as functions of the specification which are not used in the mechanization, but could

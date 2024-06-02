@@ -20,6 +20,10 @@ Module NonNegInt.
 
   Definition to_int (i: non_neg_integer): integer := Z.of_nat i.
 
+  Definition of_int {F: Type} {_: Result.AssertionError F} (n: integer): Result non_neg_integer F :=
+    if (Z.ltb n 0%Z) then Result.assertion_failed
+    else Result.Success (Z.to_nat n).
+
   Definition modulo (i: non_neg_integer) (modulus: non_neg_integer): non_neg_integer := Nat.modulo i modulus.
   #[global] Opaque modulo.
 

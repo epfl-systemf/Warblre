@@ -10,65 +10,79 @@ Section StaticSemantics.
   Context `{specParameters: Parameters}.
   Import Patterns.
 
-  (** 22.2.1.9 Static Semantics: RegExpIdentifierCodePoints *)
+  (** >>
+      22.2.1.8 Static Semantics: CapturingGroupName
 
-  (** 22.2.1.10 Static Semantics: RegExpIdentifierCodePoint *)
+      The syntax-directed operation CapturingGroupName takes no arguments and returns a String.
+      It is defined piecewise over the following productions:
+  <<*)
+  Definition capturingGroupName (gn: GroupName): GroupName :=
+    (** >> RegExpIdentifierName :: RegExpIdentifierStart <<*)
+    (*>> 1. Let idTextUnescaped be RegExpIdentifierCodePoints of RegExpIdentifierName. <<*)
+    (*>> 2. Return CodePointsToString(idTextUnescaped). <<*)
+    gn.
 
-  (** 22.2.1.8 Static Semantics: CapturingGroupName *)
-  Definition capturingGroupName (gn: GroupName): GroupName := gn.
+  (** >>
+      22.2.1.7 Static Semantics: GroupSpecifiersThatMatch ( thisGroupName )
 
-  (** 22.2.1.7 Static Semantics: GroupSpecifiersThatMatch ( thisGroupName ) *)
+      The abstract operation GroupSpecifiersThatMatch takes argument thisGroupName (a GroupName Parse Node) and returns
+      a List of GroupSpecifier Parse Nodes. It performs the following steps when called:
+  <<*)
   Definition groupSpecifiersThatMatch (r: Regex) (ctx: RegexContext) (thisGroupName: GroupName): list (Regex * RegexContext) :=
-    (* 1. Let name be the CapturingGroupName of thisGroupName. *)
+    (*>> 1. Let name be the CapturingGroupName of thisGroupName. <<*)
     let name := capturingGroupName thisGroupName in
-    (* 2. Let pattern be the Pattern containing thisGroupName. *)
+    (*>> 2. Let pattern be the Pattern containing thisGroupName. <<*)
     let pattern := zip r ctx in
-    (* 3. Let result be a new empty List. *)
-    (* 4. For each GroupSpecifier gs that pattern contains, do *)
+    (*>> 3. Let result be a new empty List. <<*)
+    (*>> 4. For each GroupSpecifier gs that pattern contains, do <<*)
     let result := List.flat_map ( fun r => match r with
       | (Group (Some gs) inner, ctx) =>
-        (* a. If the CapturingGroupName of gs is name, then *)
+        (*>> a. If the CapturingGroupName of gs is name, then <<*)
         if (gs =?= name) then
-          (* i. Append gs to result. *)
+          (*>> i. Append gs to result. <<*)
           (inner, Group_inner (Some gs) :: ctx) :: nil
         else nil
       | _ => nil
       end
       ) (Zipper.Walk.walk pattern nil)
     in
-    (* 5. Return result. *)
+    (*>> 5. Return result. <<*)
     result.
 
-  (** 22.2.1.6 Static Semantics: CharacterValue *)
+  (** >>
+      22.2.1.6 Static Semantics: CharacterValue
+
+      The syntax-directed operation CharacterValue takes no arguments and returns a non-negative integer.
+      It is defined piecewise over the following productions:
+  <<*)
   Definition characterValue_Hex4Digits (self: Hex4Digits): non_neg_integer :=
-    (** HexLeadSurrogate :: Hex4Digits *)
-    (** HexTrailSurrogate :: Hex4Digits *)
-    (** HexNonSurrogate :: Hex4Digits *)
-    (* Return the MV of Hex4Digits. *)
+    (**>> HexLeadSurrogate :: Hex4Digits <<*)
+    (**>> HexTrailSurrogate :: Hex4Digits <<*)
+    (**>> HexNonSurrogate :: Hex4Digits <<*)
+    (*>> Return the MV of Hex4Digits. <<*)
     HexDigit.to_integer_4 self.
 
   Definition characterValue {F: Type} {_: Result.AssertionError F} (self: ClassAtom): Result non_neg_integer F := match self with
-  (** ClassAtomNoDash :: SourceCharacter *)
+  (**>> ClassAtomNoDash :: SourceCharacter <<*)
   | SourceCharacter chr =>
-      (* 1. Let ch be the code point matched by SourceCharacter. *)
-      (*+ TODO: What is that sentence supposed to mean ?!? *)
+      (*>> 1. Let ch be the code point matched by SourceCharacter. <<*)
       let ch := chr in
-      (* 2. Return the numeric value of ch. *)
+      (*>> 2. Return the numeric value of ch. <<*)
       Character.numeric_value ch
 
-  (** ClassEscape :: b *)
+  (**>> ClassEscape :: b <<*)
   | ClassEsc (esc_b) =>
-      (* 1. Return the numeric value of U+0008 (BACKSPACE). *)
+      (*>> 1. Return the numeric value of U+0008 (BACKSPACE). <<*)
       Character.numeric_value Characters.BACKSPACE
 
-  (** ClassEscape :: - *)
+  (**>> ClassEscape :: - <<*)
   | ClassEsc (esc_Dash) =>
-      (* 1. Return the numeric value of U+002D (HYPHEN-MINUS). *)
+      (*>> 1. Return the numeric value of U+002D (HYPHEN-MINUS). <<*)
       Character.numeric_value Characters.HYPHEN_MINUS
 
-  (** CharacterEscape :: ControlEscape *)
+  (**>> CharacterEscape :: ControlEscape <<*)
   | ClassEsc (CCharacterEsc (ControlEsc esc)) =>
-      (* 1. Return the numeric value according to Table 63. *)
+      (*>> 1. Return the numeric value according to Table 63. <<*)
       match esc with
       | esc_t => Character.numeric_value Characters.CHARACTER_TABULATION
       | esc_n => Character.numeric_value Characters.LINE_FEED
@@ -77,52 +91,53 @@ Section StaticSemantics.
       | esc_r => Character.numeric_value Characters.CARRIAGE_RETURN
       end
 
-  (** CharacterEscape :: c AsciiLetter *)
+  (**>> CharacterEscape :: c AsciiLetter <<*)
   | ClassEsc (CCharacterEsc (AsciiControlEsc l)) =>
-      (* 1. Let ch be the code point matched by AsciiLetter. *)
-      (* 2. Let i be the numeric value of ch. *)
+      (*>> 1. Let ch be the code point matched by AsciiLetter. <<*)
+      (*>> 2. Let i be the numeric value of ch. <<*)
       let i := AsciiLetter.numeric_value l in
-      (* 3. Return the remainder of dividing i by 32. *)
+      (*>> 3. Return the remainder of dividing i by 32. <<*)
       NonNegInt.modulo i 32
 
-  (** CharacterEscape :: 0 *)
+  (**>> CharacterEscape :: 0 <<*)
   | ClassEsc (CCharacterEsc (esc_Zero)) =>
-      (* 1. Return the numeric value of U+0000 (NULL). *)
+      (*>> 1. Return the numeric value of U+0000 (NULL). <<*)
       Character.numeric_value Characters.NULL
 
-  (** CharacterEscape :: HexEscapeSequence *)
+  (**>> CharacterEscape :: HexEscapeSequence <<*)
   | ClassEsc (CCharacterEsc (HexEscape d1 d2)) =>
-      (* 1. Return the MV of HexEscapeSequence. *)
+      (*>> 1. Return the MV of HexEscapeSequence. <<*)
       HexDigit.to_integer (d1 :: d2 :: nil)
 
-  (** CharacterEscape :: IdentityEscape *)
+  (**>> CharacterEscape :: IdentityEscape <<*)
   | ClassEsc (CCharacterEsc (IdentityEsc chr)) =>
-      (* 1. Let ch be the code point matched by IdentityEscape. *)
+      (*>> 1. Let ch be the code point matched by IdentityEscape. <<*)
       let ch := chr in
-      (* 2. Return the numeric value of ch. *)
+      (*>> 2. Return the numeric value of ch. <<*)
       Character.numeric_value ch
 
-  (** RegExpUnicodeEscapeSequence :: u HexLeadSurrogate \u HexTrailSurrogate *)
+  (**>> RegExpUnicodeEscapeSequence :: u HexLeadSurrogate \u HexTrailSurrogate <<*)
   | ClassEsc (CCharacterEsc (UnicodeEsc (Pair head tail))) =>
-    (* 1. Let lead be the CharacterValue of HexLeadSurrogate. *)
+    (*>> 1. Let lead be the CharacterValue of HexLeadSurrogate. <<*)
     let lead := characterValue_Hex4Digits head in
-    (* 2. Let trail be the CharacterValue of HexTrailSurrogate. *)
+    (*>> 2. Let trail be the CharacterValue of HexTrailSurrogate. <<*)
     let trail := characterValue_Hex4Digits tail in
-    (* 3. Let cp be UTF16SurrogatePairToCodePoint(lead, trail). *)
+    (*>> 3. Let cp be UTF16SurrogatePairToCodePoint(lead, trail). <<*)
     let cp := Unicode.utf16SurrogatePair lead trail in
-    (* 4. Return the numeric value of cp. *)
+    (*>> 4. Return the numeric value of cp. <<*)
     cp
 
-  (** RegExpUnicodeEscapeSequence :: u Hex4Digits *)
+  (**>> RegExpUnicodeEscapeSequence :: u Hex4Digits <<*)
   | ClassEsc (CCharacterEsc (UnicodeEsc (Lonely hex))) =>
-    (* 1. Return the MV of Hex4Digits. *)
+    (*>> 1. Return the MV of Hex4Digits. <<*)
     characterValue_Hex4Digits hex
 
-  (** RegExpUnicodeEscapeSequence :: u{ CodePoint } *)
+  (**>> RegExpUnicodeEscapeSequence :: u{ CodePoint } <<*)
   | ClassEsc (CCharacterEsc (UnicodeEsc (CodePoint c))) => 
-    (* Return the MV of CodePoint. *)
+    (*>> 1. Return the MV of CodePoint. <<*)
     Character.numeric_value c
 
+  (*+ This function is not defined on the following production rules: +*)
   | ClassEsc (CCharacterClassEsc esc) => match esc with
     | esc_d => Result.assertion_failed
     | esc_D => Result.assertion_failed
@@ -135,32 +150,56 @@ Section StaticSemantics.
     end
   end.
 
-  (** 22.2.1.5 Static Semantics: IsCharacterClass *)
+  (** >>
+      22.2.1.5 Static Semantics: IsCharacterClass
+
+      The syntax-directed operation IsCharacterClass takes no arguments and returns a Boolean.
+      Note
+      It is defined piecewise over the following productions:
+  <<*)
   Definition isCharacterClass (ca: ClassAtom): bool := match ca with
-  (** ClassAtom ::
-      -
-      ClassAtomNoDash ::
-      SourceCharacter but not one of \ or ] or -
-      ClassEscape ::
-      b
-      -
-      CharacterEscape *)
+  (** >> ClassAtom :: <<*)
+  (*>> ClassAtomNoDash :: <<*)
+  (*>> ClassEscape :: <<*)
+  (*>> - <<*)
+  (*>> SourceCharacter but not one of \ or ] or - <<*)
   | SourceCharacter _
+  (*>> b <<*)
   | ClassEsc (esc_b)
+  (*>> - <<*)
   | ClassEsc (esc_Dash)
+  (*>> CharacterEscape <<*)
   | ClassEsc (CCharacterEsc _) =>
-      (* 1. Return false. *)
+      (*>> 1. Return false. <<*)
       false
-  (** ClassEscape :: CharacterClassEscape *)
+  (**>> ClassEscape :: CharacterClassEscape <<*)
   | ClassEsc (CCharacterClassEsc _) =>
-      (* 1. Return true. *)
+      (*>> 1. Return true. <<*)
       true
   end.
 
-  (** 22.2.1.4 Static Semantics: CapturingGroupNumber *)
-  Definition capturingGroupNumber (n: positive_integer): positive_integer := n.
+  (** >>
+      22.2.1.4 Static Semantics: CapturingGroupNumber
 
-  (** 22.2.1.2 Static Semantics: CountLeftCapturingParensWithin *)
+      The syntax-directed operation CapturingGroupNumber takes no arguments and returns a positive integer.
+      Note
+      It is defined piecewise over the following productions:
+  <<*)
+  Definition capturingGroupNumber (n: positive_integer): positive_integer :=
+    (*+ Implementation disappears due to the representation choice in Patterns.v +*)
+    n.
+
+  (** >> 
+      22.2.1.2 Static Semantics: CountLeftCapturingParensWithin ( node )
+
+      The abstract operation CountLeftCapturingParensWithin takes argument node (a Parse Node) and returns a
+      non-negative integer. It returns the number of left-capturing parentheses in node.
+      A left-capturing parenthesis is any ( pattern character that is matched by the
+      ( terminal of the Atom :: ( GroupSpecifieropt Disjunction ) production.
+      It performs the following steps when called:
+      1. Assert: node is an instance of a production in the RegExp Pattern grammar.
+      2. Return the number of Atom :: ( GroupSpecifieropt Disjunction ) Parse Nodes contained within node.
+  <<*)
   Fixpoint countLeftCapturingParensWithin_impl (r: Regex): non_neg_integer :=
     match r with
     | Empty => 0
@@ -183,7 +222,16 @@ Section StaticSemantics.
     end.
   Definition countLeftCapturingParensWithin (r: Regex) (ctx: RegexContext): non_neg_integer := countLeftCapturingParensWithin_impl r.
 
-  (** 22.2.1.3 Static Semantics: CountLeftCapturingParensBefore *)
+  (** >> 
+      22.2.1.3 Static Semantics: CountLeftCapturingParensBefore ( node )
+
+      The abstract operation CountLeftCapturingParensBefore takes argument node (a Parse Node) and returns a non-negative integer. It returns the number of left-capturing parentheses within the enclosing pattern that occur to the left of node.
+      Note
+      It performs the following steps when called:
+      1. Assert: node is an instance of a production in the RegExp Pattern grammar.
+      2. Let pattern be the Pattern containing node.
+      3. Return the number of Atom :: ( GroupSpecifieropt Disjunction ) Parse Nodes contained within pattern that either occur before node or contain node.
+  <<*)
   Fixpoint countLeftCapturingParensBefore_impl (ctx: RegexContext): non_neg_integer :=
     match ctx with
     | nil => 0
@@ -202,15 +250,17 @@ Section StaticSemantics.
     end.
   Definition countLeftCapturingParensBefore (r: Regex) (ctx: RegexContext): non_neg_integer := countLeftCapturingParensBefore_impl ctx.
 
-  (** 22.2.1.1 Static Semantics: Early Errors *)
+  (** >>
+      22.2.1.1 Static Semantics: Early Errors
+  <<*)
   Fixpoint earlyErrors_class_ranges (cr: ClassRanges): Result bool SyntaxError := match cr with
   | EmptyCR => false
   | ClassAtomCR _ t => earlyErrors_class_ranges t
-  (**  NonemptyClassRanges :: ClassAtom - ClassAtom ClassRanges *)
+  (** >> NonemptyClassRanges :: ClassAtom - ClassAtom ClassRanges <<*)
   | RangeCR l h t =>
-      (* * It is a Syntax Error if IsCharacterClass of the first ClassAtom is true or IsCharacterClass of the second ClassAtom is true. *)
+      (*>> * It is a Syntax Error if IsCharacterClass of the first ClassAtom is true or IsCharacterClass of the second ClassAtom is true. <<*)
       if (isCharacterClass l is true) || (isCharacterClass h is true) then true
-      (* * It is a Syntax Error if IsCharacterClass of the first ClassAtom is false, IsCharacterClass of the second ClassAtom is false, and the CharacterValue of the first ClassAtom is strictly greater than the CharacterValue of the second ClassAtom.  *)
+      (*>> * It is a Syntax Error if IsCharacterClass of the first ClassAtom is false, IsCharacterClass of the second ClassAtom is false, and the CharacterValue of the first ClassAtom is strictly greater than the CharacterValue of the second ClassAtom.  <<*)
       else if!
           Success (isCharacterClass l is false) &&!
           Success (isCharacterClass h is false) &&!
@@ -224,9 +274,9 @@ Section StaticSemantics.
   end.
 
   Definition earlyErrors_quantifier_prefix (q: QuantifierPrefix): bool := match q with
-  (**  QuantifierPrefix :: { DecimalDigits , DecimalDigits } *)
+  (** >> QuantifierPrefix :: { DecimalDigits , DecimalDigits } <<*)
   | RepRange l h =>
-      (* * It is a Syntax Error if the MV of the first DecimalDigits is strictly greater than the MV of the second DecimalDigits. *)
+      (*>> * It is a Syntax Error if the MV of the first DecimalDigits is strictly greater than the MV of the second DecimalDigits. <<*)
       if (l >? h)%nat then true else false
   | _ => false
   end.
@@ -240,13 +290,13 @@ Section StaticSemantics.
     | Empty => false
     | Char _ => false
     | Dot => false
-    (**  AtomEscape :: DecimalEscape *)
+    (** >> AtomEscape :: DecimalEscape <<*)
     | AtomEsc (DecimalEsc n) =>
-        (* * It is a Syntax Error if the CapturingGroupNumber of DecimalEscape is strictly greater than CountLeftCapturingParensWithin(the Pattern containing AtomEscape). *)
+        (*>> * It is a Syntax Error if the CapturingGroupNumber of DecimalEscape is strictly greater than CountLeftCapturingParensWithin(the Pattern containing AtomEscape). <<*)
         if (capturingGroupNumber n >? countLeftCapturingParensWithin (zip r ctx) nil)%nat then true else false
-    (**  AtomEscape :: k GroupName *)
+    (** >> AtomEscape :: k GroupName <<*)
     | AtomEsc (GroupEsc name) =>
-        (* * It is a Syntax Error if GroupSpecifiersThatMatch(GroupName) is empty. *)
+        (*>> * It is a Syntax Error if GroupSpecifiersThatMatch(GroupName) is empty. <<*)
         if (List.length (groupSpecifiersThatMatch (AtomEsc (GroupEsc name)) ctx name) =? 0)%nat then true else false
     | AtomEsc _ => false
     | CharacterClass cc => earlyErrors_char_class cc
@@ -266,10 +316,10 @@ Section StaticSemantics.
 
   Definition earlyErrors (r: Regex) (ctx: RegexContext): Result bool SyntaxError :=
     let nodes := Zipper.Walk.walk r ctx in
-    (**  Pattern :: Disjunction *)
-    (* * It is a Syntax Error if CountLeftCapturingParensWithin(Pattern) ≥ 2^32 - 1. *)
-    (* if (countLeftCapturingParensWithin r nil >=? 4294967295)%nat then true *)
-    (* * It is a Syntax Error if Pattern contains two or more GroupSpecifiers for which CapturingGroupName of GroupSpecifier is the same. *)
+    (**>> Pattern :: Disjunction <<*)
+    (*>> * It is a Syntax Error if CountLeftCapturingParensWithin(Pattern) ≥ 2^32 - 1. <<*)
+    (*+ Numeric assertion are not implemented. +*)
+    (*>> * It is a Syntax Error if Pattern contains two or more GroupSpecifiers for which CapturingGroupName of GroupSpecifier is the same. <<*)
     if! List.Exists.exist nodes (fun node0 =>
       List.Exists.exist nodes (fun node1 =>
         if node0 =?= node1 then false
@@ -283,6 +333,7 @@ Section StaticSemantics.
     )) then true
     else earlyErrors_rec r ctx.
 
+  (*+ Related utility methods which are useful to implement some "prose" operations. +*)
   Section Extensions.
     Definition all_groups_in (r: RegexNode) : list RegexNode :=
       let (pattern, ctx) := r in
@@ -292,7 +343,7 @@ Section StaticSemantics.
         end
         ) (Zipper.Walk.walk pattern ctx).
 
-    (* Return the nth group INSIDE this node *)
+    (*+ Return the nth group INSIDE this node +*)
     Definition nth_group_in {F} `{Result.AssertionError F} (r: RegexNode) (n: non_neg_integer): Result.Result RegexNode F :=
       let groups := all_groups_in r in
       groups[n].

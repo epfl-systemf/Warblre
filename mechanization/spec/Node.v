@@ -1,16 +1,32 @@
 From Coq Require Import List.
-From Warblre Require Import List Result Typeclasses Base Notation Numeric Characters Patterns.
+From Warblre Require Import Result Typeclasses Base Notation Patterns.
 
-(* 
+(** +
     The spec uses the notion of 'Node' to refer to an element of the parse tree.
     We represent this using a Zipper, pairing a Regex tree (i.e. a pattern without a context)
     and a context, which gives information about the Regex/parse tree this pattern is part of.
 
     Together, these two emulate a Regex with a backpointer to its parent.
     Hence, we call a pair (Regex, Context) a (Regex)Node.
-*)
+
+    This file doesn't interleave code with the specification because "parse tree" are not formally
+    defined in the section of the specification which introduces them.
++*)
 Import Patterns.
 
+(** >>
+    5.1.4 The Syntactic Grammar
+
+    [...]
+
+    When a parse is successful, it constructs a parse tree, a rooted tree structure in which each node is a Parse Node.
+    Each Parse Node is an instance of a symbol in the grammar; it represents a span of the source text that can be derived from that symbol.
+    The root node of the parse tree, representing the whole of the source text, is an instance of the parse's goal symbol.
+    When a Parse Node is an instance of a nonterminal, it is also an instance of some production that has that nonterminal as its left-hand side.
+    Moreover, it has zero or more children, one for each symbol on the production's right-hand side: each child is a Parse Node that is an instance of the corresponding symbol.
+
+    [...]
+<<*)
 Section Zipper.
   Context `{specParameters: Parameters}.
 
@@ -41,13 +57,14 @@ Section Zipper.
   | NegativeLookbehind_inner => NegativeLookbehind focus
   end.
 
+  (* Reconstructs the root regex. *)
   Fixpoint zip (focus: Regex) (ctx: RegexContext): Regex :=
     match ctx with
     | nil => focus
     | h :: t => zip (zip_one focus h) t
     end.
 
-  Definition Root (root: Regex) (r: RegexNode) := root = zip (fst r) (snd r).
+  Definition Root (root: Regex) (r: RegexNode): Prop := root = zip (fst r) (snd r).
 
   Section EqDec.
     #[export] #[refine] Instance eqdec_RegexContextLayer: EqDec RegexContextLayer := {}.

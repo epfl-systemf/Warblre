@@ -1,9 +1,24 @@
 From Coq Require Import List Program.Equality PeanoNat.
 From Warblre Require Import List Result Typeclasses Notation Numeric Characters Parameters.
 
-(** 22.2.1 Patterns *)
-(* The RegExp constructor applies the following grammar to the input pattern String. An error occurs if the
-  grammar cannot interpret the String as an expansion of Pattern *)
+(** >>
+    22.2.1 Patterns
+
+    The RegExp constructor applies the following grammar to the input pattern String. An error occurs if the
+    grammar cannot interpret the String as an expansion of Pattern
+<<*)
+(*+ 
+    Note that our representation of Regexes differs from the the specification in some regards:
+    - The grammar in the paper specification  has to care about parsing of regexes, and hence distinguishes between
+      many different non-terminal (Pattern, Disjunction, Alternative, Term, Atom, Assertion, ...). We represent all
+      of these non-terminals as one single [Regex] type.
+      Additionally, this more relaxed representation allows to represent regexes which are prohibited by the standard
+      grammar, but allowed under the grammar of annex B.1.2.
+    - For the same reason, we do not include nodes such as "NonemptyClassRangesNoDash" (or any of the ".*NoDash"),
+      which only exist to disambiguate the grammar.
+    - Finally, and again for the same reason, nodes such as "DecimalDigits" are directly represented as numbers,
+      rather than a sequence of digits which have to transformed into a number.
++*)
 
 Module Patterns.
   Section Types.
@@ -13,131 +28,183 @@ Module Patterns.
     Context {Character_ String_ UnicodeProperty_: Type}
       `{CharacterMarker Character_} `{StringMarker String_} `{UnicodePropertyMarker UnicodeProperty_}.
 
+    (*>> GroupName[UnicodeMode] :: <<*)
+    (*+ Groups name is abstract to string. +*)
     Definition GroupName `{StringMarker String} := String.
 
-    (** CharacterClassEscape :: *)
+    (** >> CharacterClassEscape[UnicodeMode] :: <<*)
     Inductive CharacterClassEscape :=
-      (* d *)
+      (*>> d <<*)
       | esc_d
-      (* D *)
+      (*>> D <<*)
       | esc_D
-      (* s *)
+      (*>> s <<*)
       | esc_s
-      (* S *)
+      (*>> S <<*)
       | esc_S
-      (* w *)
+      (*>> w <<*)
       | esc_w
-      (* W *)
+      (*>> W <<*)
       | esc_W
-      (* p *)
+      (*>> [+UnicodeMode] p{ UnicodePropertyValueExpression } <<*)
       | UnicodeProp (p: UnicodeProperty)
-      (* P *)
+      (*>> [+UnicodeMode] P{ UnicodePropertyValueExpression } <<*)
       | UnicodePropNeg (p: UnicodeProperty).
 
-    (** ControlEscape :: *)
+    (** >> ControlEscape :: one of <<*)
     Inductive ControlEscape :=
-    (* f *)
+    (*>> f <<*)
     | esc_f
-    (* n *)
+    (*>> n <<*)
     | esc_n
-    (* r *)
+    (*>> r <<*)
     | esc_r
-    (* t *)
+    (*>> t <<*)
     | esc_t
-    (* v *)
+    (*>> v <<*)
     | esc_v.
 
-    (** RegExpUnicodeEscapeSequence :: *)
+    (** >> RegExpUnicodeEscapeSequence[UnicodeMode] :: <<*)
     Inductive RegExpUnicodeEscapeSequence :=
+    (*>> [+UnicodeMode] u HexLeadSurrogate \u HexTrailSurrogate  <<*)
     | Pair (lead tail: Hex4Digits)
+    (*>> [+UnicodeMode] u HexLeadSurrogate  <<*)
+    (*>> [+UnicodeMode] u HexTrailSurrogate <<*)
+    (*>> [+UnicodeMode] u HexNonSurrogate <<*)
+    (*>> [~UnicodeMode] u Hex4Digits <<*)
     | Lonely (digis: Hex4Digits)
+    (*>> [+UnicodeMode] u{ CodePoint } <<*)
     | CodePoint (c: Character).
 
-    (** CharacterEscape :: *)
+    (** >> CharacterEscape[UnicodeMode] :: <<*)
     Inductive CharacterEscape :=
+    (*>> ControlEscape <<*)
     | ControlEsc (esc: ControlEscape)
-    (* c *)
+    (*>> c AsciiLetter <<*)
     | AsciiControlEsc (l: AsciiLetter)
-    (* 0 *)
+    (*>> 0 [lookahead ∉ DecimalDigit] <<*)
     | esc_Zero
-    (* x *)
+    (*>> HexEscapeSequence <<*)
     | HexEscape (d1 d2: HexDigit)
-    (* u *)
+    (*>> RegExpUnicodeEscapeSequence[?UnicodeMode]  <<*)
     | UnicodeEsc (seq: RegExpUnicodeEscapeSequence)
+    (*>>  IdentityEscape[?UnicodeMode] <<*)
     | IdentityEsc (chr: Character).
 
-    (** ClassEscape :: *)
+    (** >> ClassEscape[UnicodeMode] :: <<*)
     Inductive ClassEscape :=
-    (* b *)
+    (*>> b <<*)
     | esc_b
-    (* - *)
+    (*>> [+UnicodeMode] - <<*)
     | esc_Dash
+    (*>>  CharacterClassEscape[?UnicodeMode] <<*)
     | CCharacterClassEsc (esc: CharacterClassEscape)
+    (*>>  CharacterEscape[?UnicodeMode] <<*)
     | CCharacterEsc (esc: CharacterEscape).
 
-    (** AtomEscape :: *)
+    (**>> AtomEscape[UnicodeMode, N] :: <<*)
     Inductive AtomEscape :=
+    (*>> DecimalEscape <<*)
     | DecimalEsc (n: positive_integer)
+    (*>> CharacterClassEscape[?UnicodeMode] <<*)
     | ACharacterClassEsc (esc: CharacterClassEscape)
+    (*>> CharacterEscape[?UnicodeMode] <<*)
     | ACharacterEsc (esc: CharacterEscape)
+    (*>> [+N] k GroupName[?UnicodeMode] <<*)
     | GroupEsc (id: GroupName).
 
-    (** QuantifierPrefix :: *)
+    (**>> QuantifierPrefix :: <<*)
     Inductive QuantifierPrefix :=
+    (*>> * <<*)
     | Star
+    (*>> + <<*)
     | Plus
+    (*>> ? <<*)
     | Question
+    (*>> { DecimalDigits[~Sep] } <<*)
     | RepExact (count: non_neg_integer)
+    (*>> { DecimalDigits[~Sep] ,} <<*)
     | RepPartialRange (min: non_neg_integer)
+    (*>> { DecimalDigits[~Sep] , DecimalDigits[~Sep] } <<*)
     | RepRange (min: non_neg_integer) (max: non_neg_integer).
 
-    (** Quantifier :: *)
+    (**>> Quantifier :: <<*)
     Inductive Quantifier :=
+    (*>> QuantifierPrefix <<*)
     | Greedy (p: QuantifierPrefix)
+    (*>> QuantifierPrefix ? <<*)
     | Lazy (p: QuantifierPrefix).
 
-    (** ClassAtom :: *)
-    (** ClassAtomNoDash :: *)
+    (**>> ClassAtom :: <<*)
+    (**>> ClassAtomNoDash :: <<*)
     Inductive ClassAtom :=
+    (*>> - <<*)
+    (*>> SourceCharacter but not one of \ or ] or - <<*)
     | SourceCharacter (chr: Character)
+    (*>> \ ClassEscape[?UnicodeMode] <<*)
     | ClassEsc (esc: ClassEscape).
 
-    (** ClassRanges :: *)
-    (** NonemptyClassRanges :: *)
-    (** NonemptyClassRangesNoDash :: *)
+    (**>> ClassRanges :: <<*)
+    (**>> NonemptyClassRanges :: <<*)
+    (**>> NonemptyClassRangesNoDash :: <<*)
     Inductive ClassRanges :=
+    (*>> [empty] <<*)
     | EmptyCR
+    (*>> ClassAtom[?UnicodeMode] <<*)
+    (*>> ClassAtom[?UnicodeMode] NonemptyClassRangesNoDash[?UnicodeMode] <<*)
+    (*>> ClassAtomNoDash[?UnicodeMode] NonemptyClassRangesNoDash[?UnicodeMode] <<*)
     | ClassAtomCR (ca: ClassAtom) (t: ClassRanges)
+    (*>> ClassAtom[?UnicodeMode] - ClassAtom[?UnicodeMode] ClassRanges[?UnicodeMode] <<*)
+    (*>> ClassAtomNoDash[?UnicodeMode] - ClassAtom[?UnicodeMode] ClassRanges[?UnicodeMode] <<*)
     | RangeCR (l h: ClassAtom) (t: ClassRanges).
 
-    (** CharacterClass :: *)
+    (**>> CharacterClass[UnicodeMode] :: <<*)
     Inductive CharClass :=
+    (*>> [ [lookahead ≠ ^] ClassRanges[?UnicodeMode] ] <<*)
     | NoninvertedCC (crs: ClassRanges)
+    (*>> [^ ClassRanges[?UnicodeMode] ] <<*)
     | InvertedCC (crs: ClassRanges).
 
-    (** Pattern *)
-    (** Disjunction *)
-    (** Alternative :: *)
-    (** Term :: *)
-    (** Assertion :: *)
-    (** Atom :: *)
+    (**>> Pattern :: <<*)
+    (**>> Disjunction :: <<*)
+    (**>> Alternative :: <<*)
+    (**>> Term :: <<*)
+    (**>> Assertion :: <<*)
+    (**>> Atom :: <<*)
     Inductive Regex :=
+    (*>> [empty] <<*)
     | Empty
+    (*>> PatternCharacter <<*)
     | Char (chr: Character)
+    (*>> . <<*)
     | Dot
+    (*>> \ AtomEscape[?UnicodeMode, ?N] <<*)
     | AtomEsc (ae: AtomEscape)
+    (*>> CharacterClass[?UnicodeMode] <<*)
     | CharacterClass (cc: CharClass)
+    (*>> Alternative[?UnicodeMode, ?N] | Disjunction[?UnicodeMode, ?N] <<*)
     | Disjunction (r1 r2: Regex)
+    (*>> Atom[?UnicodeMode, ?N] Quantifier <<*)
     | Quantified (r: Regex) (q: Quantifier)
+    (*>> Alternative[?UnicodeMode, ?N] Term[?UnicodeMode, ?N] <<*)
     | Seq (r1 r2: Regex)
+    (*>> ( GroupSpecifier[?UnicodeMode]opt Disjunction[?UnicodeMode, ?N] ) <<*)
     | Group (name: option GroupName) (r: Regex)
-    | InputStart (*+ ^ *)
-    | InputEnd (*+ $ *)
-    | WordBoundary (*+ \b *)
-    | NotWordBoundary (*+ \B *)
+    (*>> ^ <<*)
+    | InputStart
+    (*>> $ <<*)
+    | InputEnd
+    (*>> \b <<*)
+    | WordBoundary
+    (*>> \B <<*)
+    | NotWordBoundary
+    (*>> (?= Disjunction[?UnicodeMode, ?N] ) <<*)
     | Lookahead (r: Regex)
+    (*>> (?! Disjunction[?UnicodeMode, ?N] ) <<*)
     | NegativeLookahead (r: Regex)
+    (*>> (?<= Disjunction[?UnicodeMode, ?N] ) <<*)
     | Lookbehind (r: Regex)
+    (*>> (?<! Disjunction[?UnicodeMode, ?N] ) <<*)
     | NegativeLookbehind (r: Regex).
   End Types.
 

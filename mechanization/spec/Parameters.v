@@ -1,10 +1,18 @@
 From Warblre Require Import Result Typeclasses Numeric RegExpRecord.
 
+(**
+    All parameters of the mechanization.
+
+    This groups all of the types, functions, and theorems about them which are left abstract in the development.
+    These are packed in a big module type in API.v which is then used to instantiate engines from the specification.
+*)
+
+(* Markers used to guide typechecking *)
 Class CharacterMarker (T: Type): Prop := mk_character_marker {}.
 Class StringMarker (T: Type): Prop := mk_string_marker {}.
 Class UnicodePropertyMarker (T: Type): Prop := mk_unicode_property_marker {}.
 
-
+(* Represent characters; the matching algorithm manipulates lists of such characters. *)
 Module Character.
   Class class := make {
     type: Type;
@@ -33,6 +41,16 @@ Module Character.
 End Character.
 Notation Character := Character.type.
 
+(* Represent sets of characters *)
+(*>>
+    22.2.2.1
+
+    [...]
+    A CharSet is a mathematical set of characters.
+    In the context of a Unicode pattern, “all characters” means the CharSet containing all code point values; otherwise
+    “all characters” means the CharSet containing all code unit values. 
+    [...]
+<<*)
 Module CharSet.
   Class class (char: Type) := make {
     type: Type;
@@ -60,6 +78,7 @@ Module CharSet.
 End CharSet.
 Notation CharSet := CharSet.type.
 
+(* Represent strings, before they are converted to lists of characters. *)
 Module String.
   Class class (char: Type) := make {
     type: Type;
@@ -77,6 +96,7 @@ Module String.
 End String.
 Notation String := String.type.
 
+(* Represents unicode properties. *)
 Module Property.
   Class class (char: Type) := make {
     type: Type;
@@ -87,6 +107,7 @@ Module Property.
 End Property.
 Notation Property := Property.type.
 
+(* Wraps all parameters in a single parameter. *)
 Module Parameters.
   Class class := make {
     #[global] character_class:: Character.class;
@@ -102,9 +123,10 @@ Module Parameters.
 End Parameters.
 Notation Parameters := @Parameters.class.
 
-(* Used in Frontend.v due to bug in coq kernel (see use site). TODO: remove once bug is fixed. *)
+(* Used in Frontend.v due to bug in coq kernel (see call site). TODO: remove once bug is fixed. *)
 Definition string_string `{Parameters}: String.class Character := Parameters.string_class.
 
+(* Some special characters used by the specification. *)
 Module Characters. Section main.
   Context `{specParameters: Parameters}.
 

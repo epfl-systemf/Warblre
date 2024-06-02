@@ -256,8 +256,8 @@ Module Correctness.
     Qed.
 
     Lemma ignores_captures_r: forall c1 c2 dir x i n,
-          (progress dir) x (Success (Some (i [@ n $ c1])))
-      <-> (progress dir) x (Success (Some (i [@ n $ c2]))).
+          (progress dir) x (Success (Some (match_state i n c1)))
+      <-> (progress dir) x (Success (Some (match_state i n c2))).
     Proof.
       intros; split; intros; hammer; subst.
       all: try assumption.
@@ -265,8 +265,8 @@ Module Correctness.
     Qed.
 
     Lemma ignores_captures_l: forall c1 c2 dir i n y,
-          (progress dir) (i [@ n $ c1]) (Success y)
-      <-> (progress dir) (i [@ n $ c2]) (Success y).
+          (progress dir) (match_state i n c1) (Success y)
+      <-> (progress dir) (match_state i n c2) (Success y).
     Proof.
       intros; split; intros; hammer; subst.
       all: try assumption.
@@ -293,8 +293,8 @@ Module Correctness.
         | [ H: directionalProgress backward _ _ |- _ ] => dependent destruction H
         | [ |- progress forward _ _ ] => constructor; constructor
         | [ |- progress backward _ _ ] => constructor; constructor
-        | [ H: progress _ (?i [@ _ $ _]) (Success (Some (?i [@ _ $ _]))) |- _ ] => fail
-        | [ H: progress _ (?i1 [@ _ $ _]) (Success (Some (?i2 [@ _ $ _]))) |- _ ] =>
+        | [ H: progress _ (match_state ?i _ _) (Success (Some (match_state ?i _ _))) |- _ ] => fail
+        | [ H: progress _ (match_state ?i1 _ _) (Success (Some (match_state ?i2 _ _))) |- _ ] =>
           let Tmp := fresh in
           pose proof progress_same_input as Tmp;
           specialize Tmp with (1 := H);

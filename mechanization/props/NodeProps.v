@@ -3,6 +3,10 @@ From Warblre Require Import List Result Base Patterns Node.
 
 Import Patterns.
 
+(**
+    Lemmas and definitions on RegexNodes, i.e. regex zippers.
+*)
+
 Module Zipper.
   Module Root. Section main.
     Context `{specParameters: Parameters}.
@@ -39,6 +43,15 @@ Module Zipper.
     Proof. intros. split; intros. - eapply focus_injection. eassumption. - subst. reflexivity. Qed.
   End main. End Zip.
 
+  (** 
+      The down relation represents the idea that a RegexNode can be reached by going one step down in the focused
+      regex.
+      E.g.
+        from (a|b) with context (_c)*, the two nodes
+        - a with context ((_|b)c)*
+        - b with context ((a|_)c)*
+        are the two and only two nodes which are down w.r.t to the original node.
+  *)
   Section Down.
     Context `{specParameters: Parameters}.
     Import Patterns.
@@ -57,9 +70,9 @@ Module Zipper.
 
     Definition Down_Star := (Relation_Operators.clos_refl_trans _ Down).
   End Down.
+  (* Transitive reflexive closure of Down. *)
   Notation "'Down*'" := Down_Star.
 
-  (*  Down represent the notion of a (direct) subregex. *)
   Module Down. Section main.
     Context `{specParameters: Parameters}.
 
@@ -116,7 +129,7 @@ Module Zipper.
     Qed.
   End main. End Down.
 
-  (* A walk must return a list of all sub-nodes of the provided node *)
+  (** A walk must return a list of all sub-nodes of the provided node *)
   Module Walk. Section main.
     Context `{specParameters: Parameters}.
 
@@ -142,9 +155,11 @@ Module Zipper.
       | NegativeLookbehind r0 => walk r0 (NegativeLookbehind_inner :: ctx)
       end.
 
-    Lemma shape: forall r ctx, exists t, walk r ctx = (r, ctx) :: t.
+    (* First element of the walk is the node passed as argument. *)
+    Lemma head: forall r ctx, exists t, walk r ctx = (r, ctx) :: t.
     Proof. intros. destruct r; cbn; eexists; reflexivity. Qed.
 
+    (* Doing a walk on a sub-regex yield a sub-list *)
     Lemma down_yield_sublist0 {F: Type} {_: Result.AssertionError F}: forall r0 ctx0 r1 ctx1,
       Down (r0, ctx0) (r1, ctx1) -> List.Sublist.sublist (walk r0 ctx0) (walk r1 ctx1).
     Proof.
@@ -208,11 +223,11 @@ Module Zipper.
       intros [r0 ctx0] r1 ctx1 D.
       pose proof down_yield_sublist as S_w. specialize S_w with (1 := D).
       apply List.Sublist.exist with (1 := S_w).
-      destruct (shape r0 ctx0) as [ ? -> ].
+      destruct (head r0 ctx0) as [ ? -> ].
       apply List.Exists.cons_head. reflexivity.
     Qed.
 
-    (* The returned list does not contain any duplicate *)
+    (* The returned list does not contain any duplicates *)
     Lemma uniqueness {F: Type} {f: Result.AssertionError F}: forall r ctx i j v,
       List.Indexing.Nat.indexing (walk r ctx) i = Success v ->
       List.Indexing.Nat.indexing (walk r ctx) j = Success v ->
@@ -269,6 +284,12 @@ Module Zipper.
   End main. End Walk.
 End Zipper.
 
+(**
+    A custom induction principle for RegexNodes.
+    It is base on the previously introduced concept of sub-regex.
+
+    In the case of a regex r, one will be able to assume that [forall r', Down r' r -> P r'].
+*)
 Section Induction.
     Context `{specParameters: Parameters}.
     Import Patterns.

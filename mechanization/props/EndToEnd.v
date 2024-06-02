@@ -3,6 +3,12 @@ From Warblre Require Import Result Base Errors Patterns Notation StaticSemantics
 Import Result.Notations.
 Local Open Scope result_flow.
 
+(**
+    This file ensures that all of the theorems proved "flow" into each other.
+    It ensures that the post-condition of the theorem on early errors is strong enough to apply the theorem on
+    compilation of regexes, which is in turn strong enough to apply the theorem on matching.
+*)
+
 Module EndToEnd.
   Import Notation.
   Import Patterns.

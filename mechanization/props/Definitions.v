@@ -5,21 +5,17 @@ Import Result.Notations. Local Open Scope result_flow.
 Import Coercions.
 Import Notation.
 
-(* Notation for MatchStates which goes nicely with the normalization tactic *)
-Notation "s '[@' n '$' c ']'" := (match_state s n c) (at level 50, left associativity).
+(**
+    It is sometimes useful to refer to complex definitions which appear in the specification as part of bigger
+    terms, and hence never get a name to refer to.
 
-(* Notation for the "tiny step" done in a character class matcher *)
-Notation "'step{' dir '}' e " := (if dir == forward then (e + 1)%Z else (e - 1)%Z) (at level 51, right associativity).
-
-Ltac clear_result := autounfold with result_wrappers in *; repeat match goal with
-| [ E: Success _ = Success _ |- _ ] => injection E as E
-| [ E: Error _ = Error _ |- _ ] => injection E as E
-end.
+    Such definitions are defined in this file, to get more concise and understandable theorems down the line.
+    When possible, we also include a lemma which acts as a sanity check: if the definition inside the spec changes 
+    in a significant manner then the lemma will fail, which is easier to diagnose than a random case of a proof failing.
+*)
 
 Module Definitions.
-
-  Definition characterClass_successful_state `{Parameters} input endIndex captures (dir: Direction) := input [@ step{dir} endIndex $ captures ].
-
+ 
   Module RepeatMatcher.
     Definition matcher `{Parameters} (m: Matcher) (min: non_neg_integer) (max: non_neg_integer_or_inf) 
       (greedy: bool) (parenIndex parenCount: non_neg_integer) (fuel: nat): Matcher :=

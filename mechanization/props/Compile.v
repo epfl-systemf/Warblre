@@ -10,7 +10,7 @@ Section Compile.
 
     Lemma wordCharacters {F: Type} {_: Result.AssertionError F}: forall rer f, wordCharacters rer <> Error f.
     Proof.
-      intros rer f. unfold wordCharacters. clear_result. focus <! _ (_ [] _) !> auto destruct.
+      intros rer f. unfold wordCharacters. focus <! _ (_ [] _) !> auto destruct.
     Qed.
 
     Lemma compileToCharSet_ClassAtom_rel_ind: forall (P: ClassAtom -> Prop),

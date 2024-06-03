@@ -2,6 +2,9 @@
 (copy_files#
  (only_sources true)
  (files ../common/*.ml))
+(copy_files
+ (only_sources true)
+ (files ../common/Extraction.v))
 
 ; Extract with different directives
 (coq.extraction
@@ -12,7 +15,7 @@
 ; Make a library out of it
 (library
  (name warblre)
- (libraries uucp integers))
+ (libraries uucp integers zarith))
 
 (env
  (dev

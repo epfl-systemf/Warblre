@@ -32,6 +32,7 @@
                 ocamlPackages.uucp
                 ocamlPackages.ppx_expect
                 ocamlPackages.melange
+                ocamlPackages.zarith
 
                 nodejs_21
                 nodePackages.webpack-cli

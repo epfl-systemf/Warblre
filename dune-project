@@ -20,5 +20,6 @@
   (coq (= 8.18.0))
   (integers (= 0.7.0))
   (uucp (= 15.0.0))
+  (zarith (= 1.13))
   (melange (= 3.0.0-414))
   (ppx_expect (= v0.16.0))))

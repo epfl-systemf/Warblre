@@ -1,12 +1,11 @@
-(**
-    Extract from Coq to OCaml for Melange.
-    The main difference with the extraction for (pure) OCaml
-    is that we don't extract to int, but to Js.BigInt.
+(** Extract from Coq to OCaml for Melange. 
 
-    The reason for that is that we may need to do fuel computation
-    going over the maximal safe int (before losing precision) in JS.
-
-    We use Interop.erase to ensure that inefficient operations are not used.
+    We will use these extraction directives twice:
+    - Once for "regular" OCaml;
+    - Once for OCaml aiming at being compiled by Melange;
+    The key difference between these two is that the type BigInt
+    is itself instantiated in two different manners, using
+    zarith and Js.BigInt respectively.
 *)
 
 From Warblre Require Import Result Base API.
@@ -51,6 +50,7 @@ Extract Inlined Constant Pos.eqb => "BigInt.equal".
 Extract Constant Pos.compare =>
  "(fun n m -> if BigInt.equal n m then Eq else (if BigInt.lt n m then Lt else Gt))".
 Extract Inlined Constant Pos.to_nat => "(fun x -> x)".
+Extract Constant eqdec_positive => "BigInt.equal".
 
 Extract Constant Pos.add_carry => "Interop.erased".
 Extract Constant Pos.pred_double => "Interop.erased".
@@ -97,6 +97,6 @@ Extract Constant HexDigit.to_integer => "Interop.parse_hex".
 (** Ascii *)
 Extract Constant AsciiLetter.type => "char".
 Extract Constant AsciiLetter.eq_dec => "Char.equal".
-Extract Constant AsciiLetter.numeric_value => "(fun c -> Host.of_int (Char.code c))".
+Extract Constant AsciiLetter.numeric_value => "(fun c -> BigInt.of_int (Char.code c))".
 
 Extraction "Extracted.ml" API.

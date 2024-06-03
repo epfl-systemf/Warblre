@@ -2,6 +2,9 @@
 (copy_files#
  (only_sources true)
  (files ../common/*.ml))
+(copy_files
+ (only_sources true)
+ (files ../common/Extraction.v))
 
 ; Extract with different directives
 (coq.extraction

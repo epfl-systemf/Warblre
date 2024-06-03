@@ -123,7 +123,7 @@ module Exec (
       let input1 = to_string input0 in
 
       (* Match the regex against the input string. *)
-      let inst1 = Engine.setLastIndex inst0 (Host.of_int at) in
+      let inst1 = Engine.setLastIndex inst0 (BigInt.of_int at) in
       let (res, r) = match Engine.exec inst1 input1 with
       | Null r -> (Js.Nullable.null, r)
       | Exotic (a, r) -> 
@@ -133,7 +133,7 @@ module Exec (
       (* Last index must be mapped back into a UTF16 index *)
       let e = Parameters.String.getStringIndex input1 r.lastIndex in
       if not (get_property this "lastIndex").writable then Js.Exn.raiseTypeError "lastIndex is not writable.";
-      if inst1.originalFlags.g || inst1.originalFlags.y then Js.Re.setLastIndex this (Host.to_int e);
+      if inst1.originalFlags.g || inst1.originalFlags.y then Js.Re.setLastIndex this (BigInt.to_int e);
 
       res)
 end

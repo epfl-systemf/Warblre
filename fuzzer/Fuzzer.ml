@@ -210,7 +210,7 @@ module Fuzzer (P: EngineParameters) (S: Warblre_js.Encoding.StringLike with type
       if (Random.bool ()) then Greedy qp else Lazy qp
 
     let random_char_ranges () : (Engine.character, P.property) coq_ClassRanges =
-      let sc c = SourceCharacter (P.Character.from_numeric_value (Host.of_int (Char.code c))) in
+      let sc c = SourceCharacter (P.Character.from_numeric_value (BigInt.of_int (Char.code c))) in
       List.fold_left (fun current _: (Engine.character, P.property) coq_ClassRanges ->
         if Random.bool() then
           let c = random_char() in

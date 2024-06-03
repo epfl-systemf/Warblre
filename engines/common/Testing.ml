@@ -16,7 +16,7 @@ module Tester (P: EngineParameters) (S: Encoding.StringLike with type t := P.str
     let matcher =  compilePattern regex rer in
     let ls_input = string_to_engine_input input in
     Printf.printf "Regex %s on '%s' at %d:\n" (regex_to_string regex) input at;
-    Printf.printf "%s\n" (match_result_to_string (matcher ls_input (Host.of_int at)))
+    Printf.printf "%s\n" (match_result_to_string (matcher ls_input (BigInt.of_int at)))
 
   (* Test the regex by using compilePattern (from the backend). *)
   let test_regex regex input at ?(ignoreCase=false) ?(multiline=false) ?(dotAll=false) () =
@@ -32,7 +32,7 @@ module Tester (P: EngineParameters) (S: Encoding.StringLike with type t := P.str
 
   let test_exec_using_flags regex flags at input =
     let r = initialize regex flags in
-    let res = exec (setLastIndex r (Host.of_int at)) (S.of_string input) in
+    let res = exec (setLastIndex r (BigInt.of_int at)) (S.of_string input) in
     Printf.printf "Regex %s on '%s' at %d (using exec):\n%s\n" (regex_to_string regex) input at (exec_result_to_string res)
 
   (* Test the exec method (from the frontend). *)
@@ -52,8 +52,8 @@ module Tester (P: EngineParameters) (S: Encoding.StringLike with type t := P.str
     let m1 = compilePattern regex1 rer in
     let m2 = compilePattern regex2 rer in
     let ls_input = string_to_engine_input input in
-    let res1 = (m1 ls_input (Host.of_int at)) in
-    let res2 = (m2 ls_input (Host.of_int at)) in
+    let res1 = (m1 ls_input (BigInt.of_int at)) in
+    let res2 = (m2 ls_input (BigInt.of_int at)) in
     if res1 = res2 then (
       Printf.printf "The two regexes resulted in identical matches.\n";
       Printf.printf "%s\n" (match_result_to_string res1))

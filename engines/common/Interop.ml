@@ -2,7 +2,7 @@
 
 (* Parse a sequence of hex digits into an integer. *)
 let parse_hex ls =
-  Host.of_int (int_of_string ("0x" ^ (String.concat "" (List.map (fun c -> String.make 1 c) ls))))
+  BigInt.of_int (int_of_string ("0x" ^ (String.concat "" (List.map (fun c -> String.make 1 c) ls))))
 
 
 type ('a, 'b) result = 'a

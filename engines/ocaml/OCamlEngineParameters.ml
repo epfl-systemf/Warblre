@@ -82,9 +82,9 @@ module UInt16Character: Engines.Character with type t = Unsigned.UInt16.t = stru
   type t = UInt16.t
   let equal = UInt16.equal
   let compare = UInt16.compare
-  let numeric_value i = Host.of_int (UInt16.to_int i)
-  let from_numeric_value i = UInt16.of_int (Host.to_int i)
-  let max_numeric_value = Host.of_int (Unsigned.UInt16.to_int Unsigned.UInt16.max_int)
+  let numeric_value i = BigInt.of_int (UInt16.to_int i)
+  let from_numeric_value i = UInt16.of_int (BigInt.to_int i)
+  let max_numeric_value = BigInt.of_int (Unsigned.UInt16.to_int Unsigned.UInt16.max_int)
   let canonicalize rer (ch: t): t =
     let to_upper_case (c: int): int list =
       if (Uchar.is_valid c) then
@@ -96,13 +96,13 @@ module UInt16Character: Engines.Character with type t = Unsigned.UInt16.t = stru
     match rer with
     | { Extracted.RegExpRecord.ignoreCase = false; _ } -> ch
     | _ ->
-      let cp = Host.to_int (numeric_value ch) in
+      let cp = BigInt.to_int (numeric_value ch) in
       let u = to_upper_case cp in
       let uStr = Encoding.UnicodeUtils.str_to_utf16 u in
       match uStr with
       | cu :: [] ->
         let cu = Utf16.char_from_int cu in
-        if (numeric_value ch >= (Host.of_int 128)) && (numeric_value cu < (Host.of_int 128)) then ch
+        if (numeric_value ch >= (BigInt.of_int 128)) && (numeric_value cu < (BigInt.of_int 128)) then ch
         else cu
       | _ -> ch
 end
@@ -110,9 +110,9 @@ module IntCharacter: Engines.Character with type t = int = struct
   type t = int
   let equal = Int.equal
   let compare = Int.compare
-  let numeric_value i = Host.of_int i
-  let from_numeric_value i = Host.to_int i
-  let max_numeric_value = 0x10FFFF
+  let numeric_value i = BigInt.of_int i
+  let from_numeric_value i = BigInt.to_int i
+  let max_numeric_value = BigInt.of_int 0x10FFFF
 
   module M = Map.Make(Int)
   (* S-rules from https://unicode.org/Public/UCD/latest/ucd/CaseFolding.txt *)
@@ -181,8 +181,8 @@ end
 module CamlString = struct
   type t = Unsigned.UInt16.t list
   let equal = List.equal Unsigned.UInt16.equal
-  let length ls = Host.of_int (List.length ls)
-  let substring str s e = Utils.List.take (Host.to_int (Host.sub e s)) (Utils.List.drop (Host.to_int s) str)
+  let length ls = BigInt.of_int (List.length ls)
+  let substring str s e = Utils.List.take (BigInt.to_int (BigInt.sub e s)) (Utils.List.drop (BigInt.to_int s) str)
   let codeUnitAt str at = List.nth str at
 end
 
@@ -215,7 +215,7 @@ module Utf16Parameters : Engines.EngineParameters
   module String = struct
     let list_from_string s = s
     let list_to_string s = s
-    let advanceStringIndex _ i = Host.incr i
+    let advanceStringIndex _ i = BigInt.Nat.succ i
     let getStringIndex _ i = i
     include CamlString
   end
@@ -247,8 +247,8 @@ module UnicodeParameters : Engines.EngineParameters
     module Ops = Extracted.API.Utils.UnicodeOps(struct
       type coq_Utf16CodeUnit = Unsigned.UInt16.t
       type coq_Utf16String = Unsigned.UInt16.t list
-      let length ls = Host.of_int (List.length ls)
-      let codeUnitAt str at = List.nth str (Host.to_int at)
+      let length ls = BigInt.of_int (List.length ls)
+      let codeUnitAt str at = List.nth str (BigInt.to_int at)
       let is_leading_surrogate c = Encoding.UnicodeUtils.is_high_surrogate (Unsigned.UInt16.to_int c)
       let is_trailing_surrogate c = Encoding.UnicodeUtils.is_low_surrogate (Unsigned.UInt16.to_int c)
     end)

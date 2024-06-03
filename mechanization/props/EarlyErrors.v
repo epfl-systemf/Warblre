@@ -200,27 +200,6 @@ Section EarlyErrors.
         all: eexists; do 2 econstructor.
   Qed.
 
-
-(*   Lemma char_fits_32 n :
-    NonNegInt.modulo n 32 < Pos.to_nat 65536.
-  Proof.
-    etransitivity; [ apply Nat.mod_upper_bound | ]; lia.
-  Qed.
-
-  Lemma char_fits_hex_2 d1 d2 :
-    HexDigit.to_integer (d1 :: d2 :: nil) < Pos.to_nat 65536.
-  Proof.
-    etransitivity; [ apply HexDigit.upper_bound_2 | ]; lia.
-  Qed.
-
-  Lemma char_fits_hex_4 d :
-    HexDigit.to_integer_4 d < Pos.to_nat 65536.
-  Proof.
-    destruct d.
-    apply HexDigit.upper_bound_4.
-  Qed. *)
-
-
   Lemma characterValue_singleton {F: Type} {_: Result.AssertionError F}: forall c v, characterValue c = @Success _ F v <-> SingletonClassAtom c v.
   Proof.
     intros c v; split; intros H;

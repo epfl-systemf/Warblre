@@ -5,7 +5,7 @@ Import Result.Notations.
 Import Semantics.
 Import Coercions.
 
-Module Correctness.
+Module Match.
   Import Patterns.
   Import Notation.
   Import Semantics.
@@ -1030,4 +1030,4 @@ Module Correctness.
       + (* Success => contradiction, due to continuation *)
         easy.
   Qed.
-End Correctness.
+End Match.

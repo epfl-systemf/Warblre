@@ -9,8 +9,8 @@ Import Coercions.
 Import Semantics.
 Import Notation.MatchState.
 Import Match.
-Import Correctness.MatchState.
-Import Correctness.
+Import Match.MatchState.
+Import Match.
 
 Local Open Scope result_flow.
 
@@ -181,7 +181,7 @@ Proof.
       destruct VALID as [_ [_ [LENGTH _]]]. auto.
     - destruct VALID as [_ [_ [_ FORALL]]].
       eapply List.Update.Nat.Batch.prop_preservation; eauto.
-      apply Correctness.CaptureRange.vCrUndefined.
+      apply Match.CaptureRange.vCrUndefined.
 Qed.
 
 Lemma quant_capture_reset_preserve_validity:
@@ -197,7 +197,7 @@ Proof.
       destruct VALID as [_ [_ [LENGTH _]]]. auto.
     - destruct VALID as [_ [_ [_ FORALL]]].
       eapply List.Update.Nat.Batch.prop_preservation; eauto.
-      apply Correctness.CaptureRange.vCrUndefined.
+      apply Match.CaptureRange.vCrUndefined.
 Qed.
 
     

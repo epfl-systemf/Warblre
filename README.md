@@ -44,24 +44,24 @@ The mechanization covers the last three phases; parsing is not included.
 Files are organized as follows:
 - `spec`: the mechanization in itself, translating the paper specification into Coq.
 - `props`: proofs about the specification. The main proofs are
-    - **Compilation failure-free**: if a regex if early-errors-free, then its compilation into a matcher does not error.
-    - **Matching failure-free**: if a matcher is provided with valid inputs, then the matching process does not error.
+    - **Compilation failure-free**: if a regex if early-errors-free, then its compilation into a matcher does not raise an error.
+    - **Matching failure-free**: if a matcher is provided with valid inputs, then the matching process does not raise an error.
     - **Matching termination**: if a matcher is provided with valid inputs, then the matching process terminates.
-    - **Strictly nullable optimisation**:
+    - **Strictly nullable optimisation**: Replacing the regex `r*` by the empty regex when `r` is a strictly nullable regex is a correct optimization.
 - `tactics`: some general purpose tactics.
 - `utils`: auxiliary definitions, such as extra operations and proofs on lists, the error monad, typeclasses, ...
 
-### Differences with the paper specification and other implementation choices
+### Differences with the ECMAScript specification and other implementation choices
 
 The mechanization leaves some operations abstract (e.g. character canonicalization).
-It is then extracted as an OCaml functor, whose module parameter provides the missing types and operations.
+All of these operations are bundled with a functor, whose module parameter provides the missing types and operations.
 
-One of the very few (if not the only) true difference between the paper specification and our mechanization is the handling of unicode mode.
+Another difference between the ECMAScript specification and our mechanization is the handling of unicode mode.
 In the specification, unicode mode is implemented by delegating some low-level operations (e.g. character canonicalization, string decoding) to different functions, one for each mode, e.g.
 ```
 if flags.unicode then do_unicode () else do_utf ()
 ```
-These operations overlap with the operations we would typically leave abstract, so the two modes are instead implemented as two different instantiations of the aforementioned OCaml functor
+These operations overlap with the operations we would typically leave abstract, so the two modes are instead implemented as two different instantiations of the aforementioned functor:
 ```
 Parameters.do ()
 ```
@@ -70,9 +70,8 @@ Parameters.do ()
 
 OCaml code used to instantiate concrete engines, as well as extra feature built on top of the extracted code (e.g. a pretty-printer for regexes, or functions to ease testing of regexes).
 
-Being able to integrate the engine in a JavaScript runtime was a desirable feature.
-In order to do it, we compiled some of the OCaml code to JavaScript using [melange](melange.re).
-For reasons we will explain later ([here](#key-differences-between-the-ocaml-and-javascript-engines)), the JavaScript and OCaml engines have some slight differences.
+To integrate our extracted engine in a JavaScript engine, we compile some of the OCaml code to JavaScript using [melange](melange.re).
+For reasons we explain below ([here](#key-differences-between-the-ocaml-and-javascript-engines)), the JavaScript and OCaml engines have some slight differences.
 
 The code is hence split in three directories:
 - `common` contains the code which is common to both codebases;

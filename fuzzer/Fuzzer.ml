@@ -168,12 +168,12 @@ module Fuzzer (P: EngineParameters) (S: Warblre_js.Encoding.StringLike with type
     Printf.printf "\027[36mLastIndex:\027[0m \"%s\"\n%!" (string_of_int index);
     Printf.printf "\027[36mFlags:\027[0m \"%s\"\n%!" (Printer.flags_to_string flags);
     Printf.printf "\027[36mFunction:\027[0m \"%s\"\n%!" (frontend_func_to_string f);
-    Printf.printf "\027[91m%s\027[0m\n" sep;
+    Printf.printf "\027[34m%s\027[0m\n" sep;
     Printf.printf "\027[35mIrregexp (node) result:\027[0m\n%!";
     let input = S.of_string str in
     let node_result = JsEngine.run regex flags index input f in
     Printf.printf "%s\n" node_result;
-    Printf.printf "\027[91m%s\027[0m\n" sep;
+    Printf.printf "\027[34m%s\027[0m\n" sep;
     Printf.printf "\027[35mWarblre result:\027[0m\n%!";
     let ref_result = RefEngine.run regex flags index input f in
     Printf.printf "%s\n" ref_result;
@@ -420,13 +420,14 @@ module Fuzzer (P: EngineParameters) (S: Warblre_js.Encoding.StringLike with type
       let str = random_string () in
       let f = random_frontend (Extracted.RegExpFlags.g flags) in
       if (i >= start_from) then (
-        Printf.printf "\027[91m%s %*d %s\027[0m\n" sep iter_witdth i sep;
+        Printf.printf "\027[34m%s %*d %s\027[0m\n" sep iter_witdth i sep;
         if (compare_engines rgx flags lastindex str f = Different) then (
-          failwith "Engines disagree!"
+          Printf.printf "\027[31mEngines disagree!\027[0m\n";
+          exit 1
         )
       )
     done;
-    Printf.printf "\027[91m%s\027[0m\n" (make_sep 100)
+    Printf.printf "\027[34m%s\027[0m\n" (make_sep 100)
 
 
 end
@@ -438,7 +439,7 @@ let () =
   let test_count: int = 100 in
   let user_seed: int option = Some 13 in
   let seed: int = (Option.value (Option.map (fun v _ -> v) user_seed) ~default:(fun _ -> Random.int (1073741823))) () in
-  Printf.printf "\027[91mSeed is %d. Starting at test %d.\027[0m\n" seed start_from;
+  Printf.printf "\027[34mSeed is %d. Starting at test %d.\027[0m\n" seed start_from;
   Random.init seed;
   fuzzer ~start_from:start_from test_count;
-  Printf.printf "\027[91mFinished %d tests.\027[0m\n" test_count;
+  Printf.printf "\027[34mFinished %d tests.\027[0m\n" test_count;

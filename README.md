@@ -24,6 +24,11 @@ The repository is structured as follows:
 └── test262
 ```
 
+In this file, we detail this architecture below.
+A description of the executables implemented in this repository can also be found in [`doc/Executables.md`](doc/Executables.md); each section includes a tag indicating which engine it targets.
+
+
+
 ## Mechanization
 
 Contains the Coq code mechanizing the subset of the ECMAScript specification which describes regexes and their semantics.
@@ -68,16 +73,15 @@ Parameters.do ()
 
 ## Engines
 
-OCaml code used to instantiate concrete engines, as well as extra feature built on top of the extracted code (e.g. a pretty-printer for regexes, or functions to ease testing of regexes).
+In the `engines` directory, we include the code needed to turn the extracted code into two fully featured engines, one in OCaml and one in JavaScript.
+For instance, this is where we need to provide implementations for the abstract types and Unicode operations of the functor discussed above.
+Some of this code is common to the both engines, for instance a pretty-printer for regexes, and is stored in the `common` subdirectory.
 
-To integrate our extracted engine in a JavaScript engine, we compile some of the OCaml code to JavaScript using [melange](melange.re).
-For reasons we explain below ([here](#key-differences-between-the-ocaml-and-javascript-engines)), the JavaScript and OCaml engines have some slight differences.
+The `ocaml` subdirectory contains code specific to the OCaml engine.
+This includes functions to manipulate unicode characters, using library `uucp`.
 
-The code is hence split in three directories:
-- `common` contains the code which is common to both codebases;
-- `ocaml` contains the instantiation of the two OCaml engines (one for regular mode, and one for unicode mode);
-- `js` contains the instantiation of the two JavaScript engines, as well as some extra functionalities, such has functions to work with [array exotic objects](https://262.ecma-international.org/14.0/#sec-array-exotic-objects) (see [`ArrayExotic.ml`](engines/js/ArrayExotic.ml)) or parser for regexes, based upon [regexpp](https://github.com/eslint-community/regexpp).
+The `js` subdirectory contains code specific to the JavaScript engine.
+This also includes functions to manipulate unicode characters, as well as some functions to work with [array exotic objects](https://262.ecma-international.org/14.0/#sec-array-exotic-objects) (see [`ArrayExotic.ml`](engines/js/ArrayExotic.ml)) or a parser for regexes, based on [regexpp](https://github.com/eslint-community/regexpp).
+	
 
-A description of the executables implemented in this repository can be found in [`doc/Executables.md`](doc/Executables.md); each section will include a tag indicating whether that executable is built on the JavaScript or OCaml engine. 
 
-### Key differences between the OCaml and JavaScript engines

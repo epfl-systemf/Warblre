@@ -1,0 +1,20 @@
+(melange.emit
+ (alias node-playground-js)
+ (target app)
+ (module_systems (es6 mjs))
+ (libraries melange.dom warblre_js)
+ (preprocess (pps melange.ppx)))
+
+; Webpack it into a single, node-compatible, js file
+(rule
+ (targets (dir dist))
+ (deps
+  (alias_rec node-playground-js)
+  (:entrypoint (file app/examples/cmd_playground/Main.mjs))
+  (:config (file webpack.config.js)))
+ (action (run webpack-cli ./%{entrypoint} --config %{config} --config-name warblre-node-playground --no-stats)))
+; Copy said file to the root of the build directory
+(rule
+ (target warblre-node-playground.js)
+ (deps (:js_file (file dist/warblre-node-playground.js)))
+ (action (copy %{js_file} %{target})))

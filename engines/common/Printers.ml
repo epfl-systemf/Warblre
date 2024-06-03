@@ -143,7 +143,7 @@ module Printer(P: EngineParameters) (S: Encoding.StringLike with type t := P.str
                 option_to_string ~none:"" (pair_to_string BigInt.to_string BigInt.to_string))))
             (zip_with_opt a.array a.indices_array)) ::
           (option_to_string ~none:"" ~some_prefix:"Named captures:"
-              (keyed_list_to_string ~prefix:"\027[20G# " ~key_sep:"\027[32G: " ~sep:"\n\027[20G# "
+              (keyed_list_to_string ~nil:"\027[20G[]" ~prefix:"\027[20G# " ~key_sep:"\027[32G: " ~sep:"\n\027[20G# "
                 S.to_string
                 (pair_to_string ~start:"" ~sep:"\027[64G" ~endd:""
                   (option_to_string quoted)

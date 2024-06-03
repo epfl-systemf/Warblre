@@ -151,8 +151,13 @@ Module API.
       @Frontend.prototypeSearch parameters.
     Definition rmatch: RegExpInstance -> string -> Result.Result ProtoMatchResult _ :=
       @Frontend.prototypeMatch parameters.
+    Definition rmatchAll: RegExpInstance -> string -> Result.Result (list ExecArrayExotic * RegExpInstance) _ :=
+      @Frontend.prototypeMatchAll parameters.
     Definition test: RegExpInstance -> string -> Result.Result (bool * RegExpInstance) _ :=
       @Frontend.prototypeTest parameters.
+
+    Definition stringMatchAll: RegExpInstance -> string -> Result.Result (list ExecArrayExotic * RegExpInstance) _ :=
+      @Frontend.prototypeMatchAll parameters.
   End Engine.
 
   (*  Other utils, such as functions of the specification which are not used in the mechanization, but could

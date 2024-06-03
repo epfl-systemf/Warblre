@@ -7,7 +7,7 @@ type frontend_function =
   | Search
   | Test
   | Match
-  (* | MatchAll *)
+  | MatchAll
 
 (** * Fuzzer parameters  *)
 
@@ -46,7 +46,7 @@ let frontend_func_to_string (f: frontend_function) : string =
   | Search -> "search"
   | Test -> "test"
   | Match -> "match"
-  (* | MatchAll -> "matchAll" *)
+  | MatchAll -> "matchAll"
 
 (* geting the result of a command as a string *)
 
@@ -87,12 +87,18 @@ module Fuzzer (P: EngineParameters) (S: Warblre_js.Encoding.StringLike with type
       | Left None -> "No match"
       | Right r -> result_to_string r
 
+    let matchAll (regex: (P.character, P.string, P.property) coq_Regex) (flags: Extracted.RegExpFlags.coq_type) (at: int) (str: P.string): string =
+      let r = initialize regex flags in
+      setLastIndex r at;
+      String.concat "\n---\n" (List.map (fun e -> result_to_string (Option.some e)) (matchAll r str))
+
     let run (regex: (P.character, P.string, P.property) coq_Regex) (flags: Extracted.RegExpFlags.coq_type) (at: int) (str: P.string) (f: frontend_function): string =
       match f with
       | Exec -> exec regex flags at str
       | Search -> search regex flags at str
       | Test -> test regex flags at str
       | Match -> rmatch regex flags at str
+      | MatchAll -> matchAll regex flags at str
   end
   
 
@@ -132,12 +138,18 @@ module Fuzzer (P: EngineParameters) (S: Warblre_js.Encoding.StringLike with type
       | Left None -> "No match"
       | Right r -> result_to_string r
 
+    let matchAll (regex: (P.character, P.string, P.property) coq_Regex) (flags: Extracted.RegExpFlags.coq_type) (at: int) (str: P.string): string =
+      let r0 = Engine.initialize regex flags in
+      let r1 = Engine.setLastIndex r0 (BigInt.of_int at) in
+      String.concat "\n---\n" (List.map (fun e -> result_to_string (Option.some e)) (fst (Engine.stringMatchAll r1 str)))
+
     let run (regex: (P.character, P.string, P.property) coq_Regex) (flags: Extracted.RegExpFlags.coq_type) (at: int) (str: P.string) (f: frontend_function): string =
       match f with
       | Exec -> exec regex flags at str
       | Search -> search regex flags at str
       | Test -> test regex flags at str
       | Match -> rmatch regex flags at str
+      | MatchAll -> matchAll regex flags at str
   end
 
 
@@ -379,13 +391,14 @@ module Fuzzer (P: EngineParameters) (S: Warblre_js.Encoding.StringLike with type
       y = Random.bool();
     }
 
-  let random_frontend () : frontend_function =
-    match (Random.int(4)) with
+  (* MatchAll only works if the g flag is present. *)
+  let random_frontend (g: bool) : frontend_function =
+    match (Random.int(if g then 5 else 4)) with
     | 0 -> Exec
     | 1 -> Search
     | 2 -> Test
     | 3 -> Match
-    (* | 4 -> MatchAll *)
+    | 4 -> MatchAll
     | _ -> failwith "random range error"
 
   (** * Creating Random Strings  *)
@@ -405,7 +418,7 @@ module Fuzzer (P: EngineParameters) (S: Warblre_js.Encoding.StringLike with type
       let flags = random_flags () in
       let lastindex = Random.int(max_string_length) in
       let str = random_string () in
-      let f = random_frontend () in
+      let f = random_frontend (Extracted.RegExpFlags.g flags) in
       if (i >= start_from) then (
         Printf.printf "\027[91m%s %*d %s\027[0m\n" sep iter_witdth i sep;
         if (compare_engines rgx flags lastindex str f = Different) then (
@@ -423,7 +436,7 @@ open F
 let () =
   let start_from = 0 in
   let test_count: int = 100 in
-  let user_seed: int option = None in
+  let user_seed: int option = Some 13 in
   let seed: int = (Option.value (Option.map (fun v _ -> v) user_seed) ~default:(fun _ -> Random.int (1073741823))) () in
   Printf.printf "\027[91mSeed is %d. Starting at test %d.\027[0m\n" seed start_from;
   Random.init seed;

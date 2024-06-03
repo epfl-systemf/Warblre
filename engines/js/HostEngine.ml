@@ -27,7 +27,7 @@ module HostEngine (P: Engines.EngineParameters) (S: Encoding.StringLike with typ
       return regex.global ? [true, res, null] : [false, null, res];
     }}
   |}]
-    let matchAll: Js.String.t -> Js.Re.t -> Js.String.t Js.Array.t = [%mel.raw {|
+    let matchAll: Js.String.t -> Js.Re.t -> Js.Re.result Js.Array.t = [%mel.raw {|
       function (str) { return function (regex) {
         return [... str.matchAll(regex)];
       }}
@@ -51,6 +51,6 @@ module HostEngine (P: Engines.EngineParameters) (S: Encoding.StringLike with typ
           |> Either.left
     | (false, _, res) -> Either.right (Conversion.MatchResult.ocaml_of_js res)
 
-  let matchAll (r: regex) (str: Engine.string): Engine.string Js.Array.t =
-    Js.Array.map ~f:(S.of_string) (Internal.matchAll (S.to_string str) r)
+  let matchAll (r: regex) (str: Engine.string): (P.string) Extracted.ExecArrayExotic.coq_type list =
+    List.map (fun e -> Option.get (Conversion.MatchResult.ocaml_of_js (Js.Nullable.return e))) (Array.to_list (Internal.matchAll (S.to_string str) r))
 end

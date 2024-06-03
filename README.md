@@ -1,5 +1,6 @@
+# Warblre: A Coq mechanization of ECMAScript regexes
 
-# Warblre: A Coq mechanization of ECMAScript regexes 
+![*Curruca communis* perched on a branch](etc/warblre.webp)
 
 The repository is structured as follows:
 

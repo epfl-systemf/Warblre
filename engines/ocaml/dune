@@ -15,6 +15,7 @@
 ; Make a library out of it
 (library
  (name warblre)
+ (public_name warblre.ocaml)
  (libraries uucp integers zarith))
 
 (env

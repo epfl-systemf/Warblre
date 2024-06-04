@@ -12,6 +12,8 @@ let of_int: int -> t = [%mel.raw {| function (i) { return BigInt(i); } |}]
 let to_int: t -> int = [%mel.raw {| function (i) { return Number(i); } |}]
 let of_float: Js.Float.t -> t = [%mel.raw {| function (i) { return BigInt(Math.trunc(i)); } |}]
 let to_string: t -> Js.String.t = [%mel.raw {| function (i) { return i.toString(); } |}]
+let to_hex_string: t -> Js.String.t = [%mel.raw {| function (i) { return i.toString(16); } |}]
+
 
 let neg: t -> t = [%mel.raw {| function (i) { return -i; } |}]
 

@@ -28,5 +28,9 @@ let%expect_test "printer_seq_quant_0" =
   [%expect {| /(?:ab)*/ |}]
 
 let%expect_test "special_chars" =
-  pp (List.fold_right (fun c r -> cchar c -- r) ('\\' :: '/' :: '-' :: '[' :: ']' :: '{' :: '}' :: '(' :: ')' :: '*' :: '+' :: '?' :: '$' :: '^' :: '|' :: '.' :: []) Empty);
-  [%expect {| /\\\/\-\[\]\{\}\(\)\*\+\?\$\^\|\./ |}]
+  pp (List.fold_right (fun c r -> cchar c -- r) ('\\' :: '/' :: '[' :: ']' :: '{' :: '}' :: '(' :: ')' :: '*' :: '+' :: '?' :: '$' :: '^' :: '|' :: '.' :: []) Empty);
+  [%expect {| /\\\/\[\]\{\}\(\)\*\+\?\$\^\|\./ |}]
+
+let%expect_test "dash" =
+  pp (cchar '-' -- (CharacterClass (NoninvertedCC (ClassAtomCR (sc '-', RangeCR (sc '-', sc '-', EmptyCR))))));
+  [%expect {| /-[\-\--\-]/ |}]

@@ -15,23 +15,27 @@ module Printer(P: EngineParameters) (S: Encoding.StringLike with type t := P.str
     let prio (s: ocaml_string) (at: int) (current: int) : ocaml_string =
       if at < current then "(?:" ^ s ^ ")" else s
 
-    (* TODO: check spec and update list *)
-    let escaped = CS.of_list (List.map Char.code ('\\' :: '/' :: '-' :: '[' :: ']' :: '{' :: '}' :: '(' :: ')' :: '*' :: '+' :: '?' :: '$' :: '^' :: '|' :: '.' :: []))
+    (* Characters which can always be escaped *)
+    let escaped = CS.of_list (List.map Char.code ('\\' :: '/' :: '[' :: ']' :: '{' :: '}' :: '(' :: ')' :: '*' :: '+' :: '?' :: '$' :: '^' :: '|' :: '.' :: []))
 
-    let escape (c: P.character) : ocaml_string =
+    let escape (c: P.character): ocaml_string =
       let str = S.to_string (P.String.list_to_string (c :: [])) in
       if String.length str != 1 then
         failwith "Unexpected escape corner case: '" ^ str ^ "'"
       else
         "\\" ^ str
 
-    let char_lit_to_string (c: P.character) : ocaml_string =
+    let char_lit_to_string (c: P.character) (in_class: bool): ocaml_string =
       let i = P.Character.numeric_value c in
-      if CS.mem (BigInt.to_int i) escaped then
-        escape c
+      if i > BigInt.of_int Int.max_int then S.to_string (P.String.list_to_string [ c ])
+      (* We always escape - in a chracter class to avoid issues *)
+      else if (in_class && BigInt.to_int i = (Char.code '-')) then "\\-"
       else
-        let str = S.to_string (P.String.list_to_string (c :: [])) in
-        str
+        if CS.mem (BigInt.to_int i) escaped then
+          escape c
+        else
+          let str = S.to_string (P.String.list_to_string [ c ]) in
+          str
 
     let hex_to_string (h: Extracted.HexDigit.coq_type) : ocaml_string =
       match h with
@@ -123,9 +127,9 @@ module Printer(P: EngineParameters) (S: Encoding.StringLike with type t := P.str
       | Coq_esc_Zero -> "\\0"
       | HexEscape (h1, h2) -> "\\x" ^ (hex_to_string h1) ^ (hex_to_string h2)
       | UnicodeEsc esc -> (match esc with
-        | Pair (h1, h2) -> "\\u{" ^ (hex4digits_to_string h1) ^ "}\\u{" ^ (hex4digits_to_string h2) ^ "}"
-        | Lonely h -> "\\u{" ^ (hex4digits_to_string h) ^ "}"
-        | CodePoint _ -> failwith "TODO: pretty-printer -- \\u{codepoint}")
+        | Pair (h1, h2) -> "\\u" ^ (hex4digits_to_string h1) ^ "\\u" ^ (hex4digits_to_string h2) ^ ""
+        | Lonely h -> "\\u" ^ (hex4digits_to_string h)
+        | CodePoint cp -> "\\u{" ^ (BigInt.to_hex_string (P.Character.numeric_value cp)) ^ "}")
       | IdentityEsc c -> escape c
 
     let character_class_escape_to_string (esc: (P.property) coq_CharacterClassEscape) : ocaml_string =
@@ -155,7 +159,7 @@ module Printer(P: EngineParameters) (S: Encoding.StringLike with type t := P.str
 
     let class_atom_to_string (ca: (P.character, P.property) coq_ClassAtom) : ocaml_string =
       match ca with
-      | SourceCharacter c -> char_lit_to_string c
+      | SourceCharacter c -> char_lit_to_string c true
       | ClassEsc Coq_esc_b -> "\\b"
       | ClassEsc Coq_esc_Dash -> "\\-"
       | ClassEsc (CCharacterClassEsc esc) -> character_class_escape_to_string esc
@@ -264,7 +268,7 @@ module Printer(P: EngineParameters) (S: Encoding.StringLike with type t := P.str
     let rec iter (r: (P.character, P.string, P.property) coq_Regex) (current: int) : ocaml_string =
       match r with
       | Empty -> prio_if_strict "" 3 current
-      | Char c -> char_lit_to_string c
+      | Char c -> char_lit_to_string c false
       | Dot -> String.make 1 '.'
       | CharacterClass cc -> (match cc with
         | NoninvertedCC r -> "[" ^ (range_to_string r) ^ "]"

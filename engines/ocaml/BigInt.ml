@@ -11,6 +11,7 @@ let one: t = Z.one
 let of_int: int -> t = Z.of_int
 let to_int: t -> int = Z.to_int
 let to_string: t -> string = Z.to_string
+let to_hex_string: t -> string = Z.format "x"
 
 let neg: t -> t = Z.neg
 

@@ -64,5 +64,64 @@ module CharNotations (P: EngineParameters) (S: Encoding.StringLike with type t :
     in
     HexEscape (char_to_digit h, char_to_digit l)
 
+  let ascii_letter_escape (l: char) =
+    let char_to_ascii_letter (c: char): Extracted.AsciiLetter.coq_type =
+      match c with
+      | 'a' -> Coq_a 
+      | 'b' -> Coq_b  
+      | 'c' -> Coq_c  
+      | 'd' -> Coq_d  
+      | 'e' -> Coq_e  
+      | 'f' -> Coq_f  
+      | 'g' -> Coq_g  
+      | 'h' -> Coq_h  
+      | 'i' -> Coq_i  
+      | 'j' -> Coq_j  
+      | 'k' -> Coq_k  
+      | 'l' -> Coq_l  
+      | 'm' -> Coq_m  
+      | 'n' -> Coq_n  
+      | 'o' -> Coq_o  
+      | 'p' -> Coq_p  
+      | 'q' -> Coq_q  
+      | 'r' -> Coq_r  
+      | 's' -> Coq_s  
+      | 't' -> Coq_t  
+      | 'u' -> Coq_u  
+      | 'v' -> Coq_v  
+      | 'w' -> Coq_w  
+      | 'x' -> Coq_x  
+      | 'y' -> Coq_y  
+      | 'z' -> Coq_z  
+      | 'A' -> A  
+      | 'B' -> B  
+      | 'C' -> C  
+      | 'D' -> D  
+      | 'E' -> E  
+      | 'F' -> F  
+      | 'G' -> G  
+      | 'H' -> H  
+      | 'I' -> I  
+      | 'J' -> J  
+      | 'K' -> K  
+      | 'L' -> L  
+      | 'M' -> M  
+      | 'N' -> N  
+      | 'O' -> O  
+      | 'P' -> P  
+      | 'Q' -> Q  
+      | 'R' -> R  
+      | 'S' -> S  
+      | 'T' -> T  
+      | 'U' -> U  
+      | 'V' -> V  
+      | 'W' -> W  
+      | 'X' -> X  
+      | 'Y' -> Y  
+      | 'Z' -> Z  
+      | _ -> failwith ("Invalid hex digit: " ^ (String.make 1 c))
+    in
+    AsciiControlEsc (char_to_ascii_letter l)
+
 end
 

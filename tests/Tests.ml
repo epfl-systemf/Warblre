@@ -347,7 +347,7 @@ let%expect_test "hex_escape_2" =
 
 let%expect_test "c_escape_0" =
   test_regex
-    (AtomEsc (ACharacterEsc (AsciiControlEsc ('i'))))
+    (AtomEsc (ACharacterEsc (ascii_letter_escape 'i')))
     "\t"
     0 ();
   [%expect{|
@@ -359,7 +359,7 @@ let%expect_test "c_escape_0" =
 
 let%expect_test "c_escape_1" =
   test_regex
-    (AtomEsc (ACharacterEsc (AsciiControlEsc ('I'))))
+    (AtomEsc (ACharacterEsc (ascii_letter_escape 'I')))
     "\t"
     0 ();
   [%expect{|
@@ -371,7 +371,7 @@ let%expect_test "c_escape_1" =
 
 let%expect_test "c_escape_2" =
   test_regex
-    (AtomEsc (ACharacterEsc (AsciiControlEsc ('i'))))
+    (AtomEsc (ACharacterEsc (ascii_letter_escape 'i')))
     "a"
     0 ();
   [%expect{|

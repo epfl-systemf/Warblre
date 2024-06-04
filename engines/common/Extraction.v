@@ -89,9 +89,4 @@ Extract Inductive Result.Result =>
     [ "Interop.success" "Interop.error" ]
     "(fun fS _ v -> fS v )".
 
-(** Ascii *)
-Extract Constant AsciiLetter.type => "char".
-Extract Constant AsciiLetter.eq_dec => "Char.equal".
-Extract Constant AsciiLetter.numeric_value => "(fun c -> BigInt.of_int (Char.code c))".
-
 Extraction "Extracted.ml" API.

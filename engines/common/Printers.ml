@@ -52,6 +52,61 @@ module Printer(P: EngineParameters) (S: Encoding.StringLike with type t := P.str
       | E -> "E"
       | F -> "F"
 
+    let ascii_letter_to_char (l: Extracted.AsciiLetter.coq_type) : char =
+      match l with
+      | Coq_a -> 'a'  
+      | Coq_b -> 'b' 
+      | Coq_c -> 'c' 
+      | Coq_d -> 'd' 
+      | Coq_e -> 'e' 
+      | Coq_f -> 'f' 
+      | Coq_g -> 'g' 
+      | Coq_h -> 'h' 
+      | Coq_i -> 'i' 
+      | Coq_j -> 'j' 
+      | Coq_k -> 'k' 
+      | Coq_l -> 'l' 
+      | Coq_m -> 'm' 
+      | Coq_n -> 'n' 
+      | Coq_o -> 'o' 
+      | Coq_p -> 'p' 
+      | Coq_q -> 'q' 
+      | Coq_r -> 'r' 
+      | Coq_s -> 's' 
+      | Coq_t -> 't' 
+      | Coq_u -> 'u' 
+      | Coq_v -> 'v' 
+      | Coq_w -> 'w' 
+      | Coq_x -> 'x' 
+      | Coq_y -> 'y' 
+      | Coq_z -> 'z' 
+      | A -> 'A' 
+      | B -> 'B' 
+      | C -> 'C' 
+      | D -> 'D' 
+      | E -> 'E' 
+      | F -> 'F' 
+      | G -> 'G' 
+      | H -> 'H' 
+      | I -> 'I' 
+      | J -> 'J' 
+      | K -> 'K' 
+      | L -> 'L' 
+      | M -> 'M' 
+      | N -> 'N' 
+      | O -> 'O' 
+      | P -> 'P' 
+      | Q -> 'Q' 
+      | R -> 'R' 
+      | S -> 'S' 
+      | T -> 'T' 
+      | U -> 'U' 
+      | V -> 'V' 
+      | W -> 'W' 
+      | X -> 'X' 
+      | Y -> 'Y' 
+      | Z -> 'Z' 
+
     let hex4digits_to_string (h: Extracted.HexDigit.coq_Hex4Digits) : ocaml_string =
       let Coq_hex4 (h1, h2, h3, h4) = h in
       (hex_to_string h1) ^ (hex_to_string h2) ^ (hex_to_string h3) ^ (hex_to_string h4)
@@ -64,7 +119,7 @@ module Printer(P: EngineParameters) (S: Encoding.StringLike with type t := P.str
         | Coq_esc_r -> "\\r"
         | Coq_esc_t -> "\\t"
         | Coq_esc_v -> "\\v")
-      | AsciiControlEsc c -> "\\c" ^ (String.make 1 c)
+      | AsciiControlEsc c -> "\\c" ^ (String.make 1 (ascii_letter_to_char c))
       | Coq_esc_Zero -> "\\0"
       | HexEscape (h1, h2) -> "\\x" ^ (hex_to_string h1) ^ (hex_to_string h2)
       | UnicodeEsc esc -> (match esc with

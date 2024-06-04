@@ -67,13 +67,120 @@ Notation Hex4Digits := HexDigit.Hex4Digits.
 Instance eqdec_HexDigit: EqDec HexDigit := {}. decide equality. Defined.
 
 Module AsciiLetter.
-  Parameter type: Type.
-  Parameter eq_dec: EqDec type.
+  Inductive type: Type :=
+  | a
+  | b
+  | c
+  | d
+  | e
+  | f
+  | g
+  | h
+  | i
+  | j
+  | k
+  | l
+  | m
+  | n
+  | o
+  | p
+  | q
+  | r
+  | s
+  | t
+  | u
+  | v
+  | w
+  | x
+  | y
+  | z
+  | A
+  | B
+  | C
+  | D
+  | E
+  | F
+  | G
+  | H
+  | I
+  | J
+  | K
+  | L
+  | M
+  | N
+  | O
+  | P
+  | Q
+  | R
+  | S
+  | T
+  | U
+  | V
+  | W
+  | X
+  | Y
+  | Z.
 
-  Parameter numeric_value: type -> non_neg_integer.
+  Definition numeric_value (l: type): non_neg_integer :=
+    match l with
+    | a => 97
+    | b => 98
+    | c => 99
+    | d => 100
+    | e => 101
+    | f => 102
+    | g => 103
+    | h => 104
+    | i => 105
+    | j => 106
+    | k => 107
+    | l => 108
+    | m => 109
+    | n => 110
+    | o => 111
+    | p => 112
+    | q => 113
+    | r => 114
+    | s => 115
+    | t => 116
+    | u => 117
+    | v => 118
+    | w => 119
+    | x => 120
+    | y => 121
+    | z => 122
+    | A => 65
+    | B => 66
+    | C => 67
+    | D => 68
+    | E => 69
+    | F => 70
+    | G => 71
+    | H => 72
+    | I => 73
+    | J => 74
+    | K => 75
+    | L => 76
+    | M => 77
+    | N => 78
+    | O => 79
+    | P => 80
+    | Q => 81
+    | R => 82
+    | S => 83
+    | T => 84
+    | U => 85
+    | V => 86
+    | W => 87
+    | X => 88
+    | Y => 89
+    | Z => 90
+    end.
+
 End AsciiLetter.
 Notation AsciiLetter := AsciiLetter.type.
-Instance eqdec_AsciiLetter: EqDec AsciiLetter := AsciiLetter.eq_dec.
+#[refine] #[export]
+Instance eqdec_AsciiLetter: EqDec AsciiLetter := {}. decide equality. Defined.
 
 Module Unicode.
   Definition utf16SurrogatePair (lead trail: non_neg_integer): non_neg_integer :=

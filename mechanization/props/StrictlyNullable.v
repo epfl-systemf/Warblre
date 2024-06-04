@@ -370,7 +370,11 @@ Proof.
   - inversion STRICTLY_NULLABLE as [SN]. clear STRICTLY_NULLABLE.
     destruct (compileSubPattern r (Quantified_inner q :: ctx) rer dir) eqn:SNM; try solve[inversion COMPILE].
     apply IHr with (root:=root) in SNM; auto. clear IHr SN.
-    inversion COMPILE as [M]. clear COMPILE M m.
+    destruct (negb
+              (CompiledQuantifier_min (compileQuantifier q) <=?
+               CompiledQuantifier_max (compileQuantifier q))%NoI); [ discriminate |].
+    inversion COMPILE as [M].
+    clear COMPILE M m.
     apply repeat_matcher_sn with (root:=root); auto.
     unfold repeatMatcherFuel. lia.
   (* concatenation *)

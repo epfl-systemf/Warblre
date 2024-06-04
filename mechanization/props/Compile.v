@@ -92,6 +92,17 @@ Section Compile.
       - cbn. focus <! _ (_ [] _) !> auto destruct; destruct f; try easy. exfalso. apply (compileToCharSet _ _ H ltac:(eassumption)).
     Qed.
 
+    Lemma compileQuantifier: forall q,
+      Pass_Quantifier q ->
+      (CompiledQuantifier_min (compileQuantifier q) <=? CompiledQuantifier_max (compileQuantifier q))%NoI = true.
+    Proof.
+      destruct q as [ qp | qp ]; destruct qp; intros EE_q; dependent destruction EE_q; try reflexivity.
+      - apply NoI.leqb_refl.
+      - dependent destruction H. apply leb_correct. assumption.
+      - apply NoI.leqb_refl.
+      - dependent destruction H. apply leb_correct. assumption.
+    Qed.
+
     Lemma compileSubPattern: forall r ctx rer dir,
       countLeftCapturingParensWithin (zip r ctx) nil = RegExpRecord.capturingGroupsCount rer ->
       EarlyErrors.Pass_Regex r ctx ->
@@ -114,7 +125,9 @@ Section Compile.
       - focus <! _ (_ [] _) !> auto destruct; destruct f; try easy.
         + exfalso. apply IHr2 with (3 := ltac:(eassumption)); assumption.
         + exfalso. apply IHr1 with (3 := ltac:(eassumption)); assumption.
-      - focus <! _ (_ [] _) !> auto destruct. destruct f; try easy.
+      - apply compileQuantifier in H0.
+        focus <! _ (_ [] _) !> auto destruct; [ boolean_simplifier |].
+        destruct f; try easy.
         exfalso. apply IHr with (3 := ltac:(eassumption)); assumption.
       - focus <! _ (_ [] _) !> auto destruct; destruct f; try easy.
         + exfalso. apply IHr2 with (3 := ltac:(eassumption)); assumption.

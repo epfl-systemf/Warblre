@@ -909,7 +909,7 @@ Module Semantics. Section main.
       (*>> 2. Let q be CompileQuantifier of Quantifier. <<*)
       let q := compileQuantifier qu in
       (*>> 3. Assert: q.[[Min]] ≤ q.[[Max]]. <<*)
-      (* + TODO: re-add +*)
+      assert! (CompiledQuantifier_min q <=? CompiledQuantifier_max q)%NoI;
       (*>> 4. Let parenIndex be CountLeftCapturingParensBefore(Term). <<*)
       let parenIndex := countLeftCapturingParensBefore r ctx in
       (*>> 5. Let parenCount be CountLeftCapturingParensWithin(Atom). <<*)

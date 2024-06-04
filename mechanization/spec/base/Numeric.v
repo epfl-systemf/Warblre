@@ -99,6 +99,9 @@ Module NoI.
   | N r' => (l <=? r')%nat
   | Inf => true
   end.
+
+  Lemma leqb_refl: forall l, leqb l (N l) = true.
+  Proof. induction l. - reflexivity. - cbn in *. assumption. Qed.
 End NoI.
 Notation "'+∞'" := NoI.Inf.
 Export NoI(non_neg_integer_or_inf).

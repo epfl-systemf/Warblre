@@ -186,28 +186,10 @@ module CamlString = struct
   let codeUnitAt str at = List.nth str at
 end
 
-module UnicodeProperty = struct
-  type t = 
-  | Predicate of string
-
-  let equal x y = match x, y with
-  | Predicate x, Predicate y -> String.equal x y
-
-  let char_adapter d f = fun c ->
-    if (Uchar.is_valid c) then f (Uchar.of_int c)
-    else d
-
-  let filter_for up =
-    let f = char_adapter false (match up with
-    | Predicate "Alphabetic" -> Uucp.Alpha.is_alphabetic
-    | Predicate name -> failwith ("Unknown property: " ^ name))
-    in
-    List.filter f
-end
-
 module Utf16Parameters : Engines.EngineParameters 
   with type character = Unsigned.UInt16.t
   with type string = Utf16.character list
+  with type property = UnicodeProperties.NoProperty.t
 = struct
   module Character = UInt16Character
   type character = Character.t
@@ -226,16 +208,14 @@ module Utf16Parameters : Engines.EngineParameters
 
   module CharSets = Engines.CharSets(Character)
 
-  type property = |
-  module Property = struct
-    let equal _ _ = false
-    let code_points _ = failwith "How was the empty type instanciated?"
-  end
+  module Property = UnicodeProperties.NoProperty
+  type property = Property.t
 end
 
 module UnicodeParameters : Engines.EngineParameters 
   with type character = int
   with type string = Unsigned.UInt16.t list
+  with type property = UnicodeProperties.UnicodeProperty.t
 = struct
   module Character = IntCharacter
   type character = Character.t
@@ -265,9 +245,19 @@ module UnicodeParameters : Engines.EngineParameters
 
   module CharSets = Engines.CharSets(Character)
 
-  type property = UnicodeProperty.t
   module Property = struct
-    let equal = UnicodeProperty.equal
-    let code_points up = UnicodeProperty.filter_for up CharSets.all
+    include UnicodeProperties.UnicodeProperty
+
+    (* Extend a function taking Uchars to take ints *)
+    let char_adapter d f = fun c ->
+      if (Uchar.is_valid c) then f (Uchar.of_int c)
+      else d
+  
+    let code_points up =
+      let f = char_adapter false (match up with
+      | Alphabetic -> Uucp.Alpha.is_alphabetic)
+      in
+      List.filter f CharSets.all
   end
+  type property = Property.t
 end

@@ -67,7 +67,6 @@ module Exec (
   Parameters: Engines.EngineParameters 
     with type character = Js.String.t
     with type string = Js.String.t
-    with type property = JsEngineParameters.NoProperty.t
 ) = struct
   module ArrayExotic = ArrayExotic.ArrayExotic(Parameters)(JsEngineParameters.JsStringLike)
   module Engine = Warblre_js.Engines.Engine(Parameters)

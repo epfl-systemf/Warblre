@@ -3,7 +3,7 @@ open Warblre.OCamlEngines.UnicodeTester
 
 let%expect_test "ascii" =
   test_regex
-    (!* (uprop "Alphabetic"))
+    (!* (uprop Warblre.UnicodeProperties.UnicodeProperty.Alphabetic))
     "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
     0 ();
   [%expect{|
@@ -15,7 +15,7 @@ let%expect_test "ascii" =
 
 let%expect_test "space" =
   test_regex
-    (!* (uprop "Alphabetic"))
+    (!* (uprop Warblre.UnicodeProperties.UnicodeProperty.Alphabetic))
     "abcdefghijklmno pqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
     0 ();
   [%expect{|
@@ -27,7 +27,7 @@ let%expect_test "space" =
 
 let%expect_test "tab" =
   test_regex
-    (!* (uprop "Alphabetic"))
+    (!* (uprop Warblre.UnicodeProperties.UnicodeProperty.Alphabetic))
     "abcdefghijklmno\tpqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
     0 ();
   [%expect{|
@@ -39,7 +39,7 @@ let%expect_test "tab" =
 
 let%expect_test "greek" =
   test_regex
-    (!* (uprop "Alphabetic"))
+    (!* (uprop Warblre.UnicodeProperties.UnicodeProperty.Alphabetic))
     "αβγδεϝͷϛζͱηθιϳκλμνξοπϻϟϙρσͼτυφχψωϡͳϸ"
     0 ();
   [%expect{|

@@ -9,7 +9,7 @@ module UnicodeNotations = struct
   module Base = Notations.CharNotations(UnicodeParameters)(Utf16StringLike)
   include Base
 
-  let uprop n = AtomEsc (ACharacterClassEsc (UnicodeProp (Obj.magic (UnicodeProperty.Predicate n))))
+  let uprop n = AtomEsc (ACharacterClassEsc (UnicodeProp n))
 end
 
 module Utf16Printer = Printers.Printer(Utf16Parameters)(Utf16StringLike)

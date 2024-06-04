@@ -96,12 +96,6 @@ module JsString = struct
   let list_to_string s = Stdlib.String.concat "" s
 end
 
-module NoProperty = struct
-  type t = |
-  let equal (_: t) (_: t) = false
-  let code_points (_: t) = failwith "How was the empty type instanciated?"
-end
-
 (*
    A character set with a cache for its canonicalized version.
 
@@ -154,7 +148,7 @@ end
 module JsParameters : Engines.EngineParameters 
   with type character = Js.String.t
   with type string = Js.String.t
-  with type property = NoProperty.t
+  with type property = UnicodeProperties.NoProperty.t
 = struct
   module Character = JsUtf16Character
   type character = Character.t
@@ -176,14 +170,14 @@ module JsParameters : Engines.EngineParameters
 
   module CharSets = Engines.CharSets(Character)
 
-  module Property = NoProperty
+  module Property = UnicodeProperties.NoProperty
   type property = Property.t
 end
 
 module JsUnicodeParameters : Engines.EngineParameters 
   with type character = Js.String.t
   with type string = Js.String.t
-  with type property = NoProperty.t
+  with type property = UnicodeProperties.UnicodeProperty.t
 = struct
   module Character = JsUnicodeCharacter
   type character = Character.t
@@ -214,7 +208,17 @@ module JsUnicodeParameters : Engines.EngineParameters
 
   module CharSets = Engines.CharSets(Character)
 
-  (* TODO: implement *)
-  module Property = NoProperty
+  module Property = struct
+    include UnicodeProperties.UnicodeProperty
+
+    (* Adapt a function to work on strings *)
+    let char_adapter f = fun c -> f (Option.get (Js.String.codePointAt ~index:0 c))
+  
+    let code_points up =
+      let f = char_adapter (match up with
+      | Alphabetic -> Alphabetic.is_alphabetic)
+      in
+      List.filter f CharSets.all
+  end
   type property = Property.t
 end

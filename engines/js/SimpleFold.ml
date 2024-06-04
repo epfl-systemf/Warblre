@@ -1,4 +1,4 @@
-(* Generated from https://www.unicode.org/Public/UCD/latest/ucd/CaseFolding.txt *)
+(* Generated from https://www.unicode.org/Public/UCD/15.1.0/ucd/CaseFolding.txt *)
 let simple_fold_array: (int * int) Js.Array.t = [%mel.raw {|
   [
     [0x0041, 0x0061],

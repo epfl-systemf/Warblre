@@ -40,5 +40,29 @@ module CharNotations (P: EngineParameters) (S: Encoding.StringLike with type t :
   let cchar (c: char): (P.character, P.string, P.property) coq_Regex = ichar (Char.code c)
 
   let sc c = SourceCharacter (P.Character.from_numeric_value (BigInt.of_int (Char.code c)))
+
+  let hex_escape (h: char) (l: char) =
+    let char_to_digit (c: char): Extracted.HexDigit.coq_type =
+      match (Char.uppercase_ascii c) with
+      | '0' -> Zero 
+      | '1' -> One 
+      | '2' -> Two 
+      | '3' -> Three 
+      | '4' -> Four 
+      | '5' -> Five 
+      | '6' -> Six 
+      | '7' -> Seven 
+      | '8' -> Eight 
+      | '9' -> Nine 
+      | 'A' -> A 
+      | 'B' -> B 
+      | 'C' -> C 
+      | 'D' -> D 
+      | 'E' -> E 
+      | 'F' -> F 
+      | _ -> failwith ("Invalid hex digit: " ^ (String.make 1 c))
+    in
+    HexEscape (char_to_digit h, char_to_digit l)
+
 end
 

@@ -89,11 +89,6 @@ Extract Inductive Result.Result =>
     [ "Interop.success" "Interop.error" ]
     "(fun fS _ v -> fS v )".
 
-(** Hex *)
-Extract Constant HexDigit.type => "char".
-Extract Constant HexDigit.eq_dec => "Char.equal".
-Extract Constant HexDigit.to_integer => "Interop.parse_hex".
-
 (** Ascii *)
 Extract Constant AsciiLetter.type => "char".
 Extract Constant AsciiLetter.eq_dec => "Char.equal".

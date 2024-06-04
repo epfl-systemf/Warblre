@@ -107,7 +107,7 @@ Section StaticSemantics.
   (**>> CharacterEscape :: HexEscapeSequence <<*)
   | ClassEsc (CCharacterEsc (HexEscape d1 d2)) =>
       (*>> 1. Return the MV of HexEscapeSequence. <<*)
-      HexDigit.to_integer (d1 :: d2 :: nil)
+      HexDigit.to_integer_2 d1 d2
 
   (**>> CharacterEscape :: IdentityEscape <<*)
   | ClassEsc (CCharacterEsc (IdentityEsc chr)) =>

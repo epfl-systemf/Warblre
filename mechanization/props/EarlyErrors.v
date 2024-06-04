@@ -15,7 +15,7 @@ Section EarlyErrors.
   | Singleton_ctrl_r: SingletonCharacterEscape (ControlEsc esc_r) (Character.numeric_value Characters.CARRIAGE_RETURN)
   | Singleton_zero: SingletonCharacterEscape esc_Zero (Character.numeric_value Characters.NULL)
   | Singleton_ascii_control: forall l, SingletonCharacterEscape (AsciiControlEsc l) (NonNegInt.modulo (AsciiLetter.numeric_value l) 32)
-  | Singleton_hex: forall d1 d2, SingletonCharacterEscape (HexEscape d1 d2) (HexDigit.to_integer (d1 :: d2 :: nil))
+  | Singleton_hex: forall d1 d2, SingletonCharacterEscape (HexEscape d1 d2) (HexDigit.to_integer_2 d1 d2)
   | Singleton_id: forall c, SingletonCharacterEscape (IdentityEsc c) (Character.numeric_value c)
   | Singleton_unicode_pair: forall d1 d2, SingletonCharacterEscape (UnicodeEsc (Pair d1 d2)) (Unicode.utf16SurrogatePair (HexDigit.to_integer_4 d1) (HexDigit.to_integer_4 d2))
   | Singleton_unicode_lonely: forall d, SingletonCharacterEscape (UnicodeEsc (Lonely d)) (HexDigit.to_integer_4 d)

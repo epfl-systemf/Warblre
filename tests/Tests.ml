@@ -312,7 +312,7 @@ let%expect_test "case_insensitive_0_neg_1" =
 
 let%expect_test "hex_escape_0" =
   test_regex
-    (AtomEsc (ACharacterEsc (HexEscape ('6', '1'))))
+    (AtomEsc (ACharacterEsc (hex_escape '6' '1')))
     "a"
     0 ();
   [%expect{|
@@ -324,11 +324,11 @@ let%expect_test "hex_escape_0" =
 
 let%expect_test "hex_escape_1" =
   test_regex
-    (AtomEsc (ACharacterEsc (HexEscape ('7', 'c'))))
+    (AtomEsc (ACharacterEsc (hex_escape '7' 'c')))
     "|"
     0 ();
   [%expect{|
-    Regex /\x7c/ on '|' at 0:
+    Regex /\x7C/ on '|' at 0:
     Input: |
     End: 1
     Captures:
@@ -336,11 +336,11 @@ let%expect_test "hex_escape_1" =
 
 let%expect_test "hex_escape_2" =
   test_regex
-    (AtomEsc (ACharacterEsc (HexEscape ('7', 'c'))))
+    (AtomEsc (ACharacterEsc (hex_escape '7' 'c')))
     "a"
     0 ();
   [%expect{|
-    Regex /\x7c/ on 'a' at 0:
+    Regex /\x7C/ on 'a' at 0:
     No match |}]
 
 

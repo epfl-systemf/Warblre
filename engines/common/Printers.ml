@@ -33,9 +33,28 @@ module Printer(P: EngineParameters) (S: Encoding.StringLike with type t := P.str
         let str = S.to_string (P.String.list_to_string (c :: [])) in
         str
 
+    let hex_to_string (h: Extracted.HexDigit.coq_type) : ocaml_string =
+      match h with
+      | Zero -> "0"
+      | One -> "1"
+      | Two -> "2"
+      | Three -> "3"
+      | Four -> "4"
+      | Five -> "5"
+      | Six -> "6"
+      | Seven -> "7"
+      | Eight -> "8"
+      | Nine -> "9"
+      | A -> "A"
+      | B -> "B"
+      | C -> "C"
+      | D -> "D"
+      | E -> "E"
+      | F -> "F"
+
     let hex4digits_to_string (h: Extracted.HexDigit.coq_Hex4Digits) : ocaml_string =
       let Coq_hex4 (h1, h2, h3, h4) = h in
-      (String.make 1 h1) ^ (String.make 1 h2) ^ (String.make 1 h3) ^ (String.make 1 h4)
+      (hex_to_string h1) ^ (hex_to_string h2) ^ (hex_to_string h3) ^ (hex_to_string h4)
 
     let character_escape_to_string (esc: (P.character) coq_CharacterEscape) : ocaml_string =
       match esc with
@@ -47,7 +66,7 @@ module Printer(P: EngineParameters) (S: Encoding.StringLike with type t := P.str
         | Coq_esc_v -> "\\v")
       | AsciiControlEsc c -> "\\c" ^ (String.make 1 c)
       | Coq_esc_Zero -> "\\0"
-      | HexEscape (h1, h2) -> "\\x" ^ (String.make 1 h1) ^ (String.make 1 h2)
+      | HexEscape (h1, h2) -> "\\x" ^ (hex_to_string h1) ^ (hex_to_string h2)
       | UnicodeEsc esc -> (match esc with
         | Pair (h1, h2) -> "\\u{" ^ (hex4digits_to_string h1) ^ "}\\u{" ^ (hex4digits_to_string h2) ^ "}"
         | Lonely h -> "\\u{" ^ (hex4digits_to_string h) ^ "}"

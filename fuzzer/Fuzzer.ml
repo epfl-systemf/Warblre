@@ -37,9 +37,20 @@ let max_string_length = 100
 (* maximum regex AST depth *)
 let max_regex_depth = 20
 
-(** * Calling the Node Matcher (V8 backtracking)  *)
+(* maximum run time for a single test, in seconds *)
+let timeout = 5
 
-(* sending the type of frontend function to the JS matcher *)
+type script
+external new_scipt: string -> script = "Script" [@@mel.new] [@@mel.module "node:vm"]
+external run_in_context : script -> _ Js.t -> _ Js.t -> 'a = "runInContext" [@@mel.send]
+external create_context : _ Js.t -> unit = "createContext" [@@mel.module "node:vm"]
+
+let run_with_timeout (type a) (f: unit -> a) (timeout_sec: int): a option = 
+  let run = [%mel.obj { run = f } ] in
+  create_context run;
+  try Some (run_in_context (new_scipt "run ()") run [%mel.obj { timeout = timeout_sec * 1000 } ]) with _ -> None
+
+
 let frontend_func_to_string (f: frontend_function) : string =
   match f with
   | Exec -> "exec"
@@ -48,7 +59,6 @@ let frontend_func_to_string (f: frontend_function) : string =
   | Match -> "match"
   | MatchAll -> "matchAll"
 
-(* geting the result of a command as a string *)
 
 module Fuzzer (P: EngineParameters) (S: Warblre_js.Encoding.StringLike with type t := P.string) = struct
   open Warblre_js
@@ -154,7 +164,7 @@ module Fuzzer (P: EngineParameters) (S: Warblre_js.Encoding.StringLike with type
 
 
 
-  type comparison_result = | Same | Different
+  type comparison_result = | Same | Different | Timeout
 
   (** * Comparing 2 engine results *)
   (* TODO: Ideally, the engines should be run with a timeout in case the runtime explodes.
@@ -163,26 +173,34 @@ module Fuzzer (P: EngineParameters) (S: Warblre_js.Encoding.StringLike with type
   *)
   let compare_engines (regex: (Engine.character, Engine.string, P.property) coq_Regex) (flags: Extracted.RegExpFlags.coq_type) (index: int) (str: string) (f: frontend_function): comparison_result =
     let sep = String.init 100 (fun _ -> '-') in
+    let input = S.of_string str in
     Printf.printf "\027[36mJS Regex:\027[0m %s\n" (Printer.regex_to_string regex);
     Printf.printf "\027[36mString:\027[0m \"%s\"\n%!" str;
     Printf.printf "\027[36mLastIndex:\027[0m \"%s\"\n%!" (string_of_int index);
     Printf.printf "\027[36mFlags:\027[0m \"%s\"\n%!" (Printer.flags_to_string flags);
     Printf.printf "\027[36mFunction:\027[0m \"%s\"\n%!" (frontend_func_to_string f);
-    Printf.printf "\027[34m%s\027[0m\n" sep;
+
+    Printf.printf "\027[34m%s\027[0m\n%!" sep;
     Printf.printf "\027[35mIrregexp (node) result:\027[0m\n%!";
-    let input = S.of_string str in
-    let node_result = JsEngine.run regex flags index input f in
-    Printf.printf "%s\n" node_result;
-    Printf.printf "\027[34m%s\027[0m\n" sep;
+    let node_result = run_with_timeout (fun _ -> JsEngine.run regex flags index input f) timeout in
+    Printf.printf "\027[34m%s\027[0m\n%!" sep;
+    Printf.printf "%s\n%!" (Option.value node_result ~default:"Timeout");
+
+    Printf.printf "\027[34m%s\027[0m\n%!" sep;
     Printf.printf "\027[35mWarblre result:\027[0m\n%!";
-    let ref_result = RefEngine.run regex flags index input f in
-    Printf.printf "%s\n" ref_result;
+    let ref_result = run_with_timeout (fun _ -> RefEngine.run regex flags index input f) timeout in
+    Printf.printf "\027[34m%s\027[0m\n%!" sep;
+    Printf.printf "%s\n%!" (Option.value ref_result ~default:"Timeout");
+
     (* The outputs are compared in string format
         This is the easy solution since, depending on the frontend function, the output type can differ.
         A better (but more complicated) approach would be to compare the generated
         JavaScript objects.
     *)
-    if String.compare (node_result) (ref_result) != 0 then Different else Same
+    match node_result, ref_result with
+    | Some node_result, Some ref_result ->
+      if String.compare (node_result) (ref_result) != 0 then Different else Same
+    | _, _ -> Timeout
 
   (** * Generating random regexes *)
 
@@ -408,10 +426,11 @@ module Fuzzer (P: EngineParameters) (S: Warblre_js.Encoding.StringLike with type
 
 
   (** * Differential Fuzzer  *)
-  let fuzzer ?(start_from=0) (max_tests: int) : unit =
+  let fuzzer ?(start_from=0) (max_tests: int): int =
     let make_sep i = (String.init i (fun _ -> '=')) in
     let iter_witdth = 8 in
-    
+    let timeouts = ref 0 in
+
     let sep = make_sep ((100 - iter_witdth - 2) / 2) in
     for i = 0 to max_tests do
       let rgx = random_regex () in
@@ -421,25 +440,27 @@ module Fuzzer (P: EngineParameters) (S: Warblre_js.Encoding.StringLike with type
       let f = random_frontend (Extracted.RegExpFlags.g flags) in
       if (i >= start_from) then (
         Printf.printf "\027[34m%s %*d %s\027[0m\n" sep iter_witdth i sep;
-        if (compare_engines rgx flags lastindex str f = Different) then (
-          Printf.printf "\027[31mEngines disagree!\027[0m\n";
-          exit 1
-        )
+        match compare_engines rgx flags lastindex str f with
+        | Same -> ()
+        | Different -> (
+            Printf.printf "\027[31mEngines disagree!\027[0m\n";
+            exit 1
+          )
+        | Timeout -> timeouts := !timeouts + 1; ()
       )
     done;
-    Printf.printf "\027[34m%s\027[0m\n" (make_sep 100)
-
-
+    Printf.printf "\027[34m%s\027[0m\n" (make_sep 100);
+    !timeouts
 end
 
 module F = Fuzzer(Warblre_js.JsEngineParameters.JsParameters)(Warblre_js.JsEngineParameters.JsStringLike)
 open F
 let () =
   let start_from = 0 in
-  let test_count: int = 100 in
+  let test_count: int = 10000 in
   let user_seed: int option = Some 13 in
   let seed: int = (Option.value (Option.map (fun v _ -> v) user_seed) ~default:(fun _ -> Random.int (1073741823))) () in
   Printf.printf "\027[34mSeed is %d. Starting at test %d.\027[0m\n" seed start_from;
   Random.init seed;
-  fuzzer ~start_from:start_from test_count;
-  Printf.printf "\027[34mFinished %d tests.\027[0m\n" test_count;
+  let timeouts = fuzzer ~start_from:start_from test_count in
+  Printf.printf "\027[34mFinished %d tests (%d timeouts). Seed was %d\027[0m\n" test_count timeouts seed;

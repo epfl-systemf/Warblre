@@ -1,10 +1,10 @@
 module.exports = [
     {
-      name: 'warblre-browser-fuzzer',
+      name: 'warblre-node-fuzzer',
       mode: 'production',
-      target: 'web',
+      target: 'node',
       output: {
-        filename: './warblre-browser-fuzzer.js'
+        filename: './warblre-node-fuzzer.js'
       },
     }
   ];

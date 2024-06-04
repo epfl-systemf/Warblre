@@ -2,7 +2,8 @@
  (alias fuzzer-js)
  (target app)
  (module_systems (es6 mjs))
- (libraries warblre_js))
+ (libraries warblre_js)
+ (preprocess (pps melange.ppx)))
 
 ; Webpack it into a single, browser-compatible, js file
 (rule
@@ -11,9 +12,9 @@
   (alias_rec fuzzer-js)
   (:entrypoint (file app/fuzzer/Fuzzer.mjs))
   (:config (file webpack.config.js)))
- (action (run webpack-cli ./%{entrypoint} --config %{config} --config-name warblre-browser-fuzzer --no-stats)))
+ (action (run webpack-cli ./%{entrypoint} --config %{config} --config-name warblre-node-fuzzer --no-stats)))
 ; Copy said file to the root of the build directory
 (rule
- (target warblre-browser-fuzzer.js)
- (deps (:js_file (file dist/warblre-browser-fuzzer.js)))
+ (target warblre-node-fuzzer.js)
+ (deps (:js_file (file dist/warblre-node-fuzzer.js)))
  (action (copy %{js_file} %{target})))

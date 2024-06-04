@@ -166,11 +166,7 @@ module Fuzzer (P: EngineParameters) (S: Warblre_js.Encoding.StringLike with type
 
   type comparison_result = | Same | Different | Timeout
 
-  (** * Comparing 2 engine results *)
-  (* TODO: Ideally, the engines should be run with a timeout in case the runtime explodes.
-      A setup as in https://github.com/janestreet/async/blob/master/example/timeouts.ml might allow to do just that.
-      TODO: maybe JS allows to do this more easily.
-  *)
+  (** Comparing 2 engine results *)
   let compare_engines (regex: (Engine.character, Engine.string, P.property) coq_Regex) (flags: Extracted.RegExpFlags.coq_type) (index: int) (str: string) (f: frontend_function): comparison_result =
     let sep = String.init 100 (fun _ -> '-') in
     let input = S.of_string str in

@@ -108,7 +108,6 @@ module ArrayExotic (P: Engines.EngineParameters) (S: Encoding.StringLike with ty
     let to_mapped_array (type a b) (f: a -> b) (a: a list): b Js.Array.t = Array.of_list (List.map f a) in
     let to_mapped_pair (type a b c d) (f: a -> c) (g: b -> d) (p: a * b): (c, d) pair = { first = f (fst p); second = g (snd p)} in
     let to_pair = to_mapped_pair BigInt.to_int BigInt.to_int in
-    (* TODO: conversion *)
     let to_string str = (S.to_string str) in
     r |> Option.map (fun (r: (P.string) Extracted.ExecArrayExotic.coq_type) ->
         {

@@ -8,7 +8,6 @@ Set Warnings "-uniform-inheritance".
 
     Additionally, coercions are used to wrap values into the Result monad.
 *)
-(* TODO: remove? *)
 
 Create HintDb result_wrappers.
 

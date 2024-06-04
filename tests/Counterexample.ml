@@ -1,6 +1,26 @@
 open Warblre.OCamlEngines.UnicodeNotations
 open Warblre.OCamlEngines.UnicodeTester
 
+let%expect_test "disjunction_idempotence" =
+  let r = group (cchar 'a') in
+  let f = (!$ 2) -- (group epsilon) -- InputEnd in
+  compare_regexes
+    ((r || r) -- f)
+    (r -- f)
+    "aa"
+    0 ();
+  [%expect {|
+    The two regexes resulted in different matches.
+    Regex /(?:(a)|(a))\2()$/ on 'aa' at 0:
+    Input: aa
+    End: 2
+    Captures:
+    	# 0 : Undefined
+    	# 1 : (0,1)
+    	# 2 : (2,2)
+    Regex /(a)\2()$/ on 'aa' at 0:
+    No match |}]
+
 let%expect_test "disjunction_commutativity" =
   let r1 = (cchar 'a') in
   let r2 = ((cchar 'a') -- (cchar 'b')) in

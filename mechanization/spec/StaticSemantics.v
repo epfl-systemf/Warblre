@@ -56,31 +56,31 @@ Section StaticSemantics.
       It is defined piecewise over the following productions:
   <<*)
   Definition characterValue_Hex4Digits (self: Hex4Digits): non_neg_integer :=
-    (**>> HexLeadSurrogate :: Hex4Digits <<*)
-    (**>> HexTrailSurrogate :: Hex4Digits <<*)
-    (**>> HexNonSurrogate :: Hex4Digits <<*)
+    (** >> HexLeadSurrogate :: Hex4Digits <<*)
+    (** >> HexTrailSurrogate :: Hex4Digits <<*)
+    (** >> HexNonSurrogate :: Hex4Digits <<*)
     (*>> Return the MV of Hex4Digits. <<*)
     HexDigit.to_integer_4 self.
 
   Definition characterValue {F: Type} {_: Result.AssertionError F} (self: ClassAtom): Result non_neg_integer F := match self with
-  (**>> ClassAtomNoDash :: SourceCharacter <<*)
+  (** >> ClassAtomNoDash :: SourceCharacter <<*)
   | SourceCharacter chr =>
       (*>> 1. Let ch be the code point matched by SourceCharacter. <<*)
       let ch := chr in
       (*>> 2. Return the numeric value of ch. <<*)
       Character.numeric_value ch
 
-  (**>> ClassEscape :: b <<*)
+  (** >> ClassEscape :: b <<*)
   | ClassEsc (esc_b) =>
       (*>> 1. Return the numeric value of U+0008 (BACKSPACE). <<*)
       Character.numeric_value Characters.BACKSPACE
 
-  (**>> ClassEscape :: - <<*)
+  (** >> ClassEscape :: - <<*)
   | ClassEsc (esc_Dash) =>
       (*>> 1. Return the numeric value of U+002D (HYPHEN-MINUS). <<*)
       Character.numeric_value Characters.HYPHEN_MINUS
 
-  (**>> CharacterEscape :: ControlEscape <<*)
+  (** >> CharacterEscape :: ControlEscape <<*)
   | ClassEsc (CCharacterEsc (ControlEsc esc)) =>
       (*>> 1. Return the numeric value according to Table 63. <<*)
       match esc with
@@ -91,7 +91,7 @@ Section StaticSemantics.
       | esc_r => Character.numeric_value Characters.CARRIAGE_RETURN
       end
 
-  (**>> CharacterEscape :: c AsciiLetter <<*)
+  (** >> CharacterEscape :: c AsciiLetter <<*)
   | ClassEsc (CCharacterEsc (AsciiControlEsc l)) =>
       (*>> 1. Let ch be the code point matched by AsciiLetter. <<*)
       (*>> 2. Let i be the numeric value of ch. <<*)
@@ -99,24 +99,24 @@ Section StaticSemantics.
       (*>> 3. Return the remainder of dividing i by 32. <<*)
       NonNegInt.modulo i 32
 
-  (**>> CharacterEscape :: 0 <<*)
+  (** >> CharacterEscape :: 0 <<*)
   | ClassEsc (CCharacterEsc (esc_Zero)) =>
       (*>> 1. Return the numeric value of U+0000 (NULL). <<*)
       Character.numeric_value Characters.NULL
 
-  (**>> CharacterEscape :: HexEscapeSequence <<*)
+  (** >> CharacterEscape :: HexEscapeSequence <<*)
   | ClassEsc (CCharacterEsc (HexEscape d1 d2)) =>
       (*>> 1. Return the MV of HexEscapeSequence. <<*)
       HexDigit.to_integer_2 d1 d2
 
-  (**>> CharacterEscape :: IdentityEscape <<*)
+  (** >> CharacterEscape :: IdentityEscape <<*)
   | ClassEsc (CCharacterEsc (IdentityEsc chr)) =>
       (*>> 1. Let ch be the code point matched by IdentityEscape. <<*)
       let ch := chr in
       (*>> 2. Return the numeric value of ch. <<*)
       Character.numeric_value ch
 
-  (**>> RegExpUnicodeEscapeSequence :: u HexLeadSurrogate \u HexTrailSurrogate <<*)
+  (** >> RegExpUnicodeEscapeSequence :: u HexLeadSurrogate \u HexTrailSurrogate <<*)
   | ClassEsc (CCharacterEsc (UnicodeEsc (Pair head tail))) =>
     (*>> 1. Let lead be the CharacterValue of HexLeadSurrogate. <<*)
     let lead := characterValue_Hex4Digits head in
@@ -127,17 +127,17 @@ Section StaticSemantics.
     (*>> 4. Return the numeric value of cp. <<*)
     cp
 
-  (**>> RegExpUnicodeEscapeSequence :: u Hex4Digits <<*)
+  (** >> RegExpUnicodeEscapeSequence :: u Hex4Digits <<*)
   | ClassEsc (CCharacterEsc (UnicodeEsc (Lonely hex))) =>
     (*>> 1. Return the MV of Hex4Digits. <<*)
     characterValue_Hex4Digits hex
 
-  (**>> RegExpUnicodeEscapeSequence :: u{ CodePoint } <<*)
+  (** >> RegExpUnicodeEscapeSequence :: u{ CodePoint } <<*)
   | ClassEsc (CCharacterEsc (UnicodeEsc (CodePoint c))) => 
     (*>> 1. Return the MV of CodePoint. <<*)
     Character.numeric_value c
 
-  (*+ This function is not defined on the following production rules: +*)
+  (* + This function is not defined on the following production rules: +*)
   | ClassEsc (CCharacterClassEsc esc) => match esc with
     | esc_d => Result.assertion_failed
     | esc_D => Result.assertion_failed
@@ -172,7 +172,7 @@ Section StaticSemantics.
   | ClassEsc (CCharacterEsc _) =>
       (*>> 1. Return false. <<*)
       false
-  (**>> ClassEscape :: CharacterClassEscape <<*)
+  (** >> ClassEscape :: CharacterClassEscape <<*)
   | ClassEsc (CCharacterClassEsc _) =>
       (*>> 1. Return true. <<*)
       true
@@ -186,7 +186,7 @@ Section StaticSemantics.
       It is defined piecewise over the following productions:
   <<*)
   Definition capturingGroupNumber (n: positive_integer): positive_integer :=
-    (*+ Implementation disappears due to the representation choice in Patterns.v +*)
+    (* + Implementation disappears due to the representation choice in Patterns.v +*)
     n.
 
   (** >> 
@@ -316,9 +316,9 @@ Section StaticSemantics.
 
   Definition earlyErrors (r: Regex) (ctx: RegexContext): Result bool SyntaxError :=
     let nodes := Zipper.Walk.walk r ctx in
-    (**>> Pattern :: Disjunction <<*)
+    (** >> Pattern :: Disjunction <<*)
     (*>> * It is a Syntax Error if CountLeftCapturingParensWithin(Pattern) ≥ 2^32 - 1. <<*)
-    (*+ Numeric assertion are not implemented. +*)
+    (* + Numeric assertion are not implemented. +*)
     (*>> * It is a Syntax Error if Pattern contains two or more GroupSpecifiers for which CapturingGroupName of GroupSpecifier is the same. <<*)
     if! List.Exists.exist nodes (fun node0 =>
       List.Exists.exist nodes (fun node1 =>
@@ -333,7 +333,7 @@ Section StaticSemantics.
     )) then true
     else earlyErrors_rec r ctx.
 
-  (*+ Related utility methods which are useful to implement some "prose" operations. +*)
+  (* + Related utility methods which are useful to implement some "prose" operations. +*)
   Section Extensions.
     Definition all_groups_in (r: RegexNode) : list RegexNode :=
       let (pattern, ctx) := r in
@@ -343,7 +343,7 @@ Section StaticSemantics.
         end
         ) (Zipper.Walk.walk pattern ctx).
 
-    (*+ Return the nth group INSIDE this node +*)
+    (* + Return the nth group INSIDE this node +*)
     Definition nth_group_in {F} `{Result.AssertionError F} (r: RegexNode) (n: non_neg_integer): Result.Result RegexNode F :=
       let groups := all_groups_in r in
       groups[n].

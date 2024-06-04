@@ -15,8 +15,8 @@ Module Notation.
   <<*)
   Module CaptureRange.
     Record type := make {
-      startIndex: integer; (*+ Inclusive +*)
-      endIndex: integer; (*+ Exclusive +*)
+      startIndex: integer; (* + Inclusive +*)
+      endIndex: integer; (* + Exclusive +*)
     }.
   End CaptureRange.
 

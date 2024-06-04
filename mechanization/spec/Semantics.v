@@ -41,41 +41,41 @@ Module Semantics. Section main.
       productions:
   <<*)
 
-  (*+ Record to represent the result. +*)
+  (* + Record to represent the result. +*)
   Record CompiledQuantifierPrefix := compiled_quantifier_prefix {
     CompiledQuantifierPrefix_min: non_neg_integer;
     CompiledQuantifierPrefix_max: non_neg_integer_or_inf;
   }.
 
   Definition compileQuantifierPrefix (self: QuantifierPrefix): CompiledQuantifierPrefix := match self with
-  (**>> QuantifierPrefix :: * <<*)
+  (** >> QuantifierPrefix :: * <<*)
   | Star =>
       (*>> 1. Return the Record { [[Min]]: 0, [[Max]]: +∞ }. <<*)
       compiled_quantifier_prefix 0 +∞
 
-  (**>> QuantifierPrefix :: + <<*)
+  (** >> QuantifierPrefix :: + <<*)
   | Plus =>
       (*>> 1. Return the Record { [[Min]]: 1, [[Max]]: +∞ } <<*)
       compiled_quantifier_prefix 1 +∞
 
-  (**>> QuantifierPrefix :: ? <<*)
+  (** >> QuantifierPrefix :: ? <<*)
   | Question =>
       (*>> 1. Return the Record { [[Min]]: 0, [[Max]]: 1 }. <<*)
       compiled_quantifier_prefix 0 1
 
-  (**>> QuantifierPrefix :: { DecimalDigits } <<*)
+  (** >> QuantifierPrefix :: { DecimalDigits } <<*)
   | RepExact i =>
       (*>> 1. Let i be the MV of DecimalDigits (see 12.9.3). <<*)
       (*>> 2. Return the Record { [[Min]]: i, [[Max]]: i } <<*)
       compiled_quantifier_prefix i i
 
-  (**>> QuantifierPrefix :: { DecimalDigits , } <<*)
+  (** >> QuantifierPrefix :: { DecimalDigits , } <<*)
   | RepPartialRange i =>
       (*>> 1. Let i be the MV of DecimalDigits. <<*)
       (*>> 2. Return the Record { [[Min]]: i, [[Max]]: +∞ } <<*)
       compiled_quantifier_prefix i +∞
 
-  (**>> QuantifierPrefix :: { DecimalDigits , DecimalDigits } <<*)
+  (** >> QuantifierPrefix :: { DecimalDigits , DecimalDigits } <<*)
   | RepRange i j =>
       (*>> 1. Let i be the MV of the first DecimalDigits. <<*)
       (*>> 2. Let j be the MV of the second DecimalDigits. <<*)
@@ -91,7 +91,7 @@ Module Semantics. Section main.
       piecewise over the following productions:
   <<*)
 
-  (*+ Record to represent the result. +*)
+  (* + Record to represent the result. +*)
   Record CompiledQuantifier := compiled_quantifier {
     CompiledQuantifier_min: non_neg_integer;
     CompiledQuantifier_max: non_neg_integer_or_inf;
@@ -259,7 +259,7 @@ Module Semantics. Section main.
       negb (CharSet.contains basicWordChars c) && (CharSet.contains basicWordChars canonicalized_c)
     ) in
     (*>> 3. Assert: extraWordChars is empty unless rer.[[Unicode]] is true and rer.[[IgnoreCase]] is true. <<*)
-    (*+ Ignored +*)
+    (* + Ignored +*)
     (*>> 4. Return the union of basicWordChars and extraWordChars. <<*)
     CharSet.union basicWordChars extraWordChars.
 
@@ -270,13 +270,13 @@ Module Semantics. Section main.
       It is defined piecewise over the following productions:
   <<*)
 
-  (*+ compileToCharSet_ClassAtom can do at most one recursive call.
+  (* + compileToCharSet_ClassAtom can do at most one recursive call.
       Rather than relying on complex or cumbersome mechanisms to implement this recursion, we implement this function
       in two different functions, where one of them is not allowed any recursive call, and the other can only call 
       perform a recursive call by calling the other (which bound recursion to depth 1).
   +*)
 
-  (*+ Part without recursion +*)
+  (* + Part without recursion +*)
   Definition compileToCharSet_ClassAtom_0 (self: ClassAtom) (rer: RegExpRecord) : Result CharSet CompileError := match self with
   (** >> ClassAtomNoDash :: SourceCharacter <<*)
   | SourceCharacter chr =>
@@ -317,14 +317,14 @@ Module Semantics. Section main.
       (*>> 1. Return the CharSet containing all Unicode code points included in CompileToCharSet of UnicodePropertyValueExpression with argument rer. <<*)
       CharSet.from_list (Property.code_points_for p)
 
-  (*+ These require a recursive call, but this function is not allowed to. +*)
+  (* + These require a recursive call, but this function is not allowed to. +*)
   | ClassEsc (CCharacterClassEsc esc_D) => Result.assertion_failed
   | ClassEsc (CCharacterClassEsc esc_S) => Result.assertion_failed
   | ClassEsc (CCharacterClassEsc esc_W) => Result.assertion_failed
   | ClassEsc (CCharacterClassEsc (UnicodePropNeg _)) => Result.assertion_failed
   end.
 
-  (*+ Part allowed to perform depth 1 recursion. +*)
+  (* + Part allowed to perform depth 1 recursion. +*)
   Definition compileToCharSet_ClassAtom (self: ClassAtom) (rer: RegExpRecord) : Result CharSet CompileError := match self with
   (** >> CharacterClassEscape :: D <<*)
   | ClassEsc (CCharacterClassEsc esc_D) =>
@@ -390,7 +390,7 @@ Module Semantics. Section main.
       productions:
   <<*)
 
-  (*+ Record to represent the result. +*)
+  (* + Record to represent the result. +*)
   Record CompiledCharacterClass := compiled_character_class {
     CompiledCharacterClass_charSet: CharSet;
     CompiledCharacterClass_invert: bool;
@@ -442,7 +442,7 @@ Module Semantics. Section main.
       parenIndex (a non-negative integer), and parenCount (a non-negative integer) and returns a MatchResult.
       It performs the following steps when called:
   <<*)
-  (*+ Coq wants to make sure the function will terminate; we do so by bounding recursion by an arbitrary fuel amount +*)
+  (* + Coq wants to make sure the function will terminate; we do so by bounding recursion by an arbitrary fuel amount +*)
   Fixpoint repeatMatcher' (m: Matcher) (min: non_neg_integer) (max: non_neg_integer_or_inf) (greedy: bool) (x: MatchState) (c: MatcherContinuation) (parenIndex parenCount: non_neg_integer) (fuel: nat): MatchResult :=
   match fuel with
   | 0 => out_of_fuel
@@ -471,7 +471,7 @@ Module Semantics. Section main.
     (*>> 3. Let cap be a copy of x's captures List. <<*)
     let cap := MatchState.captures x in
     (*>> 4. For each integer k in the inclusive interval from parenIndex + 1 to parenIndex + parenCount, set cap[k] to undefined. <<*)
-    (*+ The additional +1 is normal: the range operator --- is non-inclusive on the right +*)
+    (* + The additional +1 is normal: the range operator --- is non-inclusive on the right +*)
     set cap[(parenIndex + 1) --- (parenIndex + parenCount + 1) ] := undefined in
     (*>> 5. Let Input be x's input. <<*)
     let input := MatchState.input x in
@@ -501,7 +501,7 @@ Module Semantics. Section main.
     c x
   end.
 
-  (*+ Sufficient fuel to ensure termination; we will prove this in Match.v +*)
+  (* + Sufficient fuel to ensure termination; we will prove this in Match.v +*)
   Definition repeatMatcherFuel (min: non_neg_integer) (x: MatchState) := min + length (MatchState.input x) + 1.
   Definition repeatMatcher (m: Matcher) (min: non_neg_integer) (max: non_neg_integer_or_inf) (greedy: bool) (x: MatchState) (c: MatcherContinuation) (parenIndex parenCount: non_neg_integer): MatchResult :=
     repeatMatcher' m min max greedy x c parenIndex parenCount (repeatMatcherFuel min x).
@@ -897,7 +897,7 @@ Module Semantics. Section main.
           let! groupSpecifier =<< List.Unique.unique matchingGroupSpecifiers in
           (*>> 4. Let parenIndex be CountLeftCapturingParensBefore(groupSpecifier). <<*)
           let parenIndex := countLeftCapturingParensBefore (fst groupSpecifier) (snd groupSpecifier) in
-          (*+ There is a "type mismatch" in the spec; so a conversion must be inserted. +*)
+          (* + There is a "type mismatch" in the spec; so a conversion must be inserted. +*)
           let! parenIndex =<< NonNegInt.to_positive parenIndex in
           (*>> 5. Return BackreferenceMatcher(rer, parenIndex, direction). <<*)
           backreferenceMatcher rer parenIndex direction
@@ -909,7 +909,7 @@ Module Semantics. Section main.
       (*>> 2. Let q be CompileQuantifier of Quantifier. <<*)
       let q := compileQuantifier qu in
       (*>> 3. Assert: q.[[Min]] ≤ q.[[Max]]. <<*)
-      (*+ TODO: re-add +*)
+      (* + TODO: re-add +*)
       (*>> 4. Let parenIndex be CountLeftCapturingParensBefore(Term). <<*)
       let parenIndex := countLeftCapturingParensBefore r ctx in
       (*>> 5. Let parenCount be CountLeftCapturingParensWithin(Atom). <<*)
@@ -945,7 +945,7 @@ Module Semantics. Section main.
         y
       in
       (*>> d. Let cap be a List of rer.[[CapturingGroupsCount]] undefined values, indexed 1 through rer.[[CapturingGroupsCount]]. <<*)
-      (*+ The fact that the array starts at 1 is handled by the nat indexer +*)
+      (* + The fact that the array starts at 1 is handled by the nat indexer +*)
       let cap := List.repeat undefined (RegExpRecord.capturingGroupsCount rer) in
       (*>> e. Let x be the MatchState (Input, index, cap). <<*)
       let x := match_state input (Z.of_nat index) cap in

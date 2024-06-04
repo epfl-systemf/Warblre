@@ -7,7 +7,7 @@ From Warblre Require Import List Result Typeclasses Notation Numeric Characters 
     The RegExp constructor applies the following grammar to the input pattern String. An error occurs if the
     grammar cannot interpret the String as an expansion of Pattern
 <<*)
-(*+ 
+(* + 
     Note that our representation of Regexes differs from the the specification in some regards:
     - The grammar in the paper specification  has to care about parsing of regexes, and hence distinguishes between
       many different non-terminal (Pattern, Disjunction, Alternative, Term, Atom, Assertion, ...). We represent all
@@ -29,7 +29,7 @@ Module Patterns.
       `{CharacterMarker Character_} `{StringMarker String_} `{UnicodePropertyMarker UnicodeProperty_}.
 
     (*>> GroupName[UnicodeMode] :: <<*)
-    (*+ Groups name is abstract to string. +*)
+    (* + Groups name is abstract to string. +*)
     Definition GroupName `{StringMarker String} := String.
 
     (** >> CharacterClassEscape[UnicodeMode] :: <<*)
@@ -102,7 +102,7 @@ Module Patterns.
     (*>>  CharacterEscape[?UnicodeMode] <<*)
     | CCharacterEsc (esc: CharacterEscape).
 
-    (**>> AtomEscape[UnicodeMode, N] :: <<*)
+    (** >> AtomEscape[UnicodeMode, N] :: <<*)
     Inductive AtomEscape :=
     (*>> DecimalEscape <<*)
     | DecimalEsc (n: positive_integer)
@@ -113,7 +113,7 @@ Module Patterns.
     (*>> [+N] k GroupName[?UnicodeMode] <<*)
     | GroupEsc (id: GroupName).
 
-    (**>> QuantifierPrefix :: <<*)
+    (** >> QuantifierPrefix :: <<*)
     Inductive QuantifierPrefix :=
     (*>> * <<*)
     | Star
@@ -128,15 +128,15 @@ Module Patterns.
     (*>> { DecimalDigits[~Sep] , DecimalDigits[~Sep] } <<*)
     | RepRange (min: non_neg_integer) (max: non_neg_integer).
 
-    (**>> Quantifier :: <<*)
+    (** >> Quantifier :: <<*)
     Inductive Quantifier :=
     (*>> QuantifierPrefix <<*)
     | Greedy (p: QuantifierPrefix)
     (*>> QuantifierPrefix ? <<*)
     | Lazy (p: QuantifierPrefix).
 
-    (**>> ClassAtom :: <<*)
-    (**>> ClassAtomNoDash :: <<*)
+    (** >> ClassAtom :: <<*)
+    (** >> ClassAtomNoDash :: <<*)
     Inductive ClassAtom :=
     (*>> - <<*)
     (*>> SourceCharacter but not one of \ or ] or - <<*)
@@ -144,9 +144,9 @@ Module Patterns.
     (*>> \ ClassEscape[?UnicodeMode] <<*)
     | ClassEsc (esc: ClassEscape).
 
-    (**>> ClassRanges :: <<*)
-    (**>> NonemptyClassRanges :: <<*)
-    (**>> NonemptyClassRangesNoDash :: <<*)
+    (** >> ClassRanges :: <<*)
+    (** >> NonemptyClassRanges :: <<*)
+    (** >> NonemptyClassRangesNoDash :: <<*)
     Inductive ClassRanges :=
     (*>> [empty] <<*)
     | EmptyCR
@@ -158,19 +158,19 @@ Module Patterns.
     (*>> ClassAtomNoDash[?UnicodeMode] - ClassAtom[?UnicodeMode] ClassRanges[?UnicodeMode] <<*)
     | RangeCR (l h: ClassAtom) (t: ClassRanges).
 
-    (**>> CharacterClass[UnicodeMode] :: <<*)
+    (** >> CharacterClass[UnicodeMode] :: <<*)
     Inductive CharClass :=
     (*>> [ [lookahead ≠ ^] ClassRanges[?UnicodeMode] ] <<*)
     | NoninvertedCC (crs: ClassRanges)
     (*>> [^ ClassRanges[?UnicodeMode] ] <<*)
     | InvertedCC (crs: ClassRanges).
 
-    (**>> Pattern :: <<*)
-    (**>> Disjunction :: <<*)
-    (**>> Alternative :: <<*)
-    (**>> Term :: <<*)
-    (**>> Assertion :: <<*)
-    (**>> Atom :: <<*)
+    (** >> Pattern :: <<*)
+    (** >> Disjunction :: <<*)
+    (** >> Alternative :: <<*)
+    (** >> Term :: <<*)
+    (** >> Assertion :: <<*)
+    (** >> Atom :: <<*)
     Inductive Regex :=
     (*>> [empty] <<*)
     | Empty

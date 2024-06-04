@@ -326,7 +326,7 @@ Proof.
 Qed.
 
 
-(* main analysis correctness teorem *)
+(* main analysis correctness theorem *)
 Theorem strictly_nullable_analysis_correct:
   forall (r:Regex) (root:Regex) (ctx:RegexContext) (rer:RegExpRecord) (dir:Direction) (m:Matcher)
     (STRICTLY_NULLABLE: strictly_nullable r = true)

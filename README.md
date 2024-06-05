@@ -46,6 +46,9 @@ it is finally called with a concrete input string and start position, and yield 
 
 The mechanization covers the last three phases; parsing is not included.
 
+The mechanization depends on external types and parameters (for instance for unicode character manipulation functions).
+This is encoded with a functor, whose parameter is described in `mechanization/spec/API.v`.
+
 Files are organized as follows:
 - `spec`: the mechanization in itself, translating the paper specification into Coq.
 - `props`: proofs about the specification. The main proofs are

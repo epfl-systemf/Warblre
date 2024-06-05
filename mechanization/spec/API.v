@@ -46,6 +46,7 @@ Module API.
       Parameter exist_canonicalized: RegExpRecord -> char_set -> character -> bool.
 
       Axiom singleton_size: forall c, size (singleton c) = 1.
+      Axiom singleton_exist: forall c p, exist (singleton c) p = p c.
       Axiom singleton_unique: forall (F: Type) (af: Result.AssertionError F) c, @unique F af (singleton c) = Success c.
       Axiom exist_canonicalized_equiv: forall rer s c,
         exist_canonicalized rer s c =
@@ -115,6 +116,7 @@ Module API.
           P.CharSet.exist
           P.CharSet.exist_canonicalized
           P.CharSet.singleton_size
+          P.CharSet.singleton_exist
           P.CharSet.singleton_unique
           P.CharSet.exist_canonicalized_equiv)
         (String.make character

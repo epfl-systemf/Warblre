@@ -72,8 +72,8 @@ Module CharSet.
     exist: type -> (Character -> bool) -> bool;
     exist_canonicalized: RegExpRecord -> type -> Character -> bool;
 
-
     singleton_size: forall c, size (singleton c) = 1;
+    singleton_exist: forall c p, exist (singleton c) p = p c;
     singleton_unique: forall {F: Type} {af: Result.AssertionError F} c, @unique F af (singleton c) = Success c;
     exist_canonicalized_equiv: forall rer s c,
       exist_canonicalized rer s c =

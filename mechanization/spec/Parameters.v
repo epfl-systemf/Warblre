@@ -52,28 +52,34 @@ Notation Character := Character.type.
     [...]
 <<*)
 Module CharSet.
-  Class class (char: Type) := make {
+  Class class `{Character.class} := make {
     type: Type;
 
     empty: type;
-    from_list: list char -> type;
+    from_list: list Character -> type;
     union: type -> type -> type;
-    singleton: char -> type;
+    singleton: Character -> type;
     size: type -> nat;
     remove_all: type -> type -> type;
     is_empty: type -> bool;
 
-    contains: type -> char -> bool;
+    contains: type -> Character -> bool;
 
-    range: char -> char -> type;
+    range: Character -> Character -> type;
 
-    unique: forall {F: Type} {_: Result.AssertionError F}, type -> Result char F;
-    filter: type -> (char -> bool) -> type;
-    exist_canonicalized: RegExpRecord -> type -> char -> bool;
+    unique: forall {F: Type} {_: Result.AssertionError F}, type -> Result Character F;
+    filter: type -> (Character -> bool) -> type;
+    exist: type -> (Character -> bool) -> bool;
+    exist_canonicalized: RegExpRecord -> type -> Character -> bool;
 
 
     singleton_size: forall c, size (singleton c) = 1;
     singleton_unique: forall {F: Type} {af: Result.AssertionError F} c, @unique F af (singleton c) = Success c;
+    exist_canonicalized_equiv: forall rer s c,
+      exist_canonicalized rer s c =
+      exist
+        s
+        (fun c0 => (Character.canonicalize rer c0) == (Character.canonicalize rer c))
   }.
 End CharSet.
 Notation CharSet := CharSet.type.
@@ -112,7 +118,7 @@ Module Parameters.
   Class class := make {
     #[global] character_class:: Character.class;
 
-    #[global] set_class:: CharSet.class Character.type;
+    #[global] set_class:: @CharSet.class character_class;
     #[global] string_class:: String.class Character.type;
     #[global] unicode_property_class:: Property.class Character.type;
 

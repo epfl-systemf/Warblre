@@ -28,9 +28,7 @@ Module API.
       Parameter list_to_string: list character -> string.
     End String.
 
-    (** CharSet *)
     Parameter char_set: Type.
-
     Module CharSet.
       Parameter empty: char_set.
       Parameter from_list: list character -> char_set.
@@ -44,10 +42,18 @@ Module API.
 
       Parameter unique: forall (F: Type) (_: Result.AssertionError F), char_set -> Result character F.
       Parameter filter: char_set -> (character -> bool) -> char_set.
+      Parameter exist: char_set -> (character -> bool) -> bool.
       Parameter exist_canonicalized: RegExpRecord -> char_set -> character -> bool.
 
       Axiom singleton_size: forall c, size (singleton c) = 1.
       Axiom singleton_unique: forall (F: Type) (af: Result.AssertionError F) c, @unique F af (singleton c) = Success c.
+      Axiom exist_canonicalized_equiv: forall rer s c,
+        exist_canonicalized rer s c =
+        exist
+          s
+          (fun c0 =>
+            if Character.equal (Character.canonicalize rer c0) (Character.canonicalize rer c)
+            then true else false).
     End CharSet.
 
     Module CharSets.
@@ -76,8 +82,8 @@ Module API.
     Instance property_marker: UnicodePropertyMarker property := (mk_unicode_property_marker _).
 
     (* Instantiation *)
-    Definition parameters: Parameters := Parameters.make
-      (Character.make
+    Definition parameters: Parameters :=
+      let character_class := (Character.make
         character
         (EqDec.make _ P.Character.equal)
         P.Character.from_numeric_value
@@ -90,35 +96,40 @@ Module API.
         P.CharSets.ascii_word_characters
         P.Character.numeric_pseudo_bij
         P.Character.numeric_round_trip_order)
-      (CharSet.make character
-        P.char_set
-        P.CharSet.empty
-        P.CharSet.from_list
-        P.CharSet.union
-        P.CharSet.singleton
-        P.CharSet.size
-        P.CharSet.remove_all
-        P.CharSet.is_empty
-        P.CharSet.contains
-        P.CharSet.range
-        P.CharSet.unique
-        P.CharSet.filter
-        P.CharSet.exist_canonicalized
-        P.CharSet.singleton_size
-        P.CharSet.singleton_unique)
-      (String.make character
-        string
-        (EqDec.make _ P.String.equal)
-        P.String.length
-        P.String.substring
-        P.String.advanceStringIndex
-        P.String.getStringIndex
-        P.String.list_from_string)
-      (Property.make character
-        property
-        (EqDec.make _ P.Property.equal)
-        P.Property.code_points)
-      _ _ _.
+      in
+      Parameters.make
+        character_class
+        (CharSet.make character_class
+          P.char_set
+          P.CharSet.empty
+          P.CharSet.from_list
+          P.CharSet.union
+          P.CharSet.singleton
+          P.CharSet.size
+          P.CharSet.remove_all
+          P.CharSet.is_empty
+          P.CharSet.contains
+          P.CharSet.range
+          P.CharSet.unique
+          P.CharSet.filter
+          P.CharSet.exist
+          P.CharSet.exist_canonicalized
+          P.CharSet.singleton_size
+          P.CharSet.singleton_unique
+          P.CharSet.exist_canonicalized_equiv)
+        (String.make character
+          string
+          (EqDec.make _ P.String.equal)
+          P.String.length
+          P.String.substring
+          P.String.advanceStringIndex
+          P.String.getStringIndex
+          P.String.list_from_string)
+        (Property.make character
+          property
+          (EqDec.make _ P.Property.equal)
+          P.Property.code_points)
+        _ _ _.
 
     (*  In order to get a strongly typed (as in: without any Obj.t) API in OCaml,
         dependent types (on the Parameters argument) must be eliminated.

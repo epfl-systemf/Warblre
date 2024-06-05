@@ -79,7 +79,7 @@ Module CharSet.
       exist_canonicalized rer s c =
       exist
         s
-        (fun c0 => (Character.canonicalize rer c0) == (Character.canonicalize rer c))
+        (fun c0 => (Character.canonicalize rer c0) == c)
   }.
 End CharSet.
 Notation CharSet := CharSet.type.

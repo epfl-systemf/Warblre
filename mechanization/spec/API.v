@@ -53,7 +53,7 @@ Module API.
         exist
           s
           (fun c0 =>
-            if Character.equal (Character.canonicalize rer c0) (Character.canonicalize rer c)
+            if Character.equal (Character.canonicalize rer c0) c
             then true else false).
     End CharSet.
 

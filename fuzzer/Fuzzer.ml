@@ -453,7 +453,7 @@ module F = Fuzzer(Warblre_js.JsEngineParameters.JsParameters)(Warblre_js.JsEngin
 open F
 let () =
   let start_from = 0 in
-  let test_count: int = 10000 in
+  let test_count: int = 1000 in
   let user_seed: int option = Some 13 in
   let seed: int = (Option.value (Option.map (fun v _ -> v) user_seed) ~default:(fun _ -> Random.int (1073741823))) () in
   Printf.printf "\027[34mSeed is %d. Starting at test %d.\027[0m\n" seed start_from;

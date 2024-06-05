@@ -459,4 +459,4 @@ let () =
   Printf.printf "\027[34mSeed is %d. Starting at test %d.\027[0m\n" seed start_from;
   Random.init seed;
   let timeouts = fuzzer ~start_from:start_from test_count in
-  Printf.printf "\027[34mFinished %d tests (%d timeouts). Seed was %d\027[0m\n" test_count timeouts seed;
+  Printf.printf "\027[34mFinished %d tests (%d timeouts)." test_count timeouts;

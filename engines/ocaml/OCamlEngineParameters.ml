@@ -157,7 +157,7 @@ module IntCharacter: Engines.Character with type t = int = struct
       if M.mem c simple_folds then 
         (* Use it *)
         M.find c simple_folds
-      (* o/w, is the chracter valid? *)
+      (* o/w, is the character valid? *)
       else if (Uchar.is_valid c) then
         (* Do full case folding *)
         match Uucp.Case.Fold.fold (Uchar.of_int c) with

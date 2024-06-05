@@ -8,13 +8,13 @@
 (using melange 0.1)
 (using directory-targets 0.1)
 
-(authors "Noé De Santo" "Aurèle Barrière" "Clément Pit-Claudel")
-
-(maintainers "Noé De Santo" "Aurèle Barrière")
-
 (package
  (name warblre)
+ (homepage "https://github.com/epfl-systemf/warblre")
+ (authors "Noé De Santo" "Aurèle Barrière" "Clément Pit-Claudel")
  (synopsis "A mechanization of the specification of ECMAScript regexes")
+ (maintainers "Noé De Santo" "Aurèle Barrière")
+ (bug_reports "https://github.com/epfl-systemf/warblre/issues")
  (depends
   (ocaml (= 4.14.2))
   (coq (= 8.18.0))

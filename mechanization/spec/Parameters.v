@@ -129,7 +129,7 @@ Module Parameters.
 End Parameters.
 Notation Parameters := @Parameters.class.
 
-(* Used in Frontend.v due to bug in coq kernel (see call site). TODO: remove once bug is fixed. *)
+(* Used in Frontend.v due to bug in coq kernel (see call site). LATER: remove once bug is fixed. *)
 Definition string_string `{Parameters}: String.class Character := Parameters.string_class.
 
 (* Some special characters used by the specification. *)

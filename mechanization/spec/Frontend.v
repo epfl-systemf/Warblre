@@ -477,7 +477,7 @@ Section BuiltinExec.
           (*>> c. Let r be matcher(input, inputIndex). <<*)
           let! r:(option MatchState) =<< matcher input inputIndex in
           (*>> d. If r is failure, then <<*)
-          (* + TODO: change once fix is released +*)
+          (* + LATER: change once fix is released +*)
           (* + The more natural looking r == failure
               Triggers https://github.com/coq/coq/issues/18358 with coq < 8.20 *)
           if @EqDec.eq_dec _ eqdec_option r failure then

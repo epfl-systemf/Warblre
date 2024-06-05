@@ -157,7 +157,7 @@ module JsParameters : Engines.EngineParameters
   module String = struct
     include JsString
     (* Ideally, character = string, but string = 'a list 
-        TODO: change mechanization to not use character list, 
+        LATER: change mechanization to not use character list, 
         but any type S with typeclass Indexable S character.
     *)
     let list_from_string (s: t) = Array.to_list (Js.String.split ~sep:"" s)
@@ -186,7 +186,7 @@ module JsUnicodeParameters : Engines.EngineParameters
   module String = struct
     include JsString
     (* Ideally, character = string, but string = 'a list 
-        TODO: change mechanization to not use character list, 
+        LATER: change mechanization to not use character list, 
         but any type S with typeclass Indexable S character.
     *)
     let list_from_string (s: t) = Array.to_list (Js.Array.from (Js.String.unsafeToArrayLike s))

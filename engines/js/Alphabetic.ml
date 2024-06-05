@@ -1,4 +1,4 @@
-(* Generated from https://www.unicode.org/Public/UCD/15.1.0/ucd/CaseFolding.txt *)
+(* Generated from https://www.unicode.org/Public/UCD/15.1.0/ucd/DerivedCoreProperties.txt *)
 let alphabetic_array: int Js.Array.t = [%mel.raw {|
   [
     0x65,

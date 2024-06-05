@@ -228,7 +228,7 @@ module UnicodeParameters : Engines.EngineParameters
       type coq_Utf16CodeUnit = Unsigned.UInt16.t
       type coq_Utf16String = Unsigned.UInt16.t list
       let length ls = BigInt.of_int (List.length ls)
-      let codeUnitAt str at = List.nth str (BigInt.to_int at)
+      let codeUnitAt _ str at = List.nth str (BigInt.to_int at)
       let is_leading_surrogate c = Encoding.UnicodeUtils.is_high_surrogate (Unsigned.UInt16.to_int c)
       let is_trailing_surrogate c = Encoding.UnicodeUtils.is_low_surrogate (Unsigned.UInt16.to_int c)
     end)

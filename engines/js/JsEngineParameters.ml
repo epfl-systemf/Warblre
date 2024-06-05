@@ -195,7 +195,7 @@ module JsUnicodeParameters : Engines.EngineParameters
       type coq_Utf16CodeUnit = Js.String.t
       type coq_Utf16String = Js.String.t
       let length ls = BigInt.of_int (Js.String.length ls)
-      let codeUnitAt ls at = Js.String.charAt ~index:(BigInt.to_int at) ls
+      let codeUnitAt _ ls at = Js.String.charAt ~index:(BigInt.to_int at) ls
       let is_leading_surrogate c = Encoding.UnicodeUtils.is_high_surrogate (BigInt.to_int (Character.numeric_value c))
       let is_trailing_surrogate c = Encoding.UnicodeUtils.is_low_surrogate (BigInt.to_int (Character.numeric_value c))
     end)

@@ -186,7 +186,7 @@ Module API.
       Parameter Utf16CodeUnit: Type.
       Parameter Utf16String: Type.
       Parameter length: Utf16String -> non_neg_integer.
-      Parameter codeUnitAt: Utf16String -> non_neg_integer -> Utf16CodeUnit.
+      Parameter codeUnitAt: forall {F: Type} {_: Result.AssertionError F}, Utf16String -> non_neg_integer -> Result Utf16CodeUnit F.
       Parameter is_leading_surrogate: Utf16CodeUnit -> bool.
       Parameter is_trailing_surrogate: Utf16CodeUnit -> bool.
     End Utf16String.
@@ -203,13 +203,14 @@ Module API.
           described in 6.1.4, and reads from it a single code point starting with the code unit at index position.
           It performs the following steps when called:
       <<*)
+
       Definition codePointAt (string: Utf16String) (position: non_neg_integer): Result (non_neg_integer * bool) MatchError :=
         (*>> 1. Let size be the length of string. <<*)
         let size := length string in
         (*>> 2. Assert: position ≥ 0 and position < size. <<*)
         assert! (position >=? 0) && (position <? size) ;
         (*>> 3. Let first be the code unit at index position within string. <<*)
-        let first := codeUnitAt string position in
+        let! first =<< codeUnitAt string position in
         (*>> 4. Let cp be the code point whose numeric value is the numeric value of first. <<*)
         (*>> We don't return cp, so this isn't required <<*)
         (*>> 5. If first is neither a leading surrogate nor a trailing surrogate, then <<*)
@@ -223,7 +224,7 @@ Module API.
           Success (1, true)
         else
         (*>> 7. Let second be the code unit at index position + 1 within string. <<*)
-        let second := codeUnitAt string (position + 1) in
+        let! second =<< codeUnitAt string (position + 1) in
         (*>> 8. If second is not a trailing surrogate, then <<*)
         if negb (is_trailing_surrogate second) then
           (*>> a. Return the Record { [[CodePoint]]: cp, [[CodeUnitCount]]: 1, [[IsUnpairedSurrogate]]: true }. <<*)

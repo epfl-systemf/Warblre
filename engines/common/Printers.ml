@@ -39,22 +39,22 @@ module Printer(P: EngineParameters) (S: Encoding.StringLike with type t := P.str
 
     let hex_to_string (h: Extracted.HexDigit.coq_type) : ocaml_string =
       match h with
-      | Zero -> "0"
-      | One -> "1"
-      | Two -> "2"
-      | Three -> "3"
-      | Four -> "4"
-      | Five -> "5"
-      | Six -> "6"
-      | Seven -> "7"
-      | Eight -> "8"
-      | Nine -> "9"
-      | A -> "A"
-      | B -> "B"
-      | C -> "C"
-      | D -> "D"
-      | E -> "E"
-      | F -> "F"
+      | Coq_x0 -> "0"
+      | Coq_x1 -> "1"
+      | Coq_x2 -> "2"
+      | Coq_x3 -> "3"
+      | Coq_x4 -> "4"
+      | Coq_x5 -> "5"
+      | Coq_x6 -> "6"
+      | Coq_x7 -> "7"
+      | Coq_x8 -> "8"
+      | Coq_x9 -> "9"
+      | Coq_xA -> "A"
+      | Coq_xB -> "B"
+      | Coq_xC -> "C"
+      | Coq_xD -> "D"
+      | Coq_xE -> "E"
+      | Coq_xF -> "F"
 
     let ascii_letter_to_char (l: Extracted.AsciiLetter.coq_type) : char =
       match l with

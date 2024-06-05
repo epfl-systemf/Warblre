@@ -44,22 +44,22 @@ module CharNotations (P: EngineParameters) (S: Encoding.StringLike with type t :
   let hex_escape (h: char) (l: char) =
     let char_to_digit (c: char): Extracted.HexDigit.coq_type =
       match (Char.uppercase_ascii c) with
-      | '0' -> Zero 
-      | '1' -> One 
-      | '2' -> Two 
-      | '3' -> Three 
-      | '4' -> Four 
-      | '5' -> Five 
-      | '6' -> Six 
-      | '7' -> Seven 
-      | '8' -> Eight 
-      | '9' -> Nine 
-      | 'A' -> A 
-      | 'B' -> B 
-      | 'C' -> C 
-      | 'D' -> D 
-      | 'E' -> E 
-      | 'F' -> F 
+      | '0' -> Coq_x0
+      | '1' -> Coq_x1
+      | '2' -> Coq_x2
+      | '3' -> Coq_x3
+      | '4' -> Coq_x4
+      | '5' -> Coq_x5
+      | '6' -> Coq_x6
+      | '7' -> Coq_x7
+      | '8' -> Coq_x8
+      | '9' -> Coq_x9
+      | 'A' -> Coq_xA
+      | 'B' -> Coq_xB
+      | 'C' -> Coq_xC
+      | 'D' -> Coq_xD
+      | 'E' -> Coq_xE
+      | 'F' -> Coq_xF
       | _ -> failwith ("Invalid hex digit: " ^ (String.make 1 c))
     in
     HexEscape (char_to_digit h, char_to_digit l)

@@ -8,43 +8,43 @@ Local Open Scope result_flow.
 
 Module HexDigit.
   Inductive type: Type :=
-  | Zero
-  | One
-  | Two
-  | Three
-  | Four
-  | Five
-  | Six
-  | Seven
-  | Eight
-  | Nine
-  | A
-  | B
-  | C
-  | D
-  | E
-  | F.
+  | x0
+  | x1
+  | x2
+  | x3
+  | x4
+  | x5
+  | x6
+  | x7
+  | x8
+  | x9
+  | xA
+  | xB
+  | xC
+  | xD
+  | xE
+  | xF.
 
   Inductive Hex4Digits := hex4 (_0 _1 _2 _3: type).
 
   Definition to_integer (hex: type): non_neg_integer :=
     match hex with
-    | Zero  => 0
-    | One   => 1
-    | Two   => 2
-    | Three => 3
-    | Four  => 4
-    | Five  => 5
-    | Six   => 6
-    | Seven => 7
-    | Eight => 8
-    | Nine  => 9
-    | A     => 10
-    | B     => 11
-    | C     => 12
-    | D     => 13
-    | E     => 14
-    | F     => 15
+    | x0 => 0
+    | x1 => 1
+    | x2 => 2
+    | x3 => 3
+    | x4 => 4
+    | x5 => 5
+    | x6 => 6
+    | x7 => 7
+    | x8 => 8
+    | x9 => 9
+    | xA => 10
+    | xB => 11
+    | xC => 12
+    | xD => 13
+    | xE => 14
+    | xF => 15
     end.
 
   Definition to_integer_2 (h l: type) :=

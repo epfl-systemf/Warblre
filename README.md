@@ -25,9 +25,6 @@ The repository is structured as follows:
 ```
 
 In this file, we detail this architecture below.
-A description of the executables implemented in this repository can also be found in [`doc/Executables.md`](doc/Executables.md); each section includes a tag indicating which engine it targets.
-
-
 
 ## Mechanization
 
@@ -37,7 +34,7 @@ Regexes are described in chapter [22.1](https://262.ecma-international.org/14.0/
 
 The way regexes work can be described using the following pipeline:
 
-![The matching pipeline](doc/matching_pipeline/picture.svg)
+![The matching pipeline](etc/matching_pipeline/picture.svg)
 
 A regex is first parsed; 
 it is then checked for *early errors*, and rejected if any are found; 

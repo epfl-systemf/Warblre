@@ -1,0 +1,4 @@
+(coq.theory
+ (name example)
+ (theories Warblre)
+ (flags (-async-proofs-cache force)))

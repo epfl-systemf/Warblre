@@ -7,14 +7,19 @@
 
 ; Webpack it into a single, node-compatible, js file
 (rule
- (targets (dir dist))
+ (target warblre-node-playground.js)
  (deps
   (alias_rec node-playground-js)
   (:entrypoint (file app/examples/cmd_playground/Main.mjs))
   (:config (file webpack.config.js)))
- (action (run webpack-cli ./%{entrypoint} --config %{config} --config-name warblre-node-playground --no-stats)))
-; Copy said file to the root of the build directory
+ (action (no-infer (progn
+  (run webpack-cli ./%{entrypoint} --config %{config} --no-stats)
+  (copy dist/%{target} %{target}))))
+ (enabled_if %{bin-available:webpack-cli}))
+
 (rule
- (target warblre-node-playground.js)
- (deps (:js_file (file dist/warblre-node-playground.js)))
- (action (copy %{js_file} %{target})))
+ (target dummy)
+ (action (progn
+  (echo "Webpack-cli not installed: skipping examples/cmd_playground\n")
+  (write-file dummy "")))
+ (enabled_if (not %{bin-available:webpack-cli})))

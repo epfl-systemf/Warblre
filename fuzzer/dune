@@ -7,14 +7,19 @@
 
 ; Webpack it into a single, browser-compatible, js file
 (rule
- (target (dir dist))
+ (target warblre-node-fuzzer.js)
  (deps
   (alias_rec fuzzer-js)
   (:entrypoint (file app/fuzzer/Fuzzer.mjs))
   (:config (file webpack.config.js)))
- (action (run webpack-cli ./%{entrypoint} --config %{config} --config-name warblre-node-fuzzer --no-stats)))
-; Copy said file to the root of the build directory
+ (action (no-infer (progn
+  (run webpack-cli ./%{entrypoint} --config %{config} --no-stats)
+  (copy dist/%{target} %{target}))))
+ (enabled_if %{bin-available:webpack-cli}))
+
 (rule
- (target warblre-node-fuzzer.js)
- (deps (:js_file (file dist/warblre-node-fuzzer.js)))
- (action (copy %{js_file} %{target})))
+ (target dummy)
+ (action (progn
+  (echo "Webpack-cli not installed: skipping fuzzer\n")
+  (write-file dummy "")))
+ (enabled_if (not %{bin-available:webpack-cli})))

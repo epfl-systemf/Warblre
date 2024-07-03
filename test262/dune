@@ -7,18 +7,20 @@
 
 ; Webpack it into a single, browser-compatible, js file
 (rule
- (target (dir dist))
+ (targets warblre-node-redirect.js warblre-browser-redirect.js)
  (deps
   (alias_rec test262-js)
   (:entrypoint (file app/test262/Redirect.mjs))
   (:config (file webpack.config.js)))
- (action (run webpack-cli ./%{entrypoint} --config %{config} --no-stats)))
-; Copy said file to the root of the build directory
+ (action (no-infer (progn
+  (run webpack-cli ./%{entrypoint} --config %{config} --no-stats)
+  (copy dist/warblre-node-redirect.js warblre-node-redirect.js)
+  (copy dist/warblre-browser-redirect.js warblre-browser-redirect.js))))
+ (enabled_if %{bin-available:webpack-cli}))
+
 (rule
- (target warblre-node-redirect.js)
- (deps (:js_file (file dist/warblre-node-redirect.js)))
- (action (copy %{js_file} %{target})))
-(rule
- (target warblre-browser-redirect.js)
- (deps (:js_file (file dist/warblre-browser-redirect.js)))
- (action (copy %{js_file} %{target})))
+ (target dummy)
+ (action (progn
+  (echo "Webpack-cli not installed: skipping test262\n")
+  (write-file dummy "")))
+ (enabled_if (not %{bin-available:webpack-cli})))

@@ -34,6 +34,9 @@
                 ocamlPackages.melange
                 ocamlPackages.zarith
 
+                coqPackages.serapi
+                python311Packages.alectryon
+
                 nodejs_21
                 nodePackages.webpack-cli
               ];

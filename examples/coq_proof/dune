@@ -1,4 +1,13 @@
-(coq.theory
- (name example)
- (theories Warblre)
- (flags (-async-proofs-cache force)))
+(rule
+ (target Example.html)
+ (deps (package warblre) (:input (file Example.v)))
+ (action
+  (run alectryon -Q ../../mechanization Warblre --long-line-threshold -1 %{input}))
+ (enabled_if %{bin-available:alectryon}))
+
+(rule
+ (target dummy)
+ (action (progn
+  (echo "Alectryon not installed: skipping examples/coq_proof\n")
+  (write-file dummy "")))
+ (enabled_if (not %{bin-available:alectryon})))

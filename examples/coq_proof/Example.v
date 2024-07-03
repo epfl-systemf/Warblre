@@ -42,7 +42,7 @@ Section AbstractMatching.
 
   (** Let's first show that this regex is valid, i.e. it passes the early errors phase. **)
 
-  (* About EarlyErrors.Pass_Regex. *)
+  About EarlyErrors.Pass_Regex.
 
   Lemma passes_early_errors:
     EarlyErrors.Pass_Regex regex_of_interest nil.
@@ -65,7 +65,7 @@ Section AbstractMatching.
     (** But we can also use some theorems from the development, which would work even if the regex was left more abstract. **)
     Restart.
 
-    (* Search Semantics.compilePattern Result.Success. *)
+    Search Semantics.compilePattern Result.Success.
 
     (** We use the theorem listed in section 4.2.1 in the paper, [compilePattern_success], which states that compilation always succeeds if a regex passes early error checks. **)
     apply compilePattern_success.

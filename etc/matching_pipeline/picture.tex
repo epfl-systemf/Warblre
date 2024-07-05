@@ -2,8 +2,12 @@
 \documentclass[tikz,convert=pdf2svg]{standalone}
 
 \usepackage{tikz}
+\pagecolor{white}
 \usetikzlibrary{positioning,decorations.pathreplacing,calc}
-\usetikzlibrary{overlay-beamer-styles}
+
+\usepackage{fontspec}
+\setmainfont{Iosevka}
+
 \usepackage{amssymb}
 \newcommand{\okcheck}[0]{\textcolor{ForestGreen}{\checkmark{}}}
 \newcommand{\nocheck}[0]{\textcolor{Red}{\raisebox{\depth}{$\chi{}$}}}
@@ -39,5 +43,6 @@
     \draw [-stealth] (exec) -| (output);
 
     \draw [very thick] ([yshift=0.5ex]match.south west) -| (match.east);
+
 \end{tikzpicture}
 \end{document}

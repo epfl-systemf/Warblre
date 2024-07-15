@@ -23,3 +23,7 @@
   (echo "Webpack-cli not installed: skipping examples/cmd_playground\n")
   (write-file dummy "")))
  (enabled_if (not %{bin-available:webpack-cli})))
+
+(install
+ (section bin)
+ (files (warblre-node-fuzzer.js as fuzzer)))

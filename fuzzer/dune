@@ -14,7 +14,8 @@
   (:config (file webpack.config.js)))
  (action (no-infer (progn
   (run webpack-cli ./%{entrypoint} --config %{config} --no-stats)
-  (copy dist/%{target} %{target}))))
+  (copy dist/%{target} %{target})
+  (run chmod u+x %{target}))))
  (enabled_if %{bin-available:webpack-cli}))
 
 (rule
@@ -23,3 +24,7 @@
   (echo "Webpack-cli not installed: skipping fuzzer\n")
   (write-file dummy "")))
  (enabled_if (not %{bin-available:webpack-cli})))
+
+(install
+ (section bin)
+ (files (warblre-node-fuzzer.js as fuzzer)))

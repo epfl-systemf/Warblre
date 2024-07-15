@@ -49,7 +49,7 @@ nix develop
 
 - `dune exec example` will run an example of matching a string with a regex ([source](examples/ocaml_example/Main.ml)).
 - **[Requires JavaScript dependencies]**  
-    `dune build fuzzer && node _build/default/fuzzer/warblre-node-fuzzer.js` will build and run the fuzzer to compare the extracted engine against Irregexp (Node.js's regex engine).
+    `dune exec fuzzer` will build and run the fuzzer to compare the extracted engine against Irregexp (Node.js's regex engine).
 - `dune build examples/coq_proof` will build everything so that you can step through [examples/coq-proof/Example.v](examples/coq_proof/Example.v), which demonstrates how Warblre can be used to reason about JavaScript regexes. Alternatively, if you installed Alectryon, you can open the generated [webpage](_build/default/examples/coq_proof/Example.html) in your web browser.
 
 ## Structure of the repository

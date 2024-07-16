@@ -117,20 +117,7 @@ Files are organized as follows:
 - **tactics**: some general purpose tactics.
 - **utils**: auxiliary definitions, such as extra operations and proofs on lists, the error monad, typeclasses, ...
 
-#### Differences with the ECMAScript specification and other implementation choices
-
-The mechanization leaves some operations abstract (e.g. character canonicalization).
-All of these operations are bundled with a functor, whose module parameter provides the missing types and operations.
-
-Another difference between the ECMAScript specification and our mechanization is the handling of unicode mode.
-In the specification, unicode mode is implemented by delegating some low-level operations (e.g. character canonicalization, string decoding) to different functions, one for each mode, e.g.
-```
-if flags.unicode then do_unicode () else do_utf ()
-```
-These operations overlap with the operations we would typically leave abstract, so the two modes are instead implemented as two different instantiations of the aforementioned functor:
-```
-Parameters.do ()
-```
+A list of differences between the mechanization and the specification in [`doc/Differences.md`](doc/Differences.md).
 
 ### Engines
 

@@ -6,6 +6,8 @@ We document some of them here.
 
 ## Parsing and representation of regexes
 
+### Parsing
+
 The mechanization does not include a parser for regexes.
 One of the main reasons being that the specification provides two different grammars for regexes:
 * The main one is defined in section [22.2.1](https://tc39.es/ecma262/2023/multipage/text-processing.html#sec-patterns);
@@ -22,6 +24,8 @@ The situation surrounding these two grammars is a bit foggy:
 * Yet, from our experience, most engines (whether they are web browsers or not, as notably demonstrated by Node.js) accept the legacy syntax.
 
 Hence, it is unclear which grammar should be mechanized.
+
+### The `Regex` type
 
 The datatype representing (ASTs of) regexes in the mechanization is "flat",
 in the sense that all regexes features are represented using that single type.
@@ -41,6 +45,45 @@ whereas these grammars sometimes prevent some nesting of features.
 > ```
 
 Put another way: the choice was made not to distinguish between *alternatives*, *terms*, *assertions*, *atoms*, etc.
+
+### Omission of certain syntactic restrictions
+
+The specification prevents the construction of some regexes for parsing reasons.
+
+> **Example:** a character literal in a regex cannot be one of the "SyntaxCharacter"; from the spec
+>> 22.2.1 [Patterns](https://tc39.es/ecma262/2023/multipage/text-processing.html#sec-patterns)
+>> ```
+>> Atom[UnicodeMode, N] ::
+>>   PatternCharacter
+>>   [...]
+>> SyntaxCharacter :: one of
+>>   ^ $ \ . * + ? ( ) [ ] { } |
+>> PatternCharacter ::
+>>   SourceCharacter but not SyntaxCharacter
+>> ```
+
+Since these restrictions are there purely for parsing reasons,
+these are not enforced in the datatype used to represent regexes.
+
+For similar reasons, the specification sometimes defines variants of a constructor
+Such an example are `ClassAtom` and `ClassAtomNoDash`.
+
+> **Example:** from the specification
+>
+>> 22.2.1 [Patterns](https://tc39.es/ecma262/2023/multipage/text-processing.html#sec-patterns)
+>> ```
+>> [...]
+>> ClassAtom[UnicodeMode] ::
+>>   -
+>>   ClassAtomNoDash[?UnicodeMode]
+>>
+>> ClassAtomNoDash[UnicodeMode] ::
+>>   SourceCharacter but not one of \ or ] or -
+>>   \ ClassEscape[?UnicodeMode]
+>> [...]
+>> ```
+
+These are typically collapsed into one single constructor in the mechanization.
 
 ## Potential failures
 

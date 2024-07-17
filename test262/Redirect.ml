@@ -144,7 +144,7 @@ module UnicodeExec = Exec(JsEngineParameters.JsUnicodeParameters)
   as they are tied to the untyped nature of JavaScript, whereas we made the choice to strongly
   type things in our mechanization of the frontend.
 *)
-let exec: (Js.Re.t -> string -> Js.Re.result Js.nullable) Js.Private.Js_OO.Callback.arity2 = 
+let exec: (Js.Re.t -> string -> Js.Re.result Js.nullable) [@mel.this] = 
   fun [@mel.this] this input -> (
     (* Check that it is not being called as a constructor. *)
     let as_constructor: bool = [%mel.raw{| new.target |}] in

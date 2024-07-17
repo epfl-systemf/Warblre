@@ -43,6 +43,7 @@ The mechanization has the following properties:
 Alternatively, a [nix](https://nixos.org/) flake installing all the dependencies is provided:
 ```
 nix develop
+npm install
 ``` 
 
 ### Running examples

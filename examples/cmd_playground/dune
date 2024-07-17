@@ -14,14 +14,17 @@
   (:config (file webpack.config.js)))
  (action (no-infer (progn
   (run webpack-cli ./%{entrypoint} --config %{config} --no-stats)
-  (copy dist/%{target} %{target}))))
+  (copy dist/%{target} %{target})
+  (run chmod u+x %{target}))))
  (enabled_if %{bin-available:webpack-cli}))
 
+; This way of handling missing JS dependencies is dirty, but it's the best I managed
 (rule
- (target dummy)
+ (target warblre-node-playground.js)
  (action (progn
-  (echo "Webpack-cli not installed: skipping examples/cmd_playground\n")
-  (write-file dummy "")))
+  (echo "Webpack-cli not installed: skipping cmd_playground\n")
+  (write-file %{target} "#!/usr/bin/env sh\necho \"Webpack-cli was not installed at build-time: cannot execute 'playground', which was not built.\"\nexit -1")
+  (run chmod u+x %{target})))
  (enabled_if (not %{bin-available:webpack-cli})))
 
 (install

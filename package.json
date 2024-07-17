@@ -1,5 +1,6 @@
 {
   "dependencies": {
-    "@eslint-community/regexpp": "^4.10.0"
+    "@eslint-community/regexpp": "^4.10.0",
+    "webpack": "^5.1.4"
   }
 }

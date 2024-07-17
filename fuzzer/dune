@@ -19,10 +19,11 @@
  (enabled_if %{bin-available:webpack-cli}))
 
 (rule
- (target dummy)
+ (target warblre-node-fuzzer.js)
  (action (progn
   (echo "Webpack-cli not installed: skipping fuzzer\n")
-  (write-file dummy "")))
+  (write-file %{target} "#!/usr/bin/env sh\necho \"Webpack-cli was not installed at build-time: cannot execute 'fuzzer', which was not built.\"\nexit -1")
+  (run chmod u+x %{target})))
  (enabled_if (not %{bin-available:webpack-cli})))
 
 (install

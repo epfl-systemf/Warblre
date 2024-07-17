@@ -38,7 +38,6 @@
                 python311Packages.alectryon
 
                 nodejs_21
-                nodePackages.webpack
                 nodePackages.webpack-cli
               ];
           };

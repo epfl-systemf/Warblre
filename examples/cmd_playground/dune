@@ -13,7 +13,7 @@
   (:entrypoint (file app/examples/cmd_playground/Main.mjs))
   (:config (file webpack.config.js)))
  (action (no-infer (progn
-  (run webpack-cli ./%{entrypoint} --config %{config} --no-stats)
+  (run npx webpack ./%{entrypoint} --config %{config} --no-stats)
   (copy dist/%{target} %{target})
   (run chmod u+x %{target}))))
  (enabled_if %{bin-available:webpack-cli}))

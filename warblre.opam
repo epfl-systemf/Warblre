@@ -14,6 +14,7 @@ depends: [
   "zarith" {= "1.13"}
   "melange" {= "3.0.0-414"}
   "ppx_expect" {= "v0.16.0"}
+  "coq-serapi" {= "8.18.0+0.18.3"}
   "odoc" {with-doc}
 ]
 build: [

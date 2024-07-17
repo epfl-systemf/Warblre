@@ -35,7 +35,7 @@ The mechanization has the following properties:
     as well as some JavaScript dependencies:
     ```shell
     npm install # Install packages used by our JavaScript code
-    npm install webpack-cli@5.1.4 # Install webpack-cli, which is used to pack the code in monolithic JavaScript files
+    npm install -g webpack-cli@5.1.4 # Install webpack-cli, which is used to pack the code in monolithic JavaScript files
     ```
 3. **[Optional]**  
     [Alectryon](https://github.com/cpitclaudel/alectryon) is used to produced literate examples.

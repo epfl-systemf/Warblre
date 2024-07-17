@@ -22,4 +22,5 @@
   (uucp (= 15.0.0))
   (zarith (= 1.13))
   (melange (= 3.0.0-414))
-  (ppx_expect (= v0.16.0))))
+  (ppx_expect (= v0.16.0))
+  (coq-serapi (= 8.18.0+0.18.3))))

@@ -23,7 +23,7 @@
  (target warblre-node-playground.js)
  (action (progn
   (echo "Webpack-cli not installed: skipping cmd_playground\n")
-  (write-file %{target} "#!/usr/bin/env sh\necho \"Webpack-cli was not installed at build-time: cannot execute 'playground', which was not built.\"\nexit -1")
+  (write-file %{target} "#!/usr/bin/env sh\necho \"Webpack-cli was not installed at build-time: cannot execute 'playground', which was not built.\"\nexit 1")
   (run chmod u+x %{target})))
  (enabled_if (not %{bin-available:webpack-cli})))
 

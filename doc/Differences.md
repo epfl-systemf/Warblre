@@ -1,6 +1,6 @@
 # Differences with the ECMAScript specification, omissions, and other implementation choices
 
-Despite the main design choices of this project being sticking as closely as possible to the spec as possible,
+Despite the main design choices of this project being to stick as closely as possible to the spec,
 some divergences were to be expected.
 We document some of them here.
 
@@ -100,6 +100,17 @@ i.e. their usage in the specification is an assertion that they do succeed.
 
 Rather than positing their success, the mechanization accounts for potential failure by using the error monad.
 Proofs are then conducted to show formally that these assumptions are indeed correct.
+
+### "Numeric checks"
+
+The specification contains a few assertions which ensure that numbers can be safely represented in JavaScript.
+
+> Some examples:
+>> It is a Syntax Error if CountLeftCapturingParensWithin(Pattern) ≥ 2^32 - 1.
+>
+>> Assert: n < 2^32 - 1.
+
+These checks are currently not mechanized, as unbound integers are used in Coq, OCaml and JavaScript.
 
 ## Non-structurally recursive functions
 
@@ -219,17 +230,6 @@ which correctly emulates the specification since the mutated array is local.
 >>  3. Let cap be a copy of x.[[Captures]].
 >>  4. For each integer k in the inclusive interval from parenIndex + 1 to parenIndex + parenCount, set cap[k] to undefined.
 >> [...]
-
-## "Numeric checks"
-
-The specification contains a few assertions which ensure that numbers can be safely represented in JavaScript.
-
-> Some examples:
->> It is a Syntax Error if CountLeftCapturingParensWithin(Pattern) ≥ 2^32 - 1.
->
->> Assert: n < 2^32 - 1.
-
-These checks are currently not mechanized, as unbound integers are used in Coq, OCaml and JavaScript.
 
 ## Frontend functions
 

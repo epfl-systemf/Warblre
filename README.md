@@ -84,7 +84,7 @@ The repository is structured as follows:
 - **Examples**: Code snippets which show how to use the mechanization and extracted engines.
 - **Fuzzer**: A differential fuzzer comparing the extracted JavaScript engine with the one from the host JavaScript environment.
 - **Tests**: Unit tests for the OCaml engine.
-- **Test262**: A thin wrapper which allows to test the extracted JavaScript engine against [Test262](https://github.com/tc39/test262), the standard test suite for JavaScript engines. This repository does not currently contain scripts to run the extracted engine against Test262; such a script can however be found in the [artifact.tar](https://zenodo.org/records/11494317) archive.
+- **Test262**: A thin wrapper which allows to test the extracted JavaScript engine against [Test262](https://github.com/tc39/test262), the standard test suite for JavaScript engines; see the related [documentation](doc/Test262.md).
 
 The follow subsections further detail some of these.
 

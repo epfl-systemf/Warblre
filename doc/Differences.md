@@ -65,7 +65,7 @@ The specification prevents the construction of some regexes for parsing reasons.
 Since these restrictions are there purely for parsing reasons,
 these are not enforced in the datatype used to represent regexes.
 
-For similar reasons, the specification sometimes defines variants of a constructor
+For similar reasons, the specification sometimes defines variants of a constructor.
 Such an example are `ClassAtom` and `ClassAtomNoDash`.
 
 > **Example:** from the specification
@@ -220,6 +220,16 @@ which correctly emulates the specification since the mutated array is local.
 >>  4. For each integer k in the inclusive interval from parenIndex + 1 to parenIndex + parenCount, set cap[k] to undefined.
 >> [...]
 
+## "Numeric checks"
+
+The specification contains a few assertions which ensure that numbers can be safely represented in JavaScript.
+
+> Some examples:
+>> It is a Syntax Error if CountLeftCapturingParensWithin(Pattern) ≥ 2^32 - 1.
+>
+>> Assert: n < 2^32 - 1.
+
+These checks are currently not mechanized, as unbound integers are used in Coq, OCaml and JavaScript.
 
 ## Frontend functions
 

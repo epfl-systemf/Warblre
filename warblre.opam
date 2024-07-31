@@ -8,13 +8,12 @@ bug-reports: "https://github.com/epfl-systemf/warblre/issues"
 depends: [
   "dune" {>= "3.14"}
   "ocaml" {= "4.14.2"}
-  "coq" {= "8.18.0"}
-  "integers" {= "0.7.0"}
-  "uucp" {= "15.0.0"}
-  "zarith" {= "1.13"}
+  "coq" {>= "8.18.0"}
+  "integers" {>= "0.7.0"}
+  "uucp" {>= "15.0.0"}
+  "zarith" {>= "1.13"}
   "melange" {= "3.0.0-414"}
-  "ppx_expect" {= "v0.16.0"}
-  "coq-serapi" {= "8.18.0+0.18.3"}
+  "ppx_expect" {>= "v0.16.0"}
   "odoc" {with-doc}
 ]
 build: [

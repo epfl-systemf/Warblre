@@ -1,6 +1,9 @@
 {
   "dependencies": {
-    "@eslint-community/regexpp": "^4.10.0",
-    "webpack": "^5.1.4"
+    "@eslint-community/regexpp": "^4.10.0"
+  },
+  "devDependencies": {
+    "webpack": "^5.1.4",
+    "webpack-cli": "^5.1.4"
   }
 }

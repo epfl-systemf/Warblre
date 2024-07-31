@@ -1,0 +1,101 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - '**'
+
+jobs:
+  check:
+    name: Build, test & install Warblre
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        coq: [ "8.18.0", "8.19.2" ]
+        node: [ "21.7.2", "22.4.1" ]
+      fail-fast: false
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: 'npm'
+      - name: Install npm dependencies
+        run:  |
+              echo "::group::Install dependencies"
+              npm install
+              npm list
+              echo "::endgroup::"
+
+      - name: Install python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+          cache-dependency-path: '.github/pip-requirements.txt'
+      - name: Install pip dependencies
+        run:  |
+              pip install -r .github/pip-requirements.txt
+
+      - name: Install OCaml
+        uses: ocaml/setup-ocaml@v3
+        with:
+          ocaml-compiler: 4.14.2
+      - name: Cache opam packages
+        uses: actions/cache@v4
+        with:
+          path: /home/runner/work/Warblre/Warblre/_opam
+          key: opam-packages-cache-${{runner.os}}-coq${{matrix.coq}}-${{ hashFiles('**/*.opam') }}
+          restore-keys: |
+                        opam-packages-cache-${{runner.os}}-coq${{matrix.coq}}
+                        opam-packages-cache-${{runner.os}}
+      - name: Install opam dependencies
+        run:  |
+              echo "::group::Print opam config (pre-install)"
+              opam config list; opam repo list; opam list
+              echo "::endgroup::"
+
+              echo "::group::Install opam packages"
+              opam pin add -n -k version coq ${{ matrix.coq }}
+              # coq-serapi's dependencies are installed now to ensure 
+              opam install --confirm-level=unsafe-yes --deps-only . coq-serapi
+              opam install --confirm-level=unsafe-yes coq-serapi
+              echo "::endgroup::"
+
+              echo "::group::Print opam config (post-install)"
+              opam config list; opam repo list; opam list
+              echo "::endgroup::"
+
+      - name: Dune build
+        run:  |
+              opam exec -- dune build @all
+
+      - name: Run unit tests
+        run:  |
+              opam exec -- dune test --force --display=verbose
+
+      - name: Check compiled libraries (coqchk)
+        run:  |
+              ALL_VOS=$(find _build/default/mechanization/ -name '*.vo');
+              opam exec -- coqchk -silent --output-context -Q _build/default/mechanization Warblre $ALL_VOS
+
+      - name: Test install of Warblre
+        run:  |
+              echo "::group::Install Warblre"
+              opam install --confirm-level=unsafe-yes .
+              echo "::endgroup::"
+
+              echo "::group::List installed files"
+              tree /home/runner/work/Warblre/Warblre/_opam
+              echo "::endgroup::"
+
+              echo "::group::Uninstall Warblre"
+              opam remove --confirm-level=unsafe-yes .
+              echo "::endgroup::"
+              

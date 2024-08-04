@@ -89,7 +89,7 @@ Section Initialization.
     (*>> 3. If flags is undefined, let F be the empty String. <<*)
     (*>> 4. Else, let F be ? ToString(flags). <<*)
     let F := flags in
-    (*>> 5. If F contains any code unit other than "d", "g", "i", "m", "s", "u", or "y", or if F contains any code unit more than once, throw a SyntaxError exception. <<*)
+    (*>> [OMITTED] 5. If F contains any code unit other than "d", "g", "i", "m", "s", "u", or "y", or if F contains any code unit more than once, throw a SyntaxError exception. <<*)
     (* + Ensured by F's type. +*)
 
     (*>> 6. If F contains "i", let i be true; else let i be false. <<*)
@@ -105,7 +105,7 @@ Section Initialization.
       (*>> a. Let patternText be StringToCodePoints(P). <<*)
     (*>> 11. Else, <<*)
       (*>> a. Let patternText be the result of interpreting each of P's 16-bit elements as a Unicode BMP code point. UTF-16 decoding is not applied to the elements. <<*)
-    (*>> 12. Let parseResult be ParsePattern(patternText, u). <<*)
+    (*>> [OMITTED] 12. Let parseResult be ParsePattern(patternText, u). <<*)
     (* + We don't include parsing, to this step was already done. +*)
     let patternText := P in
     let parseResult := patternText in
@@ -263,7 +263,7 @@ Section BuiltinExec.
   Definition MakeMatchIndicesGroups (S: String) (indices:list (option MatchRecord)) (groupNames:list (option GroupName)) (hasGroups:bool): Result.Result (option (list (GroupName * option (nat*nat)))) MatchError :=
     (*>> 1. Let n be the number of elements in indices. <<*)
     let n := List.length indices in
-    (*>> 2. Assert: n < 2^32 - 1. <<*)
+    (*>> [OMITTED] 2. Assert: n < 2^32 - 1. <<*)
     (* + assert! (n <? 4294967295)%nat; +*)
     (*>> 3. Assert: groupNames has n - 1 elements. <<*)
     assert! (Nat.eqb (List.length groupNames) (n-1));
@@ -518,7 +518,7 @@ Section BuiltinExec.
         let n := List.length (MatchState.captures r) in
         (*>> 18. Assert: n = R.[[RegExpRecord]].[[CapturingGroupsCount]]. <<*)
         assert! (Nat.eqb (n) (RegExpRecord.capturingGroupsCount (RegExpInstance.regExpRecord R)));
-        (*>> 19. Assert: n < 2^32 - 1. <<*)
+        (*>> [OMITTED] 19. Assert: n < 2^32 - 1. <<*)
         (* + assert! (n <? 4294967295)%nat; +*)
         (*>> 20. Let A be ! ArrayCreate(n + 1). <<*)
         (*>> 22. Perform ! CreateDataPropertyOrThrow(A, "index", 𝔽(lastIndex)). <<*)

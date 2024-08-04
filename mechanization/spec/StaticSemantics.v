@@ -317,7 +317,7 @@ Section StaticSemantics.
   Definition earlyErrors (r: Regex) (ctx: RegexContext): Result bool SyntaxError :=
     let nodes := Zipper.Walk.walk r ctx in
     (** >> Pattern :: Disjunction <<*)
-    (*>> * It is a Syntax Error if CountLeftCapturingParensWithin(Pattern) ≥ 2^32 - 1. <<*)
+    (*>> [OMITTED] * It is a Syntax Error if CountLeftCapturingParensWithin(Pattern) ≥ 2^32 - 1. <<*)
     (* + Numeric assertion are not implemented. +*)
     (*>> * It is a Syntax Error if Pattern contains two or more GroupSpecifiers for which CapturingGroupName of GroupSpecifier is the same. <<*)
     if! List.Exists.exist nodes (fun node0 =>

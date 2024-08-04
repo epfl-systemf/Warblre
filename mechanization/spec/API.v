@@ -230,7 +230,7 @@ Module API.
           (*>> a. Return the Record { [[CodePoint]]: cp, [[CodeUnitCount]]: 1, [[IsUnpairedSurrogate]]: true }. <<*)
           Success (1, true)
         else
-        (*>> 9. Set cp to UTF16SurrogatePairToCodePoint(first, second). <<*)
+        (*>> [OMITTED] 9. Set cp to UTF16SurrogatePairToCodePoint(first, second). <<*)
         (* + We don't return cp, so this isn't required +*)
         (*>> 10. Return the Record { [[CodePoint]]: cp, [[CodeUnitCount]]: 2, [[IsUnpairedSurrogate]]: false }. <<*)
         Success (2, false).
@@ -244,9 +244,9 @@ Module API.
       <<*)
       (* + This function is specialized to only handle the unicode case; the other case is uninteresting. +*)
       Definition advanceStringIndex (S: Utf16String) (index: non_neg_integer) : Result.Result non_neg_integer MatchError :=
-        (*>> 1. Assert: index ≤ 2^53 - 1. <<*)
+        (*>> [OMITTED] 1. Assert: index ≤ 2^53 - 1. <<*)
         (* + We don't include numeric limits +*)
-        (*>> If unicode is false, return index + 1. <<*)
+        (*>> [OMITTED] If unicode is false, return index + 1. <<*)
         (* + Unicode is always true +*)
         (*>> 3. Let length be the length of S. <<*)
         let length := length S in

@@ -258,7 +258,7 @@ Module Semantics. Section main.
       let canonicalized_c := Character.canonicalize rer c in
       negb (CharSet.contains basicWordChars c) && (CharSet.contains basicWordChars canonicalized_c)
     ) in
-    (*>> 3. Assert: extraWordChars is empty unless rer.[[Unicode]] is true and rer.[[IgnoreCase]] is true. <<*)
+    (*>> [OMITTED] 3. Assert: extraWordChars is empty unless rer.[[Unicode]] is true and rer.[[IgnoreCase]] is true. <<*)
     (* + Ignored +*)
     (*>> 4. Return the union of basicWordChars and extraWordChars. <<*)
     CharSet.union basicWordChars extraWordChars.

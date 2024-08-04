@@ -28,11 +28,11 @@ More precisely:
     [`String.toUpperCase`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String/toUpperCase) is used.
 - **JavaScript; `u`:**
     Characters are represented using strings (which is standard in JavaScript).
-    Case folding is implemented using an auto-generated associative map.
+    Case folding is implemented using an auto-generated associative map (`engines/js/SimpleFold.ml`).
 
 ![Extraction/compilation pipeline](../etc/archi.svg)
 
-### The dirty detail: extraction is done twice
+### The detail: extraction is done twice
 
 The previous presentation omits the fact that the OCaml code compiled to JavaScript is not exactly the same as the one used for native compilation.
 More precisely, the two are generated from the same Coq code, using the same extraction directives, but the extracted code refers to some `BigInt` type,

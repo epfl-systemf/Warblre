@@ -110,12 +110,14 @@ The suggested script above is inspired from the one included in that VM.
 
 ## Requirements to pass some tests
 
-Here are some conditions which must be satisfied by the extracted engine in order to pass some tests.
-Conditions prefixed with [Efficiency] are not strictly necessary, but allow tests to be passed in more reasonable time.
+Here are some conditions and optimizations which are implemented in order to pass some tests.
+Each one is prefixed (in brackets) with the location where it is implemented.
+If *(optimization)* is also present, it means that it is not strictly required for correctness of the engine,
+but allows tests to be passed in more reasonable time.
 
-- Numeric values must be unbounded, i.e. `BigInt` must be used;
-- [Efficiency] Regex compilation must be cached (but caching to many regexes might result in out-of-memory errors);
-- [Efficiency] The [following operation](https://tc39.es/ecma262/2024/multipage/text-processing.html#sec-runtime-semantics-charactersetmatcher-abstract-operation)
+- [Extraction] Numeric values must be unbounded, i.e. `BigInt` must be used;
+- [Test262 wrapper (optimization)] Regex compilation must be cached (but caching to many regexes might result in out-of-memory errors);
+- [OCaml module instantiation (optimization)] The [following operation](https://tc39.es/ecma262/2024/multipage/text-processing.html#sec-runtime-semantics-charactersetmatcher-abstract-operation)
   ```
   l. If there exists a CharSetElement in A containing exactly one character a such that Canonicalize(rer, a) is cc, let found be true. Otherwise, let found be false.
   ```
@@ -135,20 +137,20 @@ These results were obtained by using our engine in combination with Node.js, and
 | `CharacterClassEscapes/character-class-non-digit-class-escape-plus-quantifier.js`              | Slow (magnitude: hours) |
 | `CharacterClassEscapes/character-class-non-whitespace-class-escape-plus-quantifier.js`         | Slow (magnitude: hours) |
 | `CharacterClassEscapes/character-class-non-word-class-escape-plus-quantifier.js`               | Slow (magnitude: hours) |
-| `CharacterClassEscapes/character-class-non-digit-class-escape-plus-quantifier-flags-u.js`      | Unknown                 |
-| `CharacterClassEscapes/character-class-non-whitespace-class-escape-plus-quantifier-flags-u.js` | Unknown                 |
-| `CharacterClassEscapes/character-class-non-word-class-escape-plus-quantifier-flags-u.js`       | Unknown                 |
+| `CharacterClassEscapes/character-class-non-digit-class-escape-plus-quantifier-flags-u.js`      | Never ran to completion |
+| `CharacterClassEscapes/character-class-non-whitespace-class-escape-plus-quantifier-flags-u.js` | Never ran to completion |
+| `CharacterClassEscapes/character-class-non-word-class-escape-plus-quantifier-flags-u.js`       | Never ran to completion |
 
-| Failing test                                                | Category       | Explanation                                                |
-| ----------------------------------------------------------- | -------------- | ---------------------------------------------------------- |
-| `prototype/Symbol.match/flags-tostring-error.js`            | Node issue     | [Known issue](https://issues.chromium.org/issues/42203113) |
-| `prototype/Symbol.match/get-flags-err.js`                   | Node issue     | [Known issue](https://issues.chromium.org/issues/42203113) |
-| `prototype/Symbol.match/get-unicode-error.js`               | Node issue     | [Known issue](https://issues.chromium.org/issues/42203113) |
-| `prototype/Symbol.replace/flags-tostring-error.js`          | Node issue     | [Known issue](https://issues.chromium.org/issues/42203113) |
-| `prototype/Symbol.replace/get-flags-err.js`                 | Node issue     | [Known issue](https://issues.chromium.org/issues/42203113) |
-| `prototype/Symbol.replace/get-unicode-error.js`             | Node issue     | [Known issue](https://issues.chromium.org/issues/42203113) |
-| `prototype/Symbol.replace/fn-invoke-args-empty-result.js`   | Node issue     | [Known issue](https://issues.chromium.org/issues/42200389) |
-| `prototype/Symbol.replace/poisoned-stdlib.js`               | Prototype test | This test ensures that the engine does not rely on JavaScript's standard library; our engine does, and hence fails this test. |
+| Failing test                                                | Category       | Explanation                                                                                                                                                                                                                                              |
+| ----------------------------------------------------------- | -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `prototype/Symbol.match/flags-tostring-error.js`            | Node issue     | [Known issue](https://issues.chromium.org/issues/42203113)                                                                                                                                                                                               |
+| `prototype/Symbol.match/get-flags-err.js`                   | Node issue     | [Known issue](https://issues.chromium.org/issues/42203113)                                                                                                                                                                                               |
+| `prototype/Symbol.match/get-unicode-error.js`               | Node issue     | [Known issue](https://issues.chromium.org/issues/42203113)                                                                                                                                                                                               |
+| `prototype/Symbol.replace/flags-tostring-error.js`          | Node issue     | [Known issue](https://issues.chromium.org/issues/42203113)                                                                                                                                                                                               |
+| `prototype/Symbol.replace/get-flags-err.js`                 | Node issue     | [Known issue](https://issues.chromium.org/issues/42203113)                                                                                                                                                                                               |
+| `prototype/Symbol.replace/get-unicode-error.js`             | Node issue     | [Known issue](https://issues.chromium.org/issues/42203113)                                                                                                                                                                                               |
+| `prototype/Symbol.replace/fn-invoke-args-empty-result.js`   | Node issue     | [Known issue](https://issues.chromium.org/issues/42200389)                                                                                                                                                                                               |
+| `prototype/Symbol.replace/poisoned-stdlib.js`               | Prototype test | This test ensures that the engine does not rely on JavaScript's standard library; our engine does, and hence fails this test.                                                                                                                            |
 | `prototype/exec/not-a-constructor.js`                       | Prototype test | `Regex.prototype.exec` should not be a [constructor](https://tc39.es/ecma262/2024/multipage/ecmascript-data-types-and-values.html#constructor); to our knowledge, that is not possible from JavaScript user space when adding the need to access `this`. |
-| `prototype/Symbol.match/builtin-infer-unicode.js`           | Prototype test | Passing this test would require our engine to have access to [internal slots](https://tc39.es/ecma262/2024/multipage/ecmascript-data-types-and-values.html#sec-object-internal-methods-and-internal-slots), which is not possible from  user space. |
-| `prototype/Symbol.match/builtin-success-g-set-lastindex.js` | Prototype test | Passing this test would require our engine to have access to [internal slots](https://tc39.es/ecma262/2024/multipage/ecmascript-data-types-and-values.html#sec-object-internal-methods-and-internal-slots), which is not possible from  user space. |
+| `prototype/Symbol.match/builtin-infer-unicode.js`           | Prototype test | Passing this test would require our engine to have access to [internal slots](https://tc39.es/ecma262/2024/multipage/ecmascript-data-types-and-values.html#sec-object-internal-methods-and-internal-slots), which is not possible from  user space.      |
+| `prototype/Symbol.match/builtin-success-g-set-lastindex.js` | Prototype test | Passing this test would require our engine to have access to [internal slots](https://tc39.es/ecma262/2024/multipage/ecmascript-data-types-and-values.html#sec-object-internal-methods-and-internal-slots), which is not possible from  user space.      |

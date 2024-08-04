@@ -13,7 +13,7 @@ The mechanization has the following properties:
 - **Proven-safe**:
     We proved that the regex engine resulting from our mechanization always terminate and that no error (access out-of-bounds, assertion failure, ...) occurs.
 - **Faithful**:
-    Once combined with a JavaScript runtime, the extracted engine passes (almost) all tests related to regexes. 
+    Once combined with a JavaScript runtime, the extracted engine passes all tests related to regexes. 
 
 ![*Curruca communis* perched on a branch](etc/cover.webp)
 
@@ -94,7 +94,7 @@ The follow subsections further detail some of these.
 
 ## Mechanization
 
-Contains the Coq code mechanizing the subset of the ECMAScript specification which describes regexes and their semantics.
+The `mechanization` directory contains the Coq code mechanizing the subset of the ECMAScript specification which describes regexes and their semantics.
 It is based on the 14th edition from June 2023, available [here](https://262.ecma-international.org/14.0/).
 Regexes are described in chapter [22.2](https://tc39.es/ecma262/2023/multipage/text-processing.html#sec-regexp-regular-expression-objects).
 
@@ -122,12 +122,10 @@ Files are organized as follows:
 - **tactics**: some general purpose tactics.
 - **utils**: auxiliary definitions, such as extra operations and proofs on lists, the error monad, typeclasses, ...
 
-A list of differences between the mechanization and the specification in [`doc/Differences.md`](doc/Differences.md).
+## Engines
 
-### Engines
-
-In the `engines` directory, we include the code needed to turn the extracted code into two fully featured engines, one in OCaml and one in JavaScript.
-For instance, this is where we need to provide implementations for the abstract types and Unicode operations of the functor discussed above.
+The `engines` directory contains the code needed to turn the extracted code into two fully featured engines, one in OCaml and one in JavaScript.
+For instance, this is where implementations for the abstract types and Unicode operations of the functor discussed above are provided.
 Some of this code is common to the both engines, for instance a pretty-printer for regexes, and is stored in the `common` subdirectory.
 
 The `ocaml` subdirectory contains code specific to the OCaml engine.
@@ -135,3 +133,15 @@ This includes functions to manipulate unicode characters, using the library `uuc
 
 The `js` subdirectory contains code specific to the JavaScript engine.
 This also includes functions to manipulate unicode characters, as well as some functions to work with [array exotic objects](https://262.ecma-international.org/14.0/#sec-array-exotic-objects) (see [`ArrayExotic.ml`](engines/js/ArrayExotic.ml)) or a parser for regexes, based on [regexpp](https://github.com/eslint-community/regexpp).
+
+## See also
+
+- Our publication:
+  
+  De Santo, Noé, Aurèle Barrière, and Clément Pit-Claudel. "A Coq Mechanization of JavaScript Regular Expression Semantics."  
+  [[DOI](https://doi.org/10.1145/3674666); [Preprint](https://arxiv.org/abs/2403.11919)]
+- Additional documentation on this repository (`doc` directory):
+  - A list of differences between the mechanization and the specification: [`Differences.md`](doc/Differences.md);
+  - Discussions about some design choices: [`Implementation.md`](doc/Implementation.md);
+  - Documentation about testing the extracted engine against Test262: [`Test262.md`](doc/Test262.md);
+  - A list of differences between the [mechanization version](https://tc39.es/ecma262/2023/multipage/text-processing.html#sec-regexp-regular-expression-objects) of the specification (14/2023), and the [new version](https://tc39.es/ecma262/2024/multipage/text-processing.html#sec-regexp-regular-expression-objects) (15/2024): [`vFlag.md`](doc/vFlag.md).

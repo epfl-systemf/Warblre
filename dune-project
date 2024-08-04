@@ -15,6 +15,7 @@
  (synopsis "A mechanization of the specification of ECMAScript regexes")
  (maintainers "Noé De Santo" "Aurèle Barrière")
  (bug_reports "https://github.com/epfl-systemf/warblre/issues")
+ (license BSD-3-Clause)
  (depends
   (ocaml (= 4.14.2))
   (coq (>= 8.18.0))

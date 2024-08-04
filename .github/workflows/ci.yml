@@ -91,6 +91,18 @@ jobs:
               opam install --confirm-level=unsafe-yes .
               echo "::endgroup::"
 
+              echo "::group::Test for (non-)existence of installed files"
+              echo "bin/example" && [ ! -f /home/runner/work/Warblre/Warblre/_opam/bin/example ]
+              echo "bin/fuzzer" && [ ! -f /home/runner/work/Warblre/Warblre/_opam/bin/fuzzer ]
+              echo "bin/playground" && [ ! -f /home/runner/work/Warblre/Warblre/_opam/bin/playground ]
+
+              echo "doc/warblre/LICENSE" && [ -f /home/runner/work/Warblre/Warblre/_opam/doc/warblre/LICENSE ]
+              echo "doc/warblre-engines/LICENSE" "" && [ -f /home/runner/work/Warblre/Warblre/_opam/doc/warblre-engines/LICENSE ]
+
+              echo "lib/coq/user-contrib/Warblre" && [ -d /home/runner/work/Warblre/Warblre/_opam/lib/coq/user-contrib/Warblre ]
+              echo "lib/warblre-engines" && [ -d /home/runner/work/Warblre/Warblre/_opam/lib/warblre-engines ]
+              echo "::endgroup::"
+
               echo "::group::Uninstall Warblre"
               opam remove --confirm-level=unsafe-yes .
               echo "::endgroup::"

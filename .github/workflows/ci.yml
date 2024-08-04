@@ -3,7 +3,7 @@ name: CI
 on:
   push:
     branches:
-      - main
+      - '**'
   pull_request:
     branches:
       - '**'
@@ -89,6 +89,18 @@ jobs:
         run:  |
               echo "::group::Install Warblre"
               opam install --confirm-level=unsafe-yes .
+              echo "::endgroup::"
+
+              echo "::group::Test for (non-)existence of installed files"
+              [ ! -f /home/runner/work/Warblre/Warblre/_opam/bin/example ]
+              [ ! -f /home/runner/work/Warblre/Warblre/_opam/bin/fuzzer ]
+              [ ! -f /home/runner/work/Warblre/Warblre/_opam/bin/playground ]
+
+              [ -f /home/runner/work/Warblre/Warblre/_opam/doc/warblre/LICENSE ]
+              [ -f /home/runner/work/Warblre/Warblre/_opam/doc/warblre-engines/LICENSE ]
+
+              [ -d /home/runner/work/Warblre/Warblre/_opam/lib/coq/user-contrib/Warblre ]
+              [ -d /home/runner/work/Warblre/Warblre/_opam/lib/warblre-engines ]
               echo "::endgroup::"
 
               echo "::group::Uninstall Warblre"

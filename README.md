@@ -78,17 +78,19 @@ The repository is structured as follows:
 │   ├── cmd_playground
 │   ├── coq_proof
 │   └── ocaml_example
-├── fuzzer
-├── tests
-└── test262
+└── tests
+    ├── tests
+    ├── fuzzer
+    └── test262
 ```
 
 - **[Mechanization](#mechanization)**: Warblre proper, the mechanization in Coq of the ECMASCript semantics of regexes.
 - **[Engines](#engines)**: Extraction directives and extra code to allow a smooth usage of the extracted engine in different programming languages. Most of the code is in `common`; the other directories contain code specific to one particular language.
 - **Examples**: Code snippets which show how to use the mechanization and extracted engines.
-- **Fuzzer**: A differential fuzzer comparing the extracted JavaScript engine with the one from the host JavaScript environment.
-- **Tests**: Unit tests for the OCaml engine.
-- **Test262**: A thin wrapper which allows to test the extracted JavaScript engine against [Test262](https://github.com/tc39/test262), the standard test suite for JavaScript engines; see the related [documentation](doc/Test262.md).
+- **Tests:**
+  - **Tests**: Unit tests for the OCaml engine.
+  - **Fuzzer**: A differential fuzzer comparing the extracted JavaScript engine with the one from the host JavaScript environment.
+  - **Test262**: A thin wrapper which allows to test the extracted JavaScript engine against [Test262](https://github.com/tc39/test262), the standard test suite for JavaScript engines; see the related [documentation](doc/Test262.md).
 
 The follow subsections further detail some of these.
 

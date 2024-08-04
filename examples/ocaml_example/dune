@@ -1,4 +1,3 @@
 (executable
- (public_name example)
  (name main)
- (libraries warblre))
+ (libraries warblre-engines.ocaml))

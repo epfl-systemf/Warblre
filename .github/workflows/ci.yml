@@ -91,10 +91,6 @@ jobs:
               opam install --confirm-level=unsafe-yes .
               echo "::endgroup::"
 
-              echo "::group::List installed files"
-              tree /home/runner/work/Warblre/Warblre/_opam
-              echo "::endgroup::"
-
               echo "::group::Uninstall Warblre"
               opam remove --confirm-level=unsafe-yes .
               echo "::endgroup::"

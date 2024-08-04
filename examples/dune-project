@@ -1,0 +1,12 @@
+(lang dune 3.14)
+; This package is defined in a sub dune-project to prevent the installation of example executables
+
+(generate_opam_files false)
+
+(using melange 0.1)
+(using directory-targets 0.1)
+
+(package
+ (name warblre-examples)
+ (depends
+  warblre-engines))

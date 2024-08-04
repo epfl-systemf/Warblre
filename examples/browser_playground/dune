@@ -2,7 +2,7 @@
  (alias browser-playground-js)
  (target app)
  (module_systems (es6 mjs))
- (libraries melange.dom warblre_js)
+ (libraries melange.dom warblre-engines.js)
  (preprocess (pps melange.ppx)))
 
 ; Webpack it into a single, browser-compatible, js file

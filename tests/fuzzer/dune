@@ -2,7 +2,7 @@
  (alias fuzzer-js)
  (target app)
  (module_systems (es6 mjs))
- (libraries warblre_js)
+ (libraries warblre-engines.js)
  (preprocess (pps melange.ppx)))
 
 ; Webpack it into a single, browser-compatible, js file
@@ -10,7 +10,7 @@
  (target warblre-node-fuzzer.js)
  (deps
   (alias_rec fuzzer-js)
-  (:entrypoint (file app/fuzzer/Fuzzer.mjs))
+  (:entrypoint (file app/tests/fuzzer/Fuzzer.mjs))
   (:config (file webpack.config.js)))
  (action (no-infer (progn
   (run npx webpack ./%{entrypoint} --config %{config} --no-stats)

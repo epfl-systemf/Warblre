@@ -15,7 +15,7 @@
 ; Make a library out of it
 (library
  (name warblre_js)
- (public_name warblre.js)
+ (public_name warblre-engines.js)
  (libraries melange.belt)
  (melange.runtime_deps (file ./regexpp-map.mjs))
  (modes melange)

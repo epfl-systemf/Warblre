@@ -360,7 +360,17 @@ Module Semantics. Section main.
       (*>> 1. Return the CharSet containing all Unicode code points not included in CompileToCharSet of UnicodePropertyValueExpression with argument rer. <<*)
       let! p_set =<< compileToCharSet_ClassAtom_0 (ClassEsc (CCharacterClassEsc (UnicodeProp p))) rer in
       CharSet.remove_all Characters.all p_set
-[OMITTED] angesNoDash :: ClassAtomNoDash NonemptyClassRangesNoDash <<*)
+
+  | _ => compileToCharSet_ClassAtom_0 self rer
+  end.
+
+  Fixpoint compileToCharSet (self: ClassRanges) (rer: RegExpRecord): Result CharSet CompileError := match self with
+  (** >> ClassRanges :: [empty] <<*)
+  | EmptyCR =>
+      (*>> 1. Return the empty CharSet. <<*)
+      CharSet.empty
+
+  (** >> [OMITTED] NonemptyClassRangesNoDash :: ClassAtomNoDash NonemptyClassRangesNoDash <<*)
       (*>> 1. Let A be CompileToCharSet of ClassAtomNoDash with argument rer. <<*)
       (*>> 2. Let B be CompileToCharSet of NonemptyClassRangesNoDash with argument rer. <<*)
       (*>> 3. Return the union of CharSets A and B. <<*)

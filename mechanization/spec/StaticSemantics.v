@@ -273,7 +273,7 @@ Section StaticSemantics.
   (** >>
       WILDCARD "UnicodePropertyValueExpression"
   <<*)
-  (* + Omitted since there is no disticntion between with or without dashes + *)
+  (* + Omitted since there is no distinction between with or without dashes + *)
   (** >> [OMITTED] NonemptyClassRangesNoDash :: ClassAtomNoDash - ClassAtom ClassRanges <<*)
   (*>> * It is a Syntax Error if IsCharacterClass of ClassAtomNoDash is true or IsCharacterClass of ClassAtom is true. <<*)
   (*>> * It is a Syntax Error if IsCharacterClass of ClassAtomNoDash is false, IsCharacterClass of ClassAtom is false, and the CharacterValue of ClassAtomNoDash is strictly greater than the CharacterValue of ClassAtom. <<*)

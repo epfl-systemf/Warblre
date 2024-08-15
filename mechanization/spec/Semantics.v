@@ -360,17 +360,7 @@ Module Semantics. Section main.
       (*>> 1. Return the CharSet containing all Unicode code points not included in CompileToCharSet of UnicodePropertyValueExpression with argument rer. <<*)
       let! p_set =<< compileToCharSet_ClassAtom_0 (ClassEsc (CCharacterClassEsc (UnicodeProp p))) rer in
       CharSet.remove_all Characters.all p_set
-
-  | _ => compileToCharSet_ClassAtom_0 self rer
-  end.
-
-  Fixpoint compileToCharSet (self: ClassRanges) (rer: RegExpRecord): Result CharSet CompileError := match self with
-  (** >> ClassRanges :: [empty] <<*)
-  | EmptyCR =>
-      (*>> 1. Return the empty CharSet. <<*)
-      CharSet.empty
-
-  (** >> NonemptyClassRangesNoDash :: ClassAtomNoDash NonemptyClassRangesNoDash <<*)
+[OMITTED] angesNoDash :: ClassAtomNoDash NonemptyClassRangesNoDash <<*)
       (*>> 1. Let A be CompileToCharSet of ClassAtomNoDash with argument rer. <<*)
       (*>> 2. Let B be CompileToCharSet of NonemptyClassRangesNoDash with argument rer. <<*)
       (*>> 3. Return the union of CharSets A and B. <<*)
@@ -622,10 +612,10 @@ Module Semantics. Section main.
         (*>> c. Return RepeatMatcher(m, q.[[Min]], q.[[Max]], q.[[Greedy]], x, c, parenIndex, parenCount). <<*)
         repeatMatcher m (CompiledQuantifier_min q) (CompiledQuantifier_max q) (CompiledQuantifier_greedy q) x c parenIndex parenCount): Matcher
 
-  (** >> Term :: Assertion <<*)
+  (** >> [OMITTED] Term :: Assertion <<*)
   (*>> 1. Return CompileAssertion of Assertion with argument rer. <<*)
 
-  (** >> Term :: Atom <<*)
+  (** >> [OMITTED] Term :: Atom <<*)
   (*>> 1. Return CompileAtom of Atom with arguments rer and direction. <<*)
 
     (** >>
@@ -837,6 +827,7 @@ Module Semantics. Section main.
     (** >> 
         WILDCARD "Atom :: (?: Disjunction )"
     <<*)
+    (* + Non-capturing groups are not implemented + *)
 
     (** >> Atom :: PatternCharacter <<*)
     | Char c =>

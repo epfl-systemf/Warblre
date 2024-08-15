@@ -94,7 +94,7 @@ Section Initialization.
     (*>> 3. If flags is undefined, let F be the empty String. <<*)
     (*>> 4. Else, let F be ? ToString(flags). <<*)
     let F := flags in
-    (*>> 5. If F contains any code unit other than "d", "g", "i", "m", "s", "u", or "y", or if F contains any code unit more than once, throw a SyntaxError exception. <<*)
+    (*>> [OMITTED] 5. If F contains any code unit other than "d", "g", "i", "m", "s", "u", or "y", or if F contains any code unit more than once, throw a SyntaxError exception. <<*)
     (* + Ensured by F's type. +*)
 
     (*>> 6. If F contains "i", let i be true; else let i be false. <<*)
@@ -110,10 +110,10 @@ Section Initialization.
       (*>> a. Let patternText be StringToCodePoints(P). <<*)
     (*>> 11. Else, <<*)
       (*>> a. Let patternText be the result of interpreting each of P's 16-bit elements as a Unicode BMP code point. UTF-16 decoding is not applied to the elements. <<*)
-    (*>> 12. Let parseResult be ParsePattern(patternText, u). <<*)
+    (*>> [OMITTED] 12. Let parseResult be ParsePattern(patternText, u). <<*)
     (* + We don't include parsing, to this step was already done. +*)
-    (*>> 13. If parseResult is a non-empty List of SyntaxError objects, throw a SyntaxError exception. <<*)
-    (*>> 14. Assert: parseResult is a Pattern Parse Node. <<*)
+    (*>> [OMITTED] 13. If parseResult is a non-empty List of SyntaxError objects, throw a SyntaxError exception. <<*)
+    (*>> [OMITTED] 14. Assert: parseResult is a Pattern Parse Node. <<*)
     let patternText := P in
     let parseResult := patternText in
 

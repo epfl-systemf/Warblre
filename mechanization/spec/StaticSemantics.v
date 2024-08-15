@@ -10,7 +10,7 @@ Local Open Scope result_flow.
   WILDCARD Sections
   ["22.2.1.9","22.2.1.10"]
 <<*)
-
+(* + The section 22.1.9 and 22.1.10 RegExpIdentifierCodePoints are not implemented + *)
 Section StaticSemantics.
   Context `{specParameters: Parameters}.
   Import Patterns.
@@ -342,7 +342,7 @@ Section StaticSemantics.
   Definition earlyErrors (r: Regex) (ctx: RegexContext): Result bool SyntaxError :=
     let nodes := Zipper.Walk.walk r ctx in
     (** >> Pattern :: Disjunction <<*)
-    (*>> * It is a Syntax Error if CountLeftCapturingParensWithin(Pattern) ≥ 2^32 - 1. <<*)
+    (*>> [OMITTED] * It is a Syntax Error if CountLeftCapturingParensWithin(Pattern) ≥ 2^32 - 1. <<*)
     (* + Numeric assertion are not implemented. +*)
     (*>> * It is a Syntax Error if Pattern contains two or more GroupSpecifiers for which CapturingGroupName of GroupSpecifier is the same. <<*)
     if! List.Exists.exist nodes (fun node0 =>

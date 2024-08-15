@@ -4,7 +4,8 @@ From Warblre Require Import Typeclasses Result Numeric Characters Errors Paramet
     WILDCARD Sections
       ["22.2.2.1"]
 <<*)
-
+(* + The section 22.2.2.1 is not matched because it is missing some parts and also has a format unique to the documentation,
+  which would have required a lot of work just for one section + *)
 (** >>
     22.2.2.1 Notation
 

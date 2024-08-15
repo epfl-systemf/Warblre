@@ -246,7 +246,7 @@ Module API.
       Definition advanceStringIndex (S: Utf16String) (index: non_neg_integer) : Result.Result non_neg_integer MatchError :=
         (*>> [OMITTED] 1. Assert: index ≤ 2^53 - 1. <<*)
         (* + We don't include numeric limits +*)
-        (*>> [OMITTED] If unicode is false, return index + 1. <<*)
+        (*>> [OMITTED] 2. If unicode is false, return index + 1. <<*)
         (* + Unicode is always true +*)
         (*>> 3. Let length be the length of S. <<*)
         let length := length S in
@@ -266,7 +266,7 @@ Module API.
           exists. Otherwise, it returns the length of S. It performs the following steps when called:
       <<*)
       Definition getStringIndex (S: Utf16String) (codePointIndex: non_neg_integer) : Result.Result non_neg_integer MatchError :=
-        (*>> If S is the empty String, return 0. <<*)
+        (*>> 1. If S is the empty String, return 0. <<*)
         if length S == 0 then Success 0 else
         (*>> 2. Let len be the length of S. <<*)
         let len := length S in

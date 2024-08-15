@@ -6,6 +6,11 @@ Import Result.Notations.
 Import Result.Notations.Boolean.
 Local Open Scope result_flow.
 
+(** >>
+  WILDCARD Sections
+  ["22.2.1.9","22.2.1.10"]
+<<*)
+(* + The section 22.1.9 and 22.1.10 RegExpIdentifierCodePoints are not implemented + *)
 Section StaticSemantics.
   Context `{specParameters: Parameters}.
   Import Patterns.
@@ -17,7 +22,7 @@ Section StaticSemantics.
       It is defined piecewise over the following productions:
   <<*)
   Definition capturingGroupName (gn: GroupName): GroupName :=
-    (** >> RegExpIdentifierName :: RegExpIdentifierStart <<*)
+    (** >> GroupName :: < RegExpIdentifierName > <<*)
     (*>> 1. Let idTextUnescaped be RegExpIdentifierCodePoints of RegExpIdentifierName. <<*)
     (*>> 2. Return CodePointsToString(idTextUnescaped). <<*)
     gn.
@@ -55,15 +60,18 @@ Section StaticSemantics.
       The syntax-directed operation CharacterValue takes no arguments and returns a non-negative integer.
       It is defined piecewise over the following productions:
   <<*)
+  (** >>
+      WILDCARD "ClassAtom"
+  <<*)
   Definition characterValue_Hex4Digits (self: Hex4Digits): non_neg_integer :=
     (** >> HexLeadSurrogate :: Hex4Digits <<*)
     (** >> HexTrailSurrogate :: Hex4Digits <<*)
     (** >> HexNonSurrogate :: Hex4Digits <<*)
-    (*>> Return the MV of Hex4Digits. <<*)
+    (*>> 1. Return the MV of Hex4Digits. <<*)
     HexDigit.to_integer_4 self.
 
   Definition characterValue {F: Type} {_: Result.AssertionError F} (self: ClassAtom): Result non_neg_integer F := match self with
-  (** >> ClassAtomNoDash :: SourceCharacter <<*)
+  (** >> ClassAtomNoDash :: SourceCharacter but not one of \ or ] or - <<*)
   | SourceCharacter chr =>
       (*>> 1. Let ch be the code point matched by SourceCharacter. <<*)
       let ch := chr in
@@ -99,7 +107,7 @@ Section StaticSemantics.
       (*>> 3. Return the remainder of dividing i by 32. <<*)
       NonNegInt.modulo i 32
 
-  (** >> CharacterEscape :: 0 <<*)
+  (** >> CharacterEscape :: 0 [lookahead ∉ DecimalDigit] <<*)
   | ClassEsc (CCharacterEsc (esc_Zero)) =>
       (*>> 1. Return the numeric value of U+0000 (NULL). <<*)
       Character.numeric_value Characters.NULL
@@ -154,16 +162,17 @@ Section StaticSemantics.
       22.2.1.5 Static Semantics: IsCharacterClass
 
       The syntax-directed operation IsCharacterClass takes no arguments and returns a Boolean.
-      Note
       It is defined piecewise over the following productions:
   <<*)
   Definition isCharacterClass (ca: ClassAtom): bool := match ca with
   (** >> ClassAtom :: <<*)
-  (*>> ClassAtomNoDash :: <<*)
-  (*>> ClassEscape :: <<*)
   (*>> - <<*)
+
+  (*>> ClassAtomNoDash :: <<*)
   (*>> SourceCharacter but not one of \ or ] or - <<*)
   | SourceCharacter _
+
+  (*>> ClassEscape :: <<*)
   (*>> b <<*)
   | ClassEsc (esc_b)
   (*>> - <<*)
@@ -182,8 +191,10 @@ Section StaticSemantics.
       22.2.1.4 Static Semantics: CapturingGroupNumber
 
       The syntax-directed operation CapturingGroupNumber takes no arguments and returns a positive integer.
-      Note
       It is defined piecewise over the following productions:
+  <<*)
+  (** >>
+      WILDCARD "DecimalEscape"
   <<*)
   Definition capturingGroupNumber (n: positive_integer): positive_integer :=
     (* + Implementation disappears due to the representation choice in Patterns.v +*)
@@ -195,10 +206,10 @@ Section StaticSemantics.
       The abstract operation CountLeftCapturingParensWithin takes argument node (a Parse Node) and returns a
       non-negative integer. It returns the number of left-capturing parentheses in node.
       A left-capturing parenthesis is any ( pattern character that is matched by the
-      ( terminal of the Atom :: ( GroupSpecifieropt Disjunction ) production.
+      ( terminal of the Atom :: ( GroupSpecifier_opt Disjunction ) production.
       It performs the following steps when called:
       1. Assert: node is an instance of a production in the RegExp Pattern grammar.
-      2. Return the number of Atom :: ( GroupSpecifieropt Disjunction ) Parse Nodes contained within node.
+      2. Return the number of Atom :: ( GroupSpecifier_opt Disjunction ) Parse Nodes contained within node.
   <<*)
   Fixpoint countLeftCapturingParensWithin_impl (r: Regex): non_neg_integer :=
     match r with
@@ -226,11 +237,10 @@ Section StaticSemantics.
       22.2.1.3 Static Semantics: CountLeftCapturingParensBefore ( node )
 
       The abstract operation CountLeftCapturingParensBefore takes argument node (a Parse Node) and returns a non-negative integer. It returns the number of left-capturing parentheses within the enclosing pattern that occur to the left of node.
-      Note
       It performs the following steps when called:
       1. Assert: node is an instance of a production in the RegExp Pattern grammar.
       2. Let pattern be the Pattern containing node.
-      3. Return the number of Atom :: ( GroupSpecifieropt Disjunction ) Parse Nodes contained within pattern that either occur before node or contain node.
+      3. Return the number of Atom :: ( GroupSpecifier_opt Disjunction ) Parse Nodes contained within pattern that either occur before node or contain node.
   <<*)
   Fixpoint countLeftCapturingParensBefore_impl (ctx: RegexContext): non_neg_integer :=
     match ctx with
@@ -253,6 +263,21 @@ Section StaticSemantics.
   (** >>
       22.2.1.1 Static Semantics: Early Errors
   <<*)
+
+  (** >>
+      WILDCARD "RegExpIdentifierPart"
+  <<*)
+  (** >>
+      WILDCARD "RegExpIdentifierStart"
+  <<*)
+  (** >>
+      WILDCARD "UnicodePropertyValueExpression"
+  <<*)
+  (* + Omitted since there is no distinction between with or without dashes + *)
+  (** >> [OMITTED] NonemptyClassRangesNoDash :: ClassAtomNoDash - ClassAtom ClassRanges <<*)
+  (*>> * It is a Syntax Error if IsCharacterClass of ClassAtomNoDash is true or IsCharacterClass of ClassAtom is true. <<*)
+  (*>> * It is a Syntax Error if IsCharacterClass of ClassAtomNoDash is false, IsCharacterClass of ClassAtom is false, and the CharacterValue of ClassAtomNoDash is strictly greater than the CharacterValue of ClassAtom. <<*)
+
   Fixpoint earlyErrors_class_ranges (cr: ClassRanges): Result bool SyntaxError := match cr with
   | EmptyCR => false
   | ClassAtomCR _ t => earlyErrors_class_ranges t

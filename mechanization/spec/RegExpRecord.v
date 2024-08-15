@@ -7,6 +7,11 @@ From Warblre Require Import Numeric.
 
     It has the following fields:
 <<*)
+(** >>
+  WILDCARD PARSING_FILE_END
+<<*)
+
+(* + The end of this file is a restriction of a bigger ECMAScript table. + *)
 Module RegExpRecord.
   Record type := make {
     (*>> [[IgnoreCase]] <<*)

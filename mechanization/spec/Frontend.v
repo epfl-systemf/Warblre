@@ -5,7 +5,12 @@ Import Result.Notations.
 Import Notation.
 Import Patterns.
 Local Open Scope result_flow.
-
+(** >>
+  WILDCARD Sections
+  ["22.2.3","22.2.3.1","22.2.3.2","22.2.3.4","22.2.4","22.2.4.1","22.2.5","22.2.5.1","22.2.5.2","22.2.6","22.2.6.1","22.2.6.2","22.2.6.3","22.2.6.4",
+    "22.2.6.4.1","22.2.6.5","22.2.6.6","22.2.6.7","22.2.6.9","22.2.6.10","22.2.6.11","22.2.6.13","22.2.6.13.1","22.2.6.14","22.2.6.15","22.2.6.17",
+    "22.2.6.18","22.2.7","22.2.7.2","22.2.7.8","22.2.9.2","22.2.9.2.1","22.2.9.2.2"]
+<<*)
 (**+
       This file doesn't follow the specification as closely as the other files.
 
@@ -40,11 +45,11 @@ Notation reg_exp_flags := RegExpFlags.make.
     RegExp object.
 
     RegExp instances also have the following property:
-    - 22.2.8.1 lastIndex
+      22.2.8.1 lastIndex
       The value of the "lastIndex" property specifies the String index at which to start the next match.
       It is coerced to an integral Number when used (see 22.2.7.2).
       This property shall have the attributes { [[Writable]]: true, [[Enumerable]]: false, [[Configurable]]: false }.
-    - 22.2.9 RegExp String Iterator Objects
+      22.2.9 RegExp String Iterator Objects
       A RegExp String Iterator is an object, that represents a specific iteration over some specific String instance
       object, matching against some specific RegExp instance object. There is not a named constructor for RegExp String
       Iterator objects. Instead, RegExp String Iterator objects are created by calling certain methods of RegExp
@@ -107,6 +112,8 @@ Section Initialization.
       (*>> a. Let patternText be the result of interpreting each of P's 16-bit elements as a Unicode BMP code point. UTF-16 decoding is not applied to the elements. <<*)
     (*>> [OMITTED] 12. Let parseResult be ParsePattern(patternText, u). <<*)
     (* + We don't include parsing, to this step was already done. +*)
+    (*>> [OMITTED] 13. If parseResult is a non-empty List of SyntaxError objects, throw a SyntaxError exception. <<*)
+    (*>> [OMITTED] 14. Assert: parseResult is a Pattern Parse Node. <<*)
     let patternText := P in
     let parseResult := patternText in
 
@@ -116,14 +123,15 @@ Section Initialization.
     let obj_originalFlags := F in
     (*>> 17. Let capturingGroupsCount be CountLeftCapturingParensWithin(parseResult). <<*)
     let capturingGroupsCount := countLeftCapturingParensWithin pattern nil in
-    (*>> 18. Let rer be the RegExp Record { [[IgnoreCase]]: i, [[Multiline]]: m, [[DotAll]]: s, [[Unicode]]: u, [[UnicodeSets]]: v, [[CapturingGroupsCount]]: capturingGroupsCount }. <<*)
+    (*>> 18. Let rer be the RegExp Record { [[IgnoreCase]]: i, [[Multiline]]: m, [[DotAll]]: s, [[Unicode]]: u, [[CapturingGroupsCount]]: capturingGroupsCount }. <<*)
     let rer := reg_exp_record i m s u capturingGroupsCount in
     (*>> 19. Set obj.[[RegExpRecord]] to rer. <<*)
     let obj_RegExpRecord := rer in
     (*>> 20. Set obj.[[RegExpMatcher]] to CompilePattern of parseResult with argument rer. <<*)
     let! obj_RegExpMatcher =<< Semantics.compilePattern parseResult rer in
-    (*>> 21. Perform ? Set(obj, "lastIndex", +0𝔽, true) <<*)
+    (*>> 21. Perform ? Set(obj, "lastIndex", +0𝔽, true). <<*)
     let obj_lastIndex := 0%Z in
+    (*>> 22. Return obj. <<*)
     Success (reg_exp_instance obj_originalSource obj_originalFlags obj_RegExpRecord obj_RegExpMatcher obj_lastIndex).
 End Initialization.
 
@@ -135,9 +143,9 @@ End Initialization.
 <<*)
 Module MatchRecord.
   Record type := mk {
-    (*>> [[StartIndex]] 	a non-negative integer <<*)
+    (* + [[StartIndex]] 	a non-negative integer + *)
     startIndex: non_neg_integer;
-    (*>> [[EndIndex]] 	an integer ≥ [[StartIndex]] <<*)
+    (* + [[EndIndex]] 	an integer ≥ [[StartIndex]] + *)
     endIndex: non_neg_integer;
   }.
 
@@ -572,6 +580,12 @@ Section API.
       completion containing either an Object or null, or a throw completion. It performs the following steps when called:
   <<*)
   Definition regExpExec (R: RegExpInstance) (S: String): Result.Result ExecResult MatchError :=
+    (*>> [OMITTED] 1. Let exec be ? Get(R, "exec").
+         2.IfIsCallable(exec) istrue, then
+           a. Let result be ? Call(exec, R, « S »).
+           b. If result is not an Object and result is not null, throw a TypeError exception.
+           c. Return result.
+         3. Perform ? RequireInternalSlot(R, [[RegExpMatcher]]). <<*)
     (*>> 4. Return ? RegExpBuiltinExec(R, S). <<*)
     regExpBuiltinExec R S.
 
@@ -642,7 +656,7 @@ Section API.
                          (*>> c. Perform ? Set(rx, "lastIndex", 𝔽(nextIndex), true). <<*)
                          Success (RegExpInstance.setLastIndex rx (BinInt.Z.of_nat nextIndex))
                        else Success rx in
-                  (* 4. Set n to n + 1. *)
+                  (*>> 4. Set n to n + 1. <<*)
                   let n:= n + 1 in
                   repeatloop A rx fuel' n 
               end
@@ -668,7 +682,7 @@ Section API.
     (*>> 5. If SameValue(previousLastIndex, +0𝔽) is false, then <<*)
     let rx :=
       if (BinInt.Z.eqb previousLastIndex 0%Z) == false
-        (* a. Perform ? Set(rx, "lastIndex", +0𝔽, true). *)
+        (*>> a. Perform ? Set(rx, "lastIndex", +0𝔽, true). <<*)
         then RegExpInstance.setLastIndex rx 0%Z
         else rx
     in
@@ -682,7 +696,7 @@ Section API.
     (*>> 8. If SameValue(currentLastIndex, previousLastIndex) is false, then <<*)
     let rx :=
       if (BinInt.Z.eqb (NonNegInt.to_int currentLastIndex) previousLastIndex) == false
-        (* a. Perform ? Set(rx, "lastIndex", previousLastIndex, true). *)
+        (*>> a. Perform ? Set(rx, "lastIndex", previousLastIndex, true). <<*)
         then RegExpInstance.setLastIndex rx previousLastIndex
         else rx
     in
@@ -723,6 +737,7 @@ Section API.
   <<*)
   Definition createRegExpStringIterator (R: RegExpInstance) (S: String) (global: bool): Result.Result (list ExecArrayExotic * RegExpInstance) MatchError :=
     (*>> 1. Let closure be a new Abstract Closure with no parameters that captures R, S, global, and fullUnicode and performs the following steps when called: <<*)
+    (*>> a. Repeat, <<*)
     let closure (R:RegExpInstance): Result.Result (option ExecArrayExotic * RegExpInstance) MatchError :=
       (*>> i. Let match be ? RegExpExec(R, S). <<*)
       let! match_result =<< regExpExec R S in
@@ -748,7 +763,7 @@ Section API.
                      let! thisIndexnat =<< NonNegInt.from_int thisIndex in
                      (*>> 2. Let nextIndex be AdvanceStringIndex(S, thisIndex, fullUnicode). <<*)
                      let nextIndex := String.advanceStringIndex S thisIndexnat in
-                     (*>> 3. Perform ? Set(R, "lastIndex", 𝔽(nextIndex), true) <<*)
+                     (*>> 3. Perform ? Set(R, "lastIndex", 𝔽(nextIndex), true). <<*)
                      Success (RegExpInstance.setLastIndex rx (BinInt.Z.of_nat nextIndex))
                    else Success rx in
               (*>> vi. Perform ? GeneratorYield(CreateIterResultObject(match, false)). <<*)

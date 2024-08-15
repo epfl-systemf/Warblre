@@ -5,7 +5,11 @@ Import Result.Notations.
 Import Result.Notations.Boolean.
 Import Coercions.
 Local Open Scope result_flow.
-
+(** >>
+  WILDCARD Sections
+  ["22.2.2.7.3","22.2.2.9.3","22.2.2.9.4"]
+<<*)
+(* + 22.2.2.7.3 Canonicalize is not implemented here because it is a parameter of the mechanization (see API.v) and 22.2.2.9.{3|4} are also unicode related. + *)
 (** >>
     22.2.2 Pattern Semantics
 
@@ -55,7 +59,7 @@ Module Semantics. Section main.
 
   (** >> QuantifierPrefix :: + <<*)
   | Plus =>
-      (*>> 1. Return the Record { [[Min]]: 1, [[Max]]: +∞ } <<*)
+      (*>> 1. Return the Record { [[Min]]: 1, [[Max]]: +∞ }. <<*)
       compiled_quantifier_prefix 1 +∞
 
   (** >> QuantifierPrefix :: ? <<*)
@@ -66,13 +70,13 @@ Module Semantics. Section main.
   (** >> QuantifierPrefix :: { DecimalDigits } <<*)
   | RepExact i =>
       (*>> 1. Let i be the MV of DecimalDigits (see 12.9.3). <<*)
-      (*>> 2. Return the Record { [[Min]]: i, [[Max]]: i } <<*)
+      (*>> 2. Return the Record { [[Min]]: i, [[Max]]: i }. <<*)
       compiled_quantifier_prefix i i
 
-  (** >> QuantifierPrefix :: { DecimalDigits , } <<*)
+  (** >> QuantifierPrefix :: { DecimalDigits ,} <<*)
   | RepPartialRange i =>
       (*>> 1. Let i be the MV of DecimalDigits. <<*)
-      (*>> 2. Return the Record { [[Min]]: i, [[Max]]: +∞ } <<*)
+      (*>> 2. Return the Record { [[Min]]: i, [[Max]]: +∞ }. <<*)
       compiled_quantifier_prefix i +∞
 
   (** >> QuantifierPrefix :: { DecimalDigits , DecimalDigits } <<*)
@@ -193,7 +197,7 @@ Module Semantics. Section main.
       let re := CaptureRange.endIndex r in
       (*>> j. Let len be re - rs. <<*)
       let len := (re - rs)%Z in
-      (*>> k. If direction = forward, let f be e + len. <<*)
+      (*>> k. If direction is forward, let f be e + len. <<*)
       let f := if direction == forward
         then (e + len)%Z
       (*>> l. Else, let f be e - len. <<*)
@@ -269,7 +273,16 @@ Module Semantics. Section main.
       The syntax-directed operation CompileToCharSet takes argument rer (a RegExp Record) and returns a CharSet.
       It is defined piecewise over the following productions:
   <<*)
+  (** >>
+    WILDCARD "ClassAtom"
+  <<*)
 
+  (** >>
+    WILDCARD "UnicodePropertyValueExpression"
+  <<*)
+  (* + ClassAtom is not matched because there is only the case "-" which is not handled specifically since there are no distinctions of having or not dashes.
+       Unicode-related properties is also not handled in the project+ *)
+       
   (* + compileToCharSet_ClassAtom can do at most one recursive call.
       Rather than relying on complex or cumbersome mechanisms to implement this recursion, we implement this function
       in two different functions, where one of them is not allowed any recursive call, and the other can only call 
@@ -278,9 +291,9 @@ Module Semantics. Section main.
 
   (* + Part without recursion +*)
   Definition compileToCharSet_ClassAtom_0 (self: ClassAtom) (rer: RegExpRecord) : Result CharSet CompileError := match self with
-  (** >> ClassAtomNoDash :: SourceCharacter <<*)
+  (** >> ClassAtomNoDash :: SourceCharacter but not one of \ or ] or - <<*)
   | SourceCharacter chr =>
-      (*>> Return the CharSet containing the character matched by SourceCharacter. <<*)
+      (*>> 1. Return the CharSet containing the character matched by SourceCharacter. <<*)
       CharSet.singleton chr
 
   (** >> ClassEscape ::
@@ -340,13 +353,13 @@ Module Semantics. Section main.
 
   (** >> CharacterClassEscape :: W <<*)
   | ClassEsc (CCharacterClassEsc esc_W) =>
-      (*>> 1. Return the CharSet containing all characters not in the CharSet returned by CharacterClassEscape :: p . <<*)
+      (*>> 1. Return the CharSet containing all characters not in the CharSet returned by CharacterClassEscape :: w . <<*)
       let! w_set =<< compileToCharSet_ClassAtom_0 (ClassEsc (CCharacterClassEsc esc_w)) rer in
       CharSet.remove_all Characters.all w_set
 
   (** >> CharacterClassEscape :: P{ UnicodePropertyValueExpression } <<*)
   | ClassEsc (CCharacterClassEsc (UnicodePropNeg p)) =>
-      (* 1. Return the CharSet containing all Unicode code points not included in CompileToCharSet of UnicodePropertyValueExpression with argument rer.*)
+      (*>> 1. Return the CharSet containing all Unicode code points not included in CompileToCharSet of UnicodePropertyValueExpression with argument rer. <<*)
       let! p_set =<< compileToCharSet_ClassAtom_0 (ClassEsc (CCharacterClassEsc (UnicodeProp p))) rer in
       CharSet.remove_all Characters.all p_set
 
@@ -359,7 +372,13 @@ Module Semantics. Section main.
       (*>> 1. Return the empty CharSet. <<*)
       CharSet.empty
 
-  (** >> ClassRanges :: ClassAtom ClassRanges <<*)
+  (** >> [OMITTED] NonemptyClassRangesNoDash :: ClassAtomNoDash NonemptyClassRangesNoDash <<*)
+      (*>> 1. Let A be CompileToCharSet of ClassAtomNoDash with argument rer. <<*)
+      (*>> 2. Let B be CompileToCharSet of NonemptyClassRangesNoDash with argument rer. <<*)
+      (*>> 3. Return the union of CharSets A and B. <<*)
+
+
+  (** >> NonemptyClassRanges :: ClassAtom NonemptyClassRangesNoDash <<*)
   | ClassAtomCR ca cr =>
       (*>> 1. Let A be CompileToCharSet of ClassAtom with argument rer. <<*)
       let! A =<< compileToCharSet_ClassAtom ca rer in
@@ -368,18 +387,26 @@ Module Semantics. Section main.
       (*>> 3. Return the union of CharSets A and B. <<*)
       CharSet.union A B
 
-  (** >> ClassRanges :: ClassAtom - ClassAtom ClassRanges <<*)
+  (** >> NonemptyClassRangesNoDash :: ClassAtomNoDash - ClassAtom ClassRanges <<*)
+      (*>> 1. Let A be CompileToCharSet of ClassAtomNoDash with argument rer. <<*)
+      (*>> 2. Let B be CompileToCharSet of ClassAtom with argument rer. <<*)
+      (*>> 3. Let C be CompileToCharSet of ClassRanges with argument rer. <<*)
+      (*>> 4. Let D be CharacterRange(A, B). <<*)
+      (*>> 5. Return the union of D and C. <<*)
+
+
+  (** >> NonemptyClassRanges :: ClassAtom - ClassAtom ClassRanges <<*)
   | RangeCR l h t =>
       (*>> 1. Let A be CompileToCharSet of the first ClassAtom with argument rer. <<*)
       let! A =<< compileToCharSet_ClassAtom l rer in
       (*>> 2. Let B be CompileToCharSet of the second ClassAtom with argument rer. <<*)
       let! B =<< compileToCharSet_ClassAtom h rer in
-      (*>> 3. Let Character be CompileToCharSet of ClassRanges with argument rer. <<*)
-      let! Character =<< compileToCharSet t rer in
+      (*>> 3. Let C be CompileToCharSet of ClassRanges with argument rer. <<*)
+      let! C =<< compileToCharSet t rer in
       (*>> 4. Let D be CharacterRange(A, B). <<*)
       let! D =<< characterRange A B in
-      (*>> 5. Return the union of D and Character. <<*)
-      CharSet.union D Character
+      (*>> 5. Return the union of D and C. <<*)
+      CharSet.union D C
   end.
 
   (** >>
@@ -403,7 +430,7 @@ Module Semantics. Section main.
       let! a =<< compileToCharSet crs rer in
       (*>> 2. Return the Record { [[CharSet]]: A, [[Invert]]: false }. <<*)
       Success (compiled_character_class a false)
-  (* >>  CharacterClass :: [^ ClassRanges ] <<*)
+  (** >>  CharacterClass :: [^ ClassRanges ] <<*)
   | InvertedCC crs =>
       (*>> 1. Let A be CompileToCharSet of ClassRanges with argument rer. <<*)
       let! a =<< compileToCharSet crs rer in
@@ -489,7 +516,7 @@ Module Semantics. Section main.
       (*>> b. If z is not failure, return z. <<*)
       if z != failure
         then z else
-      (* c. Return m(xr, d).*)
+      (*>> c. Return m(xr, d). <<*)
       m xr d
     else
     (*>> 10. Let z be m(xr, d). <<*)
@@ -568,7 +595,7 @@ Module Semantics. Section main.
         (*>> b. Return a new Matcher with parameters (x, c) that captures m1 and m2 and performs the following steps when called: <<*)
         (fun (s: MatchState) (c: MatcherContinuation) =>
           (*>> i. Assert: x is a MatchState. <<*)
-          (*>> ii. Assert: x is a MatchState. <<*)
+          (*>> ii. Assert: c is a MatcherContinuation. <<*)
           (*>> iii. Let d be a new MatcherContinuation with parameters (y) that captures c and m1 and performs the following steps when called: <<*)
           let d: MatcherContinuation := fun (s: MatchState) =>
             (*>> 1. Assert: y is a MatchState. <<*)
@@ -578,8 +605,31 @@ Module Semantics. Section main.
           (*>> iv. Return m2(x, d). <<*)
           m2 s d): Matcher
 
-  (** >> Term :: Assertion <<*)
+  (** >> Term :: Atom Quantifier <<*)
+  | Quantified r qu =>
+      (*>> 1. Let m be CompileAtom of Atom with arguments rer and direction. <<*)
+      let! m =<< compileSubPattern r  (Quantified_inner qu :: ctx) rer direction in
+      (*>> 2. Let q be CompileQuantifier of Quantifier. <<*)
+      let q := compileQuantifier qu in
+      (*>> 3. Assert: q.[[Min]] ≤ q.[[Max]]. <<*)
+      assert! (CompiledQuantifier_min q <=? CompiledQuantifier_max q)%NoI;
+      (*>> 4. Let parenIndex be CountLeftCapturingParensBefore(Term). <<*)
+      let parenIndex := countLeftCapturingParensBefore r ctx in
+      (*>> 5. Let parenCount be CountLeftCapturingParensWithin(Atom). <<*)
+      let parenCount := countLeftCapturingParensWithin r (Quantified_inner qu :: ctx) in
+      (*>> 6. Return a new Matcher with parameters (x, c) that captures m, q, parenIndex, and parenCount and performs the following steps when called: <<*)
+      (fun (x: MatchState) (c: MatcherContinuation) =>
+        (*>> a. Assert: x is a MatchState. <<*)
+        (*>> b. Assert: c is a MatcherContinuation. <<*)
+        (*>> c. Return RepeatMatcher(m, q.[[Min]], q.[[Max]], q.[[Greedy]], x, c, parenIndex, parenCount). <<*)
+        repeatMatcher m (CompiledQuantifier_min q) (CompiledQuantifier_max q) (CompiledQuantifier_greedy q) x c parenIndex parenCount): Matcher
+
+  (** >> [OMITTED] Term :: Assertion <<*)
   (*>> 1. Return CompileAssertion of Assertion with argument rer. <<*)
+
+  (** >> [OMITTED] Term :: Atom <<*)
+  (*>> 1. Return CompileAtom of Atom with arguments rer and direction. <<*)
+
     (** >>
         22.2.2.4 Runtime Semantics: CompileAssertion
 
@@ -690,13 +740,13 @@ Module Semantics. Section main.
           destruct! (Some y) <- r in
           (*>> g. Let cap be y's captures List. <<*)
           let cap := MatchState.captures y in
-          (*>> h. Let cap be y's captures List. <<*)
+          (*>> h. Let Input be x's input. <<*)
           let input := MatchState.input x in
-          (*>> i. Let cap be y's captures List. <<*)
+          (*>> i. Let xe be x's endIndex. <<*)
           let xe := MatchState.endIndex x in
           (*>> j. Let z be the MatchState (Input, xe, cap). <<*)
           let z := match_state input xe cap in
-          (*>> k. Let z be the MatchState (Input, xe, cap). <<*)
+          (*>> k. Return c(z). <<*)
           c z): Matcher
 
     (** >> Assertion :: (?! Disjunction ) <<*)
@@ -719,6 +769,7 @@ Module Semantics. Section main.
           if r != failure then
             failure
           else
+          (*>> f. Return c(x). <<*)
           c x): Matcher
 
     (** >> Assertion :: (?<= Disjunction ) <<*)
@@ -745,13 +796,13 @@ Module Semantics. Section main.
           destruct! (Some y) <- r in
           (*>> g. Let cap be y's captures List. <<*)
           let cap := MatchState.captures y in
-          (*>> h. Let cap be y's captures List. <<*)
+          (*>> h. Let Input be x's input. <<*)
           let input := MatchState.input x in
-          (*>> i. Let cap be y's captures List. <<*)
+          (*>> i. Let xe be x's endIndex. <<*)
           let xe := MatchState.endIndex x in
           (*>> j. Let z be the MatchState (Input, xe, cap). <<*)
           let z := match_state input xe cap in
-          (*>> k. Let z be the MatchState (Input, xe, cap). <<*)
+          (*>> k. Return c(z). <<*)
           c z): Matcher
 
     (** >> Assertion :: (?<! Disjunction ) <<*)
@@ -774,10 +825,9 @@ Module Semantics. Section main.
           if r != failure then
             failure
           else
+          (*>> f. Return c(x). <<*)
           c x): Matcher
 
-  (** >> Term :: Atom <<*)
-  (*>> 1. Return CompileAtom of Atom with arguments rer and direction. <<*)
     (** >> 
         22.2.2.7 Runtime Semantics: CompileAtom
 
@@ -785,6 +835,12 @@ Module Semantics. Section main.
       and returns a Matcher.
       It is defined piecewise over the following productions:
     <<*)
+
+    (** >> 
+        WILDCARD "Atom :: (?: Disjunction )"
+    <<*)
+    (* + Non-capturing groups are not implemented + *)
+
     (** >> Atom :: PatternCharacter <<*)
     | Char c =>
         (*>> 1. Let ch be the character matched by PatternCharacter. <<*)
@@ -866,7 +922,7 @@ Module Semantics. Section main.
           let n := de in
           (*>> 2. Assert: n ≤ rer.[[CapturingGroupsCount]]. <<*)
           assert! (n <=? RegExpRecord.capturingGroupsCount rer)%nat;
-          (* 3. Return BackreferenceMatcher(rer, n, direction).*)
+          (*>> 3. Return BackreferenceMatcher(rer, n, direction). <<*)
           backreferenceMatcher rer n direction
 
       (** >> AtomEscape :: CharacterEscape <<*)
@@ -901,25 +957,6 @@ Module Semantics. Section main.
           let! parenIndex =<< NonNegInt.to_positive parenIndex in
           (*>> 5. Return BackreferenceMatcher(rer, parenIndex, direction). <<*)
           backreferenceMatcher rer parenIndex direction
-
-  (** >> Term :: Atom Quantifier <<*)
-  | Quantified r qu =>
-      (*>> 1. Let m be CompileAtom of Atom with arguments rer and direction. <<*)
-      let! m =<< compileSubPattern r  (Quantified_inner qu :: ctx) rer direction in
-      (*>> 2. Let q be CompileQuantifier of Quantifier. <<*)
-      let q := compileQuantifier qu in
-      (*>> 3. Assert: q.[[Min]] ≤ q.[[Max]]. <<*)
-      assert! (CompiledQuantifier_min q <=? CompiledQuantifier_max q)%NoI;
-      (*>> 4. Let parenIndex be CountLeftCapturingParensBefore(Term). <<*)
-      let parenIndex := countLeftCapturingParensBefore r ctx in
-      (*>> 5. Let parenCount be CountLeftCapturingParensWithin(Atom). <<*)
-      let parenCount := countLeftCapturingParensWithin r (Quantified_inner qu :: ctx) in
-      (*>> 6. Return a new Matcher with parameters (x, c) that captures m, q, parenIndex, and parenCount and performs the following steps when called: <<*)
-      (fun (x: MatchState) (c: MatcherContinuation) =>
-        (*>> a. Assert: x is a MatchState. <<*)
-        (*>> b. Assert: c is a MatcherContinuation. <<*)
-        (*>> c. Return RepeatMatcher(m, q.[[Min]], q.[[Max]], q.[[Greedy]], x, c, parenIndex, parenCount). <<*)
-        repeatMatcher m (CompiledQuantifier_min q) (CompiledQuantifier_max q) (CompiledQuantifier_greedy q) x c parenIndex parenCount): Matcher
   end.
 
   (** >>

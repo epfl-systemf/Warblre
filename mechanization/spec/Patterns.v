@@ -1,11 +1,14 @@
 From Coq Require Import List Program.Equality PeanoNat.
 From Warblre Require Import List Result Typeclasses Notation Numeric Characters Parameters.
-
+(** >>
+    WILDCARD Sections
+    ["22.2","22.2.1"]
+<<*)
 (** >>
     22.2.1 Patterns
 
     The RegExp constructor applies the following grammar to the input pattern String. An error occurs if the
-    grammar cannot interpret the String as an expansion of Pattern
+    grammar cannot interpret the String as an expansion of Pattern.
 <<*)
 (* + 
     Note that our representation of Regexes differs from the the specification in some regards:

@@ -7,6 +7,9 @@ From Warblre Require Import Numeric.
 
     It has the following fields:
 <<*)
+(** >>
+  WILDCARD PARSING_FILE_END
+<<*)
 Module RegExpRecord.
   Record type := make {
     (*>> [[IgnoreCase]] <<*)

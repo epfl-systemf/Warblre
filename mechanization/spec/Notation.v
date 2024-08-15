@@ -1,5 +1,9 @@
 From Coq Require Import ZArith List.
 From Warblre Require Import Typeclasses Result Numeric Characters Errors Parameters List.
+(** >>
+    WILDCARD Sections
+      ["22.2.2.1"]
+<<*)
 
 (** >>
     22.2.2.1 Notation

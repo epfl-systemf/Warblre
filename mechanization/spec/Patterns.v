@@ -4,8 +4,9 @@ From Warblre Require Import List Result Typeclasses Notation Numeric Characters 
     WILDCARD Sections
     ["22.2","22.2.1"]
 <<*)
-(* + The section 22.2 is not matched because it is just the title, and the section 22.2.1 is not matched because it is also missing a lot 
-     of useless sections, f.i. related to Unicode + *)
+(* + Section 22.2 only contains the Section title. 
+ Section 22.2.1 differs from the ECMAScript specification because some Unicode definitions have been parameterized in the mechanization. + *)
+
 (** >>
     22.2.1 Patterns
 

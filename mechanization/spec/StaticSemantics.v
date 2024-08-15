@@ -121,8 +121,7 @@ Section StaticSemantics.
   | ClassEsc (CCharacterEsc (IdentityEsc chr)) =>
       (*>> 1. Let ch be the code point matched by IdentityEscape. <<*)
       let ch := chr in
-     ERROR Missing Entries
- (*>> 2. Return the numeric value of ch. <<*)
+      (*>> 2. Return the numeric value of ch. <<*)
       Character.numeric_value ch
 
   (** >> RegExpUnicodeEscapeSequence :: u HexLeadSurrogate \u HexTrailSurrogate <<*)

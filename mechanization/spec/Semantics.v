@@ -9,8 +9,7 @@ Local Open Scope result_flow.
   WILDCARD Sections
   ["22.2.2.7.3","22.2.2.9.3","22.2.2.9.4"]
 <<*)
-(* + 22.2.2.7.3 Canonicalize is not matchde because it is a paramtere of the mechanization (see API.v) and 22.2.2.9.{3|4} are unicode 
-     related, which is not treated in the project. + *)
+(* + 22.2.2.7.3 Canonicalize is not implemented here because it is a parameter of the mechanization (see API.v) and 22.2.2.9.{3|4} are also unicode related. + *)
 (** >>
     22.2.2 Pattern Semantics
 

@@ -9,7 +9,8 @@ Local Open Scope result_flow.
   WILDCARD Sections
   ["22.2.2.7.3","22.2.2.9.3","22.2.2.9.4"]
 <<*)
-
+(* + 22.2.2.7.3 Canonicalize is not matchde because it is a paramtere of the mechanization (see API.v) and 22.2.2.9.{3|4} are unicode 
+     related, which is not treated in the project. + *)
 (** >>
     22.2.2 Pattern Semantics
 
@@ -280,7 +281,9 @@ Module Semantics. Section main.
   (** >>
     WILDCARD "UnicodePropertyValueExpression"
   <<*)
-
+  (* + ClassAtom is not matched because there is only the case "-" which is not handled specifically since there are no distinctions of having or not dashes.
+       Unicode-related properties is also not handled in the project+ *)
+       
   (* + compileToCharSet_ClassAtom can do at most one recursive call.
       Rather than relying on complex or cumbersome mechanisms to implement this recursion, we implement this function
       in two different functions, where one of them is not allowed any recursive call, and the other can only call 

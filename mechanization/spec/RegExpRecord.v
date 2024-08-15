@@ -10,6 +10,8 @@ From Warblre Require Import Numeric.
 (** >>
   WILDCARD PARSING_FILE_END
 <<*)
+
+(* + We are not parsing the end of the file since it only a part of a bigger table in the ECMAScript. The comments are still left in place. + *)
 Module RegExpRecord.
   Record type := make {
     (*>> [[IgnoreCase]] <<*)

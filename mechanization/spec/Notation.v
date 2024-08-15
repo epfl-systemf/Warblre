@@ -4,7 +4,7 @@ From Warblre Require Import Typeclasses Result Numeric Characters Errors Paramet
     WILDCARD Sections
       ["22.2.2.1"]
 <<*)
-(* + The section 22.2.2.1 does not match its the ECMASCript specification as is because of its unique format. + *)
+(* + The section 22.2.2.1 does not match the ECMASCript specification as is because of its unique format. + *)
 (** >>
     22.2.2.1 Notation
 

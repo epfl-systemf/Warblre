@@ -17,7 +17,7 @@ def main():
     a = Aligner()
     result = a.align(coq_parsed_page.entries, ecma_parsed_page_v14.entries)
     text_result = result.to_text()
-    print(text_result)
+    print(text_result, end="")
 
 
 if __name__ == "__main__":

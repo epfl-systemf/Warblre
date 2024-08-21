@@ -106,4 +106,9 @@ jobs:
               echo "::group::Uninstall Warblre"
               opam remove --confirm-level=unsafe-yes .
               echo "::endgroup::"
+      - name: Run auto checker
+        run: |
+              cd specification_check
+              python3 main.py > actual_text_output.txt
+              diff -u expected_text_output.txt actual_text_output.txt
               

@@ -14,3 +14,6 @@ _build/
 
 # Npm
 node_modules
+
+# python
+*/__pycache__

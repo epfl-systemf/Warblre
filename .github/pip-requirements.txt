@@ -1,1 +1,2 @@
 alectryon == 1.4.0
+git+https://github.com/epfl-systemf/SpecMerger

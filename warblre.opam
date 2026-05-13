@@ -4,8 +4,8 @@ synopsis: "A mechanization of the specification of ECMAScript regexes"
 maintainer: ["Noé De Santo" "Aurèle Barrière"]
 authors: ["Noé De Santo" "Aurèle Barrière" "Clément Pit-Claudel"]
 license: "BSD-3-Clause"
-homepage: "https://github.com/epfl-systemf/warblre"
-bug-reports: "https://github.com/epfl-systemf/warblre/issues"
+homepage: "https://github.com/LindenRegex/Warblre"
+bug-reports: "https://github.com/LindenRegex/Warblre/issues"
 depends: [
   "dune" {>= "3.23"}
   "rocq-stdlib" {>= "9.0.0"}

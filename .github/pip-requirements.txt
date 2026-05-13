@@ -1,4 +1,4 @@
 alectryon @ git+https://github.com/cpitclaudel/alectryon@a02a99c75c4166efc8812a600e8cbf4588424c0f
-git+https://github.com/epfl-systemf/SpecMerger
+git+https://github.com/LindenRegex/SpecMerger
 requests == 2.33.0
 beautifulsoup4 == 4.12.3

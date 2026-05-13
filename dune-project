@@ -8,10 +8,10 @@
 (using melange 0.1)
 (using directory-targets 0.1)
 
-(homepage "https://github.com/epfl-systemf/warblre")
+(homepage "https://github.com/LindenRegex/Warblre")
 (authors "Noé De Santo" "Aurèle Barrière" "Clément Pit-Claudel")
 (maintainers "Noé De Santo" "Aurèle Barrière")
-(bug_reports "https://github.com/epfl-systemf/warblre/issues")
+(bug_reports "https://github.com/LindenRegex/Warblre/issues")
 (license BSD-3-Clause)
 
 (package

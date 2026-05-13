@@ -1,0 +1,31 @@
+name: CD
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions: write-all
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install OCaml
+        uses: ocaml/setup-ocaml@v3
+        with:
+          ocaml-compiler: 5.2.1
+
+      - name: Install opam-publish
+        run: opam install -y opam-publish=3.0.0
+
+      - name: Publish on rocq-released
+        run: |
+          TAG="${{ github.ref_name }}"
+          VERSION="${TAG#v}"
+          opam publish --no-confirmation --no-browser \
+            --packages-directory=released/packages --repo rocq-prover/opam \
+            --token=${{ secrets.GITHUB_TOKEN }} \
+            --tag $TAG -v $VERSION LindenRegex/Warblre

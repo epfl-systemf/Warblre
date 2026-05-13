@@ -18,7 +18,6 @@
  (name warblre)
  (synopsis "A mechanization of the specification of ECMAScript regexes")
  (depends
-  (ocaml (= 4.14.2))
   (rocq-stdlib (>= 9.0.0))
   (rocq-core (>= 9.0.0))))
 
@@ -26,6 +25,7 @@
  (name warblre-engines)
  (synopsis "Regex engines extracted from Warblre")
  (depends
+  (ocaml (= 4.14.2))
   (warblre (= :version))
   (integers (>= 0.7.0))
   (uucp (>= 15.0.0))

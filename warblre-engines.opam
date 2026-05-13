@@ -8,6 +8,7 @@ homepage: "https://github.com/epfl-systemf/warblre"
 bug-reports: "https://github.com/epfl-systemf/warblre/issues"
 depends: [
   "dune" {>= "3.23"}
+  "ocaml" {= "4.14.2"}
   "warblre" {= version}
   "integers" {>= "0.7.0"}
   "uucp" {>= "15.0.0"}

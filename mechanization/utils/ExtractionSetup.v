@@ -1,19 +1,10 @@
-(** Extract from Rocq to OCaml for Melange. 
-
-    We will use these extraction directives twice:
-    - Once for "regular" OCaml;
-    - Once for OCaml aiming at being compiled by Melange;
-    The key difference between these two is that the type BigInt
-    is itself instantiated in two different manners, using
-    zarith and Js.BigInt respectively.
-*)
+(** Setup extraction from Rocq to OCaml for Melange. *)
 
 From Warblre Require Import Result Base API.
 From Stdlib Require Import ZArith.
 
 From Stdlib Require Extraction.
 Extraction Language OCaml.
-Set Extraction Output Directory ".".
 
 From Stdlib Require extraction.ExtrOcamlBasic.
 From Stdlib Require extraction.ExtrOcamlString.
@@ -105,5 +96,3 @@ Extract Inductive Result.Result =>
     "Interop.result"
     [ "Interop.success" "Interop.error" ]
     "(fun fS _ v -> fS v )".
-
-Extraction "Extracted.ml" API.

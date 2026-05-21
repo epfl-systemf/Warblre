@@ -9,7 +9,7 @@ Responsibilities:
    - Extract the lemma statement and context
    - Find similar proven cases to use as templates
    - Synthesize a proof script following established patterns
-   - Verify the proof using rocq-mcp / dune build
+   - Verify the proof using vsrocq-mcp / dune build
    - Apply the fix if successful
 3. Handle complex proofs by:
    - Using structural induction patterns

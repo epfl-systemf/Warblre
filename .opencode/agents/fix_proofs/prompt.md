@@ -12,18 +12,18 @@ You are a **proof synthesis specialist**. Your job is to fill in admitted proofs
 
 ### MCP Servers (Real-time Proof State)
 
-You can access proof states and project context through MCP tools from the **rocq-mcp** server :
+You can access proof states and project context through MCP tools from the **vsrocq-mcp** server :
 
-**rocq-mcp** provides the following tools:
+**vsrocq-mcp** provides the following tools:
 
-- **`rocq_compile_file`** - Batch-compile a `.v` file via `coqc`. On error, returns error positions, `state_capture_status`, and if `pet` is available, a reusable `state_id` and goals at the error position.
-- **`rocq_check`** - Run proof commands with cached imports — fast iterative checking. On error, returns `last_valid_state_id` for recovery.
-- **`rocq_step_multi`** - Try multiple tactics at once (max 20) — find what works without guessing. Does not advance the state; commit the winner with `rocq_check`.
-- **`rocq_start`** - Start an interactive proof session by theorem name, position, or from imports. Returns a `state_id` for use with `rocq_check` and `rocq_step_multi`.
-- **`rocq_query`** - Search the Rocq environment — find lemmas, check types, inspect definitions. Use `preamble` (import commands) or `file` context.
+- **`rocq_compile_file`** - Batch-compile a `.v` file via `coqc`. On error, returns error positions, `state_capture_status`, and a hint for fixing.
+- **`rocq_start`** - Start an interactive proof session by theorem name, position, or from preamble. Returns a `state_id` for use with rocq_check and rocq_step_multi.
+- **`rocq_check`** - Execute tactics from a proof state. On error, returns goals_at_failure and last_valid_state_id for recovery.
+- **`rocq_step_multi`** - Try multiple tactics from the same state (branching exploration). Commit the winner with rocq_check.
+- **`rocq_query`** - Search the Rocq environment — find lemmas, check types, inspect definitions. Use `preamble` or `file` context.
 - **`rocq_toc`** - Get the structure of a `.v` file: all definitions, lemmas, theorems, and sections as a hierarchical outline.
 - **`rocq_assumptions`** - Check what axioms a theorem depends on.
-- **`rocq_verify`** - Verify that a proof actually proves the original statement (catches `Admitted`, `Abort`, axioms, and mismatches).
+- **`rocq_verify`** - Verify that a proof actually proves the original statement (catches Admitted, Abort, axioms).
 
 ### Traditional Tools
 
@@ -90,9 +90,24 @@ For each proof you write:
    - Check for diagnostics/errors in the result
 
 2. **Use interactive tools for failed proofs**:
-   - Call `rocq_start` with `file` and `theorem` to get proof state
-   - Use `rocq_step_multi` to try tactics like `intros`, `simpl`, `auto`, `reflexivity`
-   - Commit working tactics with `rocq_check`
+    - Call `rocq_start` with `file` and `theorem` to get proof state
+    - Use `rocq_step_multi` to try tactics like `intros`, `simpl`, `auto`, `reflexivity`
+    - Commit working tactics with `rocq_check`
+    - If stuck, examine goals with what coqtop returns
+
+### Phase 4: Verification
+
+For each proof you write:
+
+1. **Check syntax** using `rocq_compile_file`:
+   - Compile the file: call `rocq_compile_file` with the file path and workspace
+   - Check for diagnostics/errors in the result
+
+2. **Use interactive tools for failed proofs**:
+    - Call `rocq_start` with `file` and `theorem` to get proof state
+    - Use `rocq_step_multi` to try tactics like `intros`, `simpl`, `auto`, `reflexivity`
+    - Commit working tactics with `rocq_check`
+    - If stuck, examine goals with what coqtop returns
 
 3. **Verify with dune**:
    ```bash
@@ -104,6 +119,11 @@ For each proof you write:
    - Adjust tactics (try `auto` vs `eauto`, add `intros`, etc.)
    - Use `try` or `||` combinators for robustness
    - Leave `Admitted` if truly stuck and move on
+
+5. **Verify assumptions** (important for correctness):
+   - Call `rocq_assumptions(theorem="my_theorem", file="mechanization/props/MyFile.v")`
+   - Check that the verdict is "closed" (no axioms) or "standard_only"
+   - If verdict is "suspicious", review the axioms used
 
 ---
 
@@ -134,7 +154,7 @@ For each file:
 4. Identify the new cases
 5. Write the proof following the pattern using `edit`
 6. Verify with `rocq_compile_file` or `dune build`
-7. Fix any errors using `rocq_start` + `rocq_step_multi`
+7. Fix any errors by reading the error output and examining the file context, then re-compiling
 8. Move to next proof
 
 ---

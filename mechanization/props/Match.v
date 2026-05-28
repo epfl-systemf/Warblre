@@ -1,5 +1,5 @@
 From Stdlib Require Import PeanoNat ZArith Bool Lia Program.Equality List.
-From Warblre Require Import List Tactics Retrieve Specialize Focus Result Base Errors Patterns Node NodeProps StaticSemantics Notation Semantics Definitions EarlyErrors Compile RegExpRecord.
+From Warblre Require Import List Tactics Retrieve Specialize Focus Result Base Notations Errors Patterns Node NodeProps StaticSemantics Notation Semantics Definitions EarlyErrors Compile RegExpRecord.
 
 Import Result.Notations.
 Import Semantics.
@@ -58,7 +58,7 @@ Module Match.
                                       let e := fresh c "_end" in
                                       destruct c as [ s e ]
         | [ VCs : List.Forall.Forall ?c (Valid ?str),
-            Indexed : (?c [?n]) = Success (Some (capture_range ?s ?e))
+            Indexed : (?c.[?n]) = Success (Some (capture_range ?s ?e))
           |- _ ] => is_var c; lazymatch goal with
                     | [ _: (s <= e)%Z |- _ ] => fail
                     | [ |- _ ] => let H := fresh "VCR_" s "_" e in

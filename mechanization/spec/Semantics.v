@@ -1,5 +1,5 @@
 From Stdlib Require Import PeanoNat ZArith Bool Lia Program.Equality List Program.Wf.
-From Warblre Require Import RegExpRecord Tactics Focus Result Base Patterns Errors StaticSemantics Node Notation List Typeclasses.
+From Warblre Require Import RegExpRecord Tactics Focus Result Base Notations Patterns Errors StaticSemantics Node Notation List Typeclasses.
 
 Import Result.Notations.
 Import Result.Notations.Boolean.
@@ -148,7 +148,7 @@ Module Semantics. Section main.
       (*>> i. Let index be min(e, f). <<*)
       let index := Z.min e f in
       (*>> j. Let ch be the character Input[index]. <<*)
-      let! chr =<< input[ index ] in
+      let! chr =<< input.[index] in
       (*>> k. Let cc be Canonicalize(rer, ch). <<*)
       let cc := Character.canonicalize rer chr in
       (*>> l. If there exists a member a of A such that Canonicalize(rer, a) is cc, let found be true. Otherwise, let found be false. <<*)
@@ -183,8 +183,8 @@ Module Semantics. Section main.
       let input := MatchState.input x in
       (*>> d. Let cap be x's captures List. <<*)
       let cap := MatchState.captures x in
-      (*>> e. Let r be cap[ n ]. <<*)
-      let! r =<< cap[n] in
+      (*>> e. Let r be cap[n]. <<*)
+      let! r =<< cap.[n] in
       (*>> f. If r is undefined, return c(x). <<*)
       if r is undefined
         then c x else
@@ -212,9 +212,9 @@ Module Semantics. Section main.
       let g := Z.min e f in
       (*>> p. If there exists an integer i in the interval from 0 (inclusive) to len (exclusive) such that Canonicalize(rer, Input[rs + i]) is not Canonicalize(rer, Input[g + i]), return failure. <<*)
       let! b: bool =<< List.Exists.exist (List.Range.Int.Bounds.range 0 len) (fun (i: Z) =>
-        let! rsi =<< input[ (rs + i)%Z ] in
+        let! rsi =<< input.[(rs + i)%Z] in
         let rsi := Character.canonicalize rer rsi in
-        let! gi =<< input[ (g + i)%Z ] in
+        let! gi =<< input.[(g + i)%Z] in
         let gi := Character.canonicalize rer gi in
         (rsi != gi))
       in
@@ -451,8 +451,8 @@ Module Semantics. Section main.
     if (e =? -1)%Z || (e =? inputLength)%Z then
       false
     else
-    (*>> 3. Let c be the character Input[ e ]. <<*)
-    let! c =<< input[e] in
+    (*>> 3. Let c be the character Input[e]. <<*)
+    let! c =<< input.[e] in
     (*>> 4. If WordCharacters(rer) contains c, return true. <<*)
     let! wc =<< wordCharacters rer in
     if CharSet.contains wc c then
@@ -499,7 +499,7 @@ Module Semantics. Section main.
     let cap := MatchState.captures x in
     (*>> 4. For each integer k in the inclusive interval from parenIndex + 1 to parenIndex + parenCount, set cap[k] to undefined. <<*)
     (* + The additional +1 is normal: the range operator --- is non-inclusive on the right +*)
-    set cap[(parenIndex + 1) --- (parenIndex + parenCount + 1) ] := undefined in
+    set cap.[(parenIndex + 1) --- (parenIndex + parenCount + 1)] := undefined in
     (*>> 5. Let Input be x's input. <<*)
     let input := MatchState.input x in
     (*>> 6. Let e be x's endIndex. <<*)
@@ -647,7 +647,7 @@ Module Semantics. Section main.
           (*>> d. Let e be x's endIndex. <<*)
           let e := MatchState.endIndex x in
           (*>> e. If e = 0, or if rer.[[Multiline]] is true and the character Input[e - 1] is matched by LineTerminator, then <<*)
-          if! (e =? 0)%Z ||! ((RegExpRecord.multiline rer is true) &&! (let! d =<< input[(e-1)%Z] in CharSet.contains Characters.line_terminators d)) then
+          if! (e =? 0)%Z ||! ((RegExpRecord.multiline rer is true) &&! (let! d =<< input.[(e-1)%Z] in CharSet.contains Characters.line_terminators d)) then
             (*>> i. Return c(x). <<*)
             c x
           else
@@ -667,7 +667,7 @@ Module Semantics. Section main.
           (*>> e. Let InputLength be the number of elements in Input. <<*)
           let inputLength := List.length input in
           (*>> f. If e = InputLength, or if rer.[[Multiline]] is true and the character Input[e] is matched by LineTerminator, then <<*)
-          if! (e =? inputLength)%Z ||! ((RegExpRecord.multiline rer is true) &&! (let! d =<< input[e] in CharSet.contains Characters.line_terminators d)) then
+          if! (e =? inputLength)%Z ||! ((RegExpRecord.multiline rer is true) &&! (let! d =<< input.[e] in CharSet.contains Characters.line_terminators d)) then
             (*>> i. Return c(x). <<*)
             c x
           else
@@ -908,7 +908,7 @@ Module Semantics. Section main.
                 capture_range ye xe
             in
             (*>> viii. Set cap[parenIndex + 1] to r. <<*)
-            set cap[parenIndex + 1] := r in
+            set cap.[parenIndex + 1] := r in
             (*>> ix. Let z be the MatchState (Input, ye, cap). <<*)
             let z := match_state input ye cap in
             (*>> x. Return c(z). <<*)

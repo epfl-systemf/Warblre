@@ -1,5 +1,5 @@
-From Stdlib Require Import ZArith Lia List ListSet Bool.
-From Warblre Require Import Tactics List Result.
+From Stdlib Require Import ZArith.
+From Warblre Require Import List Result.
 From Warblre Require Export Parameters.
 
 (** The base files.
@@ -13,11 +13,6 @@ From Warblre Require Export Parameters.
 
 (* Exports all of the other 'base' files *)
 From Warblre Require Export Typeclasses Characters Numeric Coercions.
-
-(** Notations for list operations *)
-
-Import Result.Notations.
-Local Open Scope result_flow.
 
 Class Indexer (I: Type) := {
   index_using: forall (T F: Type) (_: Result.AssertionError F) (ls: list T) (i: I), Result.Result T F;
@@ -47,15 +42,6 @@ Instance int_indexer: Indexer Z := {
   index_using := @List.Indexing.Int.indexing;
   update_using := fun T F f ls i v => Result.assertion_failed; (* This operation is never used. *)
 }.
-
-Notation "ls '[' i ']'" := (indexing ls i) (at level 1, left associativity).
-Notation "'set' ls '[' i ']' ':=' v 'in' z" := (let! ls: list _ =<< update ls i v in z) (at level 200, ls at level 0, i at level 90, right associativity).
-Notation "'set' ls '[' s '---' e ']' ':=' v 'in' z" := (let! ls: list _ =<< List.Update.Nat.Batch.update v ls (List.Range.Nat.Bounds.range (s - 1) (e - 1)) in z) (at level 200, ls at level 0, s at level 90, e at level 90, right associativity).
-
-(** The is (not) operator *)
-
-Notation "m 'is' p" := (match m with | p => true | _ => false end) (at level 100, p pattern, no associativity).
-Notation "m 'is' 'not' p" := (match m with | p => false | _ => true end) (at level 100, p pattern, no associativity).
 
 (** Additional datatypes which are never properly defined. *)
 Inductive Direction :=

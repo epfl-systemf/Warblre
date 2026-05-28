@@ -1,5 +1,5 @@
 From Stdlib Require Import PeanoNat List Bool.
-From Warblre Require Import Result List Base Errors Result Patterns Node NodeProps Typeclasses.
+From Warblre Require Import Result List Base Notations Errors Result Patterns Node NodeProps Typeclasses.
 
 Import Coercions.
 Import Result.Notations.
@@ -371,7 +371,7 @@ Section StaticSemantics.
     (* + Return the nth group INSIDE this node +*)
     Definition nth_group_in {F} `{Result.AssertionError F} (r: RegexNode) (n: non_neg_integer): Result.Result RegexNode F :=
       let groups := all_groups_in r in
-      groups[n].
+      groups.[n].
 
     Definition nth_group {F} `{Result.AssertionError F} (r: Regex) (n: non_neg_integer): Result.Result RegexNode F :=
       nth_group_in (r, nil) n.

@@ -25,7 +25,7 @@
  (name warblre-engines)
  (synopsis "Regex engines extracted from Warblre")
  (depends
-  (ocaml (= 4.14.2))
+  (ocaml (>= 4.14.2))
   (warblre (= :version))
   (integers (>= 0.7.0))
   (uucp (>= 15.0.0))

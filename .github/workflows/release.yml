@@ -1,9 +1,11 @@
-name: CD
+name: Release
 
 on:
-  push:
-    tags:
-      - "v*.*.*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release (e.g., v1.2.3)"
+        required: true
 
 jobs:
   publish:
@@ -22,8 +24,9 @@ jobs:
         run: opam install -y opam-publish=3.0.0
 
       - name: Publish on rocq-released
+        env:
+          TAG: ${{ inputs.version }}
         run: |
-          TAG="${{ github.ref_name }}"
           VERSION="${TAG#v}"
           opam publish --no-confirmation --no-browser \
             --packages-directory=released/packages --repo rocq-prover/opam \

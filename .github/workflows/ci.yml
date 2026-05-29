@@ -16,6 +16,7 @@ jobs:
       matrix:
         rocq: [ "9.0.1", "9.1.1", "9.2.0" ]
         node: [ "24.13.0" ]
+        ocaml: [ "4.14.2", "5.4.1" ]
       fail-fast: false
     steps:
       - name: Checkout repository
@@ -46,7 +47,7 @@ jobs:
       - name: Install OCaml
         uses: ocaml/setup-ocaml@v3
         with:
-          ocaml-compiler: 4.14.2
+          ocaml-compiler: ${{ matrix.ocaml }}
       - name: Cache opam packages
         uses: actions/cache@v5
         with:

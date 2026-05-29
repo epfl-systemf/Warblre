@@ -1,10 +1,10 @@
-name: Release
+name: Publish
 
 on:
   workflow_dispatch:
     inputs:
-      version:
-        description: "Version to release (e.g., v1.2.3)"
+      tag:
+        description: "Tag to release (e.g., v1.2.3)"
         required: true
 
 jobs:
@@ -25,7 +25,7 @@ jobs:
 
       - name: Publish on rocq-released
         env:
-          TAG: ${{ inputs.version }}
+          TAG: ${{ inputs.tag }}
         run: |
           VERSION="${TAG#v}"
           opam publish --no-confirmation --no-browser \

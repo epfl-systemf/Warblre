@@ -8,17 +8,16 @@
 (using melange 0.1)
 (using directory-targets 0.1)
 
-(homepage "https://github.com/epfl-systemf/warblre")
+(homepage "https://github.com/LindenRegex/Warblre")
 (authors "Noé De Santo" "Aurèle Barrière" "Clément Pit-Claudel")
 (maintainers "Noé De Santo" "Aurèle Barrière")
-(bug_reports "https://github.com/epfl-systemf/warblre/issues")
+(bug_reports "https://github.com/LindenRegex/Warblre/issues")
 (license BSD-3-Clause)
 
 (package
  (name warblre)
  (synopsis "A mechanization of the specification of ECMAScript regexes")
  (depends
-  (ocaml (= 4.14.2))
   (rocq-stdlib (>= 9.0.0))
   (rocq-core (>= 9.0.0))))
 
@@ -26,6 +25,7 @@
  (name warblre-engines)
  (synopsis "Regex engines extracted from Warblre")
  (depends
+  (ocaml (>= 4.14.2))
   (warblre (= :version))
   (integers (>= 0.7.0))
   (uucp (>= 15.0.0))

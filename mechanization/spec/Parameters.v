@@ -367,7 +367,7 @@ Module Characters. Section main.
   Definition LINE_TABULATION: Character := Character.from_numeric_value 11.
   Definition FORM_FEED: Character := Character.from_numeric_value 12.
   Definition CARRIAGE_RETURN: Character := Character.from_numeric_value 13.
-  Definition HYPHEN_MINUS: Character := Character.from_numeric_value 55.
+  Definition HYPHEN_MINUS: Character := Character.from_numeric_value 45.
 
   Definition all: CharSet := CharSet.from_list Character.all.
   Definition line_terminators: CharSet := CharSet.from_list Character.line_terminators.

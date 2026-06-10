@@ -222,8 +222,8 @@ Section StaticSemantics.
     | Quantified r0 _ => countLeftCapturingParensWithin_impl r0
     | Seq r1 r2 => (countLeftCapturingParensWithin_impl r1) + (countLeftCapturingParensWithin_impl r2)
     | Group _ r0 => 1 + (countLeftCapturingParensWithin_impl r0)
-    | ModifyGroupAdd _ r0 => countLeftCapturingParensWithin_impl r0
-    | ModifyGroupAddRemove _ _ r0 => countLeftCapturingParensWithin_impl r0
+    | ModifyGroupAdd _ r0 => 1 + (countLeftCapturingParensWithin_impl r0)
+    | ModifyGroupAddRemove _ _ r0 => 1 + (countLeftCapturingParensWithin_impl r0)
     | InputStart => 0
     | InputEnd => 0
     | WordBoundary => 0

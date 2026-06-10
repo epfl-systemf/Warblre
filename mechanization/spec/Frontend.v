@@ -124,6 +124,7 @@ Section Initialization.
     (*>> 17. Let capturingGroupsCount be CountLeftCapturingParensWithin(parseResult). <<*)
     let capturingGroupsCount := countLeftCapturingParensWithin pattern nil in
     (*>> 18. Let rer be the RegExp Record { [[IgnoreCase]]: i, [[Multiline]]: m, [[DotAll]]: s, [[Unicode]]: u, [[CapturingGroupsCount]]: capturingGroupsCount }. <<*)
+    (* + NOTE: With RegExp Modifiers, the RegExp Record also has [[UnicodeSets]] field (see 22.2.2.7.4). +*)
     let rer := reg_exp_record i m s u capturingGroupsCount in
     (*>> 19. Set obj.[[RegExpRecord]] to rer. <<*)
     let obj_RegExpRecord := rer in

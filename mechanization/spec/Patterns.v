@@ -196,6 +196,10 @@ Module Patterns.
     | Seq (r1 r2: Regex)
     (*>> ( GroupSpecifier[?UnicodeMode]opt Disjunction[?UnicodeMode, ?N] ) <<*)
     | Group (name: option GroupName) (r: Regex)
+    (* + Non-capturing groups with inline modifiers replace the former (? : Disjunction ) production. +*)
+    (** >> Atom :: <<*)
+    (*>> (? RegularExpressionModifiers : Disjunction[?UnicodeMode, ?UnicodeSetsMode, ?NamedCaptureGroups] ) <<*)
+    (*>> (? RegularExpressionModifiers - RegularExpressionModifiers : Disjunction[?UnicodeMode, ?UnicodeSetsMode, ?NamedCaptureGroups] ) <<*)
     (*>> ^ <<*)
     | InputStart
     (*>> $ <<*)
@@ -213,6 +217,19 @@ Module Patterns.
     (*>> (?<! Disjunction[?UnicodeMode, ?N] ) <<*)
     | NegativeLookbehind (r: Regex).
   End Types.
+
+(** >>
+    RegularExpressionModifiers ::
+<<*)
+(*>> [empty] <<*)
+(*>> RegularExpressionModifiers RegularExpressionModifier <<*)
+
+(** >>
+    RegularExpressionModifier :: one of
+<<*)
+(*>> i <<*)
+(*>> m <<*)
+(*>> s <<*)
 
   Section EqDec.
     Context `{specParameters: Parameters}.

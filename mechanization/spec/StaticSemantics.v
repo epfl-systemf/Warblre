@@ -278,6 +278,14 @@ Section StaticSemantics.
   (*>> * It is a Syntax Error if IsCharacterClass of ClassAtomNoDash is true or IsCharacterClass of ClassAtom is true. <<*)
   (*>> * It is a Syntax Error if IsCharacterClass of ClassAtomNoDash is false, IsCharacterClass of ClassAtom is false, and the CharacterValue of ClassAtomNoDash is strictly greater than the CharacterValue of ClassAtom. <<*)
 
+  (** >> Atom :: (? RegularExpressionModifiers : Disjunction ) <<*)
+  (*>> * It is a Syntax Error if the source text matched by RegularExpressionModifiers contains the same code point more than once. <<*)
+  (** >> Atom :: (? RegularExpressionModifiers - RegularExpressionModifiers : Disjunction ) <<*)
+  (*>> * It is a Syntax Error if the source text matched by the first RegularExpressionModifiers and the source text matched by the second RegularExpressionModifiers are both empty. <<*)
+  (*>> * It is a Syntax Error if the source text matched by the first RegularExpressionModifiers contains the same code point more than once. <<*)
+  (*>> * It is a Syntax Error if the source text matched by the second RegularExpressionModifiers contains the same code point more than once. <<*)
+  (*>> * It is a Syntax Error if any code point in the source text matched by the first RegularExpressionModifiers is also contained in the source text matched by the second RegularExpressionModifiers. <<*)
+
   Fixpoint earlyErrors_class_ranges (cr: ClassRanges): Result bool SyntaxError := match cr with
   | EmptyCR => false
   | ClassAtomCR _ t => earlyErrors_class_ranges t

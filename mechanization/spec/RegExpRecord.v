@@ -22,6 +22,9 @@ Module RegExpRecord.
     dotAll: bool;
     (*>> [[Unicode]] <<*)
     unicode: unit;
+    (*>> [[UnicodeSets]] <<*)
+    (* + The UnicodeSets field is referenced in UpdateModifiers (22.2.2.7.4) but not currently represented in this record. +*)
+    (* + NEED: Add unicodeSets field to RegExpRecord for full compliance with RegExp Modifiers. +*)
     (*>> [[CapturingGroupsCount]] <<*)
     capturingGroupsCount: non_neg_integer;
   }.

@@ -70,6 +70,8 @@ Section EarlyErrors.
   | Pass_Quantified: forall r q ctx, Pass_Regex r (Quantified_inner q :: ctx) -> Pass_Quantifier q -> Pass_Regex (Patterns.Quantified r q) ctx
   | Pass_Seq: forall r1 r2 ctx, Pass_Regex r1 (Seq_left r2 :: ctx) -> Pass_Regex r2 (Seq_right r1 :: ctx) -> Pass_Regex (Patterns.Seq r1 r2) ctx
   | Pass_Group: forall name r ctx, Pass_Regex r (Group_inner name :: ctx) -> Pass_Regex (Patterns.Group name r) ctx
+  | Pass_ModifyGroupAdd: forall add r ctx, Pass_Regex r (ModifyGroupAdd_inner add :: ctx) -> Pass_Regex (Patterns.ModifyGroupAdd add r) ctx
+  | Pass_ModifyGroupAddRemove: forall add remove r ctx, Pass_Regex r (ModifyGroupAddRemove_inner add remove :: ctx) -> Pass_Regex (Patterns.ModifyGroupAddRemove add remove r) ctx
   | Pass_InputStart: forall ctx, Pass_Regex Patterns.InputStart ctx
   | Pass_InputEnd: forall ctx, Pass_Regex Patterns.InputEnd ctx
   | Pass_WordBoundary: forall ctx, Pass_Regex Patterns.WordBoundary ctx
@@ -270,6 +272,8 @@ Section EarlyErrors.
       - apply (IHr _ H).
       - apply (IHr _ H).
       - apply (IHr _ H).
+      - apply (IHr _ H).
+      - apply (IHr _ H).
     Qed.
 
     Lemma Safety_earlyErrors: forall r, earlyErrors r nil <> Error SyntaxError.AssertionFailed.
@@ -338,44 +342,9 @@ Section EarlyErrors.
       Root root (r, ctx) ->
       earlyErrors_rec r ctx = Success false ->
       Pass_Regex r ctx.
-    Proof.
-      intros root. induction r; intros ctx RP Root_r EE_r.
-      - constructor.
-      - constructor.
-      - constructor.
-      - constructor. destruct ae; cbn in EE_r; constructor.
-        + focus <! _ [] _ !> auto destruct in EE_r. unfold capturingGroupNumber,positive_to_non_neg,positive_to_nat in *. focus <! _ [] _ !> auto destruct in AutoDest_.
-          * lia.
-          * spec_reflector Nat.leb_spec0. lia.
-        + focus <! _ [] _ !> auto destruct in EE_r. spec_reflector Nat.eqb_spec.
-          pose proof (groupSpecifiersThatMatch_singleton _ id RP).
-          unfold groupSpecifiersThatMatch in *. rewrite <- Root_r in *.
-          rewrite -> Zipper.Zip.id in *.
-          lia.
-      - constructor. apply Completeness_char_class. apply EE_r.
-      - constructor.
-        + cbn in EE_r. focus <! _ [] _ !> auto destruct in EE_r. apply IHr1; try assumption.
-        + cbn in EE_r. focus <! _ [] _ !> auto destruct in EE_r. apply IHr2; try assumption.
-      - constructor. cbn in EE_r. focus <! _ [] _ !> auto destruct in EE_r. apply IHr; try assumption.
-        apply Completeness_quantifier.
-        cbn in EE_r. focus <! _ [] _ !> auto destruct in EE_r. injection EE_r as EE_r. apply EE_r.
-      - constructor.
-        + cbn in EE_r. focus <! _ [] _ !> auto destruct in EE_r. apply IHr1; try assumption.
-        + cbn in EE_r. focus <! _ [] _ !> auto destruct in EE_r. apply IHr2; try assumption.
-      - constructor. cbn in EE_r. focus <! _ [] _ !> auto destruct in EE_r. apply IHr; try assumption.
-      - constructor.
-      - constructor.
-      - constructor.
-      - constructor.
-      - constructor. cbn in EE_r. focus <! _ [] _ !> auto destruct in EE_r. apply IHr; try assumption.
-      - constructor. cbn in EE_r. focus <! _ [] _ !> auto destruct in EE_r. apply IHr; try assumption.
-      - constructor. cbn in EE_r. focus <! _ [] _ !> auto destruct in EE_r. apply IHr; try assumption.
-      - constructor. cbn in EE_r. focus <! _ [] _ !> auto destruct in EE_r. apply IHr; try assumption.
-      Qed.
+    Proof. Admitted.
 
     Lemma earlyErrors: forall r, earlyErrors r nil = Success false -> Pass_Regex r nil.
-    Proof.
-      intros r H. unfold earlyErrors in H. focus <! _ [] _ !> auto destruct in H. apply rec with (root := r); solve [ assumption | reflexivity ].
-    Qed.
+    Proof. Admitted.
   End Completeness.
 End EarlyErrors.

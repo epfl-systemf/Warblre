@@ -28,13 +28,7 @@ Section AbstractMatching.
   (** To run, the specification requires a configuration object.
       Its contents are not relevant in this example, _except_ for the fact that the last argument must be equal to the number of groups in the regex under consideration (per the spec). **)
   Definition rer: RegExpRecord :=
-    {|
-      RegExpRecord.ignoreCase := true;
-      RegExpRecord.multiline := true;
-      RegExpRecord.dotAll := true;
-      RegExpRecord.unicode := tt;
-      RegExpRecord.capturingGroupsCount := 0
-    |}.
+    reg_exp_record true true true tt false 0.
 
   (** We represent the input as a sequence of characters. **)
   Definition input_of_interest :=

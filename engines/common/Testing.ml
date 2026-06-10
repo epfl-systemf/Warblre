@@ -26,6 +26,7 @@ module Tester (P: EngineParameters) (S: Encoding.StringLike with type t := P.str
       RegExpRecord.multiline = multiline;
       RegExpRecord.dotAll = dotAll;
       RegExpRecord.unicode = ();
+      RegExpRecord.unicodeSets = false;
       RegExpRecord.capturingGroupsCount = groups;
     }) in
     test_regex_using_record regex input at rer
@@ -72,6 +73,7 @@ module Tester (P: EngineParameters) (S: Encoding.StringLike with type t := P.str
       RegExpRecord.multiline = multiline;
       RegExpRecord.dotAll = dotAll;
       RegExpRecord.unicode = ();
+      RegExpRecord.unicodeSets = false;
       RegExpRecord.capturingGroupsCount = groups;
     }) in
     compare_regexes_using_record r1 r2 input at rer

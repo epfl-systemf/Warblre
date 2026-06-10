@@ -231,22 +231,33 @@ Module Semantics. Section main.
       The abstract operation UpdateModifiers takes arguments rer (a RegExp Record), add (a String), and remove (a String)
       and returns a RegExp Record. It performs the following steps when called:
   <<*)
-  (*>> 1. Assert: add and remove have no elements in common. <<*)
-  (*>> 2. Let ignoreCase be rer.[[IgnoreCase]]. <<*)
-  (*>> 3. Let multiline be rer.[[Multiline]]. <<*)
-  (*>> 4. Let dotAll be rer.[[DotAll]]. <<*)
-  (*>> 5. Let unicode be rer.[[Unicode]]. <<*)
-  (*>> 6. Let unicodeSets be rer.[[UnicodeSets]]. <<*)
-  (*>> 7. Let capturingGroupsCount be rer.[[CapturingGroupsCount]]. <<*)
-  (*>> 8. If remove contains "i", set ignoreCase to false. <<*)
-  (*>> 9. Else if add contains "i", set ignoreCase to true. <<*)
-  (*>> 10. If remove contains "m", set multiline to false. <<*)
-  (*>> 11. Else if add contains "m", set multiline to true. <<*)
-  (*>> 12. If remove contains "s", set dotAll to false. <<*)
-  (*>> 13. Else if add contains "s", set dotAll to true. <<*)
-  (*>> 14. Return the RegExp Record { [[IgnoreCase]]: ignoreCase, [[Multiline]]: multiline, [[DotAll]]: dotAll, [[Unicode]]: unicode, [[UnicodeSets]]: unicodeSets, [[CapturingGroupsCount]]: capturingGroupsCount }. <<*)
-  (* + NEED: Implement updateModifiers in the mechanization. +*)
-  (* + NEED: RegExpRecord needs [[UnicodeSets]] field for full compliance. +*)
+  Definition containsModifier (mods: list RegularExpressionModifier) (modifier: RegularExpressionModifier) : bool :=
+    List.existsb (fun m => m == modifier) mods.
+
+  Definition updateModifiers (rer: RegExpRecord) (add: list RegularExpressionModifier) (remove: list RegularExpressionModifier) : RegExpRecord :=
+    (*>> 2. Let ignoreCase be rer.[[IgnoreCase]]. <<*)
+    let ignoreCase := RegExpRecord.ignoreCase rer in
+    (*>> 3. Let multiline be rer.[[Multiline]]. <<*)
+    let multiline := RegExpRecord.multiline rer in
+    (*>> 4. Let dotAll be rer.[[DotAll]]. <<*)
+    let dotAll := RegExpRecord.dotAll rer in
+    (*>> 5. Let unicode be rer.[[Unicode]]. <<*)
+    let unicode := RegExpRecord.unicode rer in
+    (*>> 6. Let unicodeSets be rer.[[UnicodeSets]]. <<*)
+    let unicodeSets := RegExpRecord.unicodeSets rer in
+    (*>> 7. Let capturingGroupsCount be rer.[[CapturingGroupsCount]]. <<*)
+    let capturingGroupsCount := RegExpRecord.capturingGroupsCount rer in
+    (*>> 8. If remove contains "i", set ignoreCase to false. <<*)
+    (*>> 9. Else if add contains "i", set ignoreCase to true. <<*)
+    let ignoreCase := if containsModifier remove Mod_i then false else if containsModifier add Mod_i then true else ignoreCase in
+    (*>> 10. If remove contains "m", set multiline to false. <<*)
+    (*>> 11. Else if add contains "m", set multiline to true. <<*)
+    let multiline := if containsModifier remove Mod_m then false else if containsModifier add Mod_m then true else multiline in
+    (*>> 12. If remove contains "s", set dotAll to false. <<*)
+    (*>> 13. Else if add contains "s", set dotAll to true. <<*)
+    let dotAll := if containsModifier remove Mod_s then false else if containsModifier add Mod_s then true else dotAll in
+    (*>> 14. Return the RegExp Record { [[IgnoreCase]]: ignoreCase, [[Multiline]]: multiline, [[DotAll]]: dotAll, [[Unicode]]: unicode, [[UnicodeSets]]: unicodeSets, [[CapturingGroupsCount]]: capturingGroupsCount }. <<*)
+    reg_exp_record ignoreCase multiline dotAll unicode unicodeSets capturingGroupsCount.
 
   (** >>
       22.2.2.9.1 CharacterRange ( A, B )
@@ -859,19 +870,27 @@ Module Semantics. Section main.
       It is defined piecewise over the following productions:
     <<*)
 
-    (** >> Atom ::= (? RegularExpressionModifiers : Disjunction ) <<*)
-    (*>> 1. Let addModifiers be the source text matched by RegularExpressionModifiers. <<*)
-    (*>> 2. Let removeModifiers be the empty String. <<*)
-    (*>> 3. Let modifiedRer be UpdateModifiers(rer, CodePointsToString(addModifiers), removeModifiers). <<*)
-    (*>> 4. Return CompileSubpattern of Disjunction with arguments modifiedRer and direction. <<*)
-    (* + NEED: ModifyGroupAdd constructor for Regex to implement this. +*)
+    (** >> Atom :: (? RegularExpressionModifiers : Disjunction ) <<*)
+    | ModifyGroupAdd add r =>
+        (*>> 1. Let addModifiers be the source text matched by RegularExpressionModifiers. <<*)
+        let addModifiers := add in
+        (*>> 2. Let removeModifiers be the empty String. <<*)
+        let removeModifiers := nil in
+        (*>> 3. Let modifiedRer be UpdateModifiers(rer, CodePointsToString(addModifiers), removeModifiers). <<*)
+        let modifiedRer := updateModifiers rer addModifiers removeModifiers in
+        (*>> 4. Return CompileSubpattern of Disjunction with arguments modifiedRer and direction. <<*)
+        compileSubPattern r (ModifyGroupAdd_inner add :: ctx) modifiedRer direction
 
-    (** >> Atom ::= (? RegularExpressionModifiers - RegularExpressionModifiers : Disjunction ) <<*)
-    (*>> 1. Let addModifiers be the source text matched by the first RegularExpressionModifiers. <<*)
-    (*>> 2. Let removeModifiers be the source text matched by the second RegularExpressionModifiers. <<*)
-    (*>> 3. Let modifiedRer be UpdateModifiers(rer, CodePointsToString(addModifiers), CodePointsToString(removeModifiers)). <<*)
-    (*>> 4. Return CompileSubpattern of Disjunction with arguments modifiedRer and direction. <<*)
-    (* + NEED: ModifyGroupAddRemove constructor for Regex to implement this. +*)
+    (** >> Atom :: (? RegularExpressionModifiers - RegularExpressionModifiers : Disjunction ) <<*)
+    | ModifyGroupAddRemove add remove r =>
+        (*>> 1. Let addModifiers be the source text matched by the first RegularExpressionModifiers. <<*)
+        let addModifiers := add in
+        (*>> 2. Let removeModifiers be the source text matched by the second RegularExpressionModifiers. <<*)
+        let removeModifiers := remove in
+        (*>> 3. Let modifiedRer be UpdateModifiers(rer, CodePointsToString(addModifiers), CodePointsToString(removeModifiers)). <<*)
+        let modifiedRer := updateModifiers rer addModifiers removeModifiers in
+        (*>> 4. Return CompileSubpattern of Disjunction with arguments modifiedRer and direction. <<*)
+        compileSubPattern r (ModifyGroupAddRemove_inner add remove :: ctx) modifiedRer direction
 
     (** >> Atom :: PatternCharacter <<*)
     | Char c =>

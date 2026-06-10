@@ -282,6 +282,8 @@ module Printer(P: EngineParameters) (S: Encoding.StringLike with type t := P.str
       | Seq (r1, r2) -> prio ((iter r1 (next 1)) ^ (iter r2 1)) 1 current
       | Group (None, r1) -> "(" ^ iter r1 0 ^ ")"
       | Group (Some name, r1) -> "(?<" ^ S.to_string name ^  ">" ^ iter r1 0 ^ ")"
+      | ModifyGroupAdd (add, r1) -> "(?" ^ String.concat "" (List.map (fun m -> match m with | Mod_i -> "i" | Mod_m -> "m" | Mod_s -> "s") add) ^ ":" ^ iter r1 0 ^ ")"
+      | ModifyGroupAddRemove (add, remove, r1) -> "(?" ^ String.concat "" (List.map (fun m -> match m with | Mod_i -> "i" | Mod_m -> "m" | Mod_s -> "s") add) ^ "-" ^ String.concat "" (List.map (fun m -> match m with | Mod_i -> "i" | Mod_m -> "m" | Mod_s -> "s") remove) ^ ":" ^ iter r1 0 ^ ")"
       | InputStart -> prio "^" 3 current
       | InputEnd -> prio_if_strict "$" 3 current
       | WordBoundary -> prio_if_strict "\\b" 3 current

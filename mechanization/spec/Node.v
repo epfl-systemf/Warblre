@@ -37,6 +37,8 @@ Section Zipper.
   | Seq_left (r: Regex)
   | Seq_right (l: Regex)
   | Group_inner (name: option GroupName)
+  | ModifyGroupAdd_inner (add: list Patterns.RegularExpressionModifier)
+  | ModifyGroupAddRemove_inner (add: list Patterns.RegularExpressionModifier) (remove: list Patterns.RegularExpressionModifier)
   | Lookahead_inner
   | NegativeLookahead_inner
   | Lookbehind_inner
@@ -51,6 +53,8 @@ Section Zipper.
   | Seq_left r => Seq focus r
   | Seq_right l => Seq l focus
   | Group_inner name => Group name focus
+  | ModifyGroupAdd_inner add => ModifyGroupAdd add focus
+  | ModifyGroupAddRemove_inner add remove => ModifyGroupAddRemove add remove focus
   | Lookahead_inner => Lookahead focus
   | NegativeLookahead_inner => NegativeLookahead focus
   | Lookbehind_inner => Lookbehind focus
@@ -68,11 +72,11 @@ Section Zipper.
 
   Section EqDec.
     #[export] #[refine] Instance eqdec_RegexContextLayer: EqDec RegexContextLayer := {}.
-      decide equality; try apply EqDec.eq_dec. Defined.
+      Proof. decide equality; apply EqDec.eq_dec. Defined.
     #[export] #[refine] Instance eqdec_RegexContext: EqDec RegexContext := {}.
-      decide equality; apply EqDec.eq_dec. Defined.
+      Proof. decide equality; apply EqDec.eq_dec. Defined.
     #[export] #[refine] Instance eqdec_RegexNode: EqDec RegexNode := {}.
-      decide equality; apply EqDec.eq_dec. Defined.
+      Proof. decide equality; apply EqDec.eq_dec. Defined.
   End EqDec.
 End Zipper.
 Notation RegexContext := (list RegexContextLayer).

@@ -171,6 +171,19 @@ Module Patterns.
     (*>> [^ ClassRanges[?UnicodeMode] ] <<*)
     | InvertedCC (crs: ClassRanges).
 
+    (** >>
+        RegularExpressionModifier :: one of
+    <<*)
+    Inductive RegularExpressionModifier :=
+      (*>> i <<*)
+      | Mod_i
+      (*>> m <<*)
+      | Mod_m
+      (*>> s <<*)
+      | Mod_s.
+
+    (* + RegularExpressionModifiers is represented as a list of RegularExpressionModifier. +*)
+
     (** >> Pattern :: <<*)
     (** >> Disjunction :: <<*)
     (** >> Alternative :: <<*)
@@ -199,7 +212,9 @@ Module Patterns.
     (* + Non-capturing groups with inline modifiers replace the former (? : Disjunction ) production. +*)
     (** >> Atom :: <<*)
     (*>> (? RegularExpressionModifiers : Disjunction[?UnicodeMode, ?UnicodeSetsMode, ?NamedCaptureGroups] ) <<*)
+    | ModifyGroupAdd (add: list RegularExpressionModifier) (r: Regex)
     (*>> (? RegularExpressionModifiers - RegularExpressionModifiers : Disjunction[?UnicodeMode, ?UnicodeSetsMode, ?NamedCaptureGroups] ) <<*)
+    | ModifyGroupAddRemove (add: list RegularExpressionModifier) (remove: list RegularExpressionModifier) (r: Regex)
     (*>> ^ <<*)
     | InputStart
     (*>> $ <<*)
@@ -217,19 +232,6 @@ Module Patterns.
     (*>> (?<! Disjunction[?UnicodeMode, ?N] ) <<*)
     | NegativeLookbehind (r: Regex).
   End Types.
-
-(** >>
-    RegularExpressionModifiers ::
-<<*)
-(*>> [empty] <<*)
-(*>> RegularExpressionModifiers RegularExpressionModifier <<*)
-
-(** >>
-    RegularExpressionModifier :: one of
-<<*)
-(*>> i <<*)
-(*>> m <<*)
-(*>> s <<*)
 
   Section EqDec.
     Context `{specParameters: Parameters}.
@@ -258,6 +260,8 @@ Module Patterns.
     Proof. decide equality; apply EqDec.eq_dec. Defined.
     #[export] #[refine] Instance eqdec_CharClass: EqDec CharClass := {}.
     Proof. decide equality; apply EqDec.eq_dec. Defined.
+    #[export] #[refine] Instance eqdec_RegularExpressionModifier: EqDec RegularExpressionModifier := {}.
+    Proof. decide equality. Defined.
     #[export] #[refine] Instance eqdec_Regex: EqDec Regex := {}.
     Proof. decide equality; apply EqDec.eq_dec. Defined.
   End EqDec.

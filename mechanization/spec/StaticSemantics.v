@@ -222,6 +222,8 @@ Section StaticSemantics.
     | Quantified r0 _ => countLeftCapturingParensWithin_impl r0
     | Seq r1 r2 => (countLeftCapturingParensWithin_impl r1) + (countLeftCapturingParensWithin_impl r2)
     | Group _ r0 => 1 + (countLeftCapturingParensWithin_impl r0)
+    | ModifyGroupAdd _ r0 => countLeftCapturingParensWithin_impl r0
+    | ModifyGroupAddRemove _ _ r0 => countLeftCapturingParensWithin_impl r0
     | InputStart => 0
     | InputEnd => 0
     | WordBoundary => 0
@@ -252,6 +254,8 @@ Section StaticSemantics.
       | Seq_left _ => 0
       | Seq_right l => countLeftCapturingParensWithin_impl l
       | Group_inner _ => 1
+      | ModifyGroupAdd_inner _ => 0
+      | ModifyGroupAddRemove_inner _ _ => 0
       | Lookahead_inner => 0
       | NegativeLookahead_inner => 0
       | Lookbehind_inner => 0
@@ -337,6 +341,8 @@ Section StaticSemantics.
     | Quantified r q => earlyErrors_rec r (Quantified_inner q :: ctx) ||! earlyErrors_quantifier q
     | Seq r1 r2 => earlyErrors_rec r1 (Seq_left r2 :: ctx) ||! earlyErrors_rec r2 (Seq_right r1 :: ctx)
     | Group name r => earlyErrors_rec r (Group_inner name :: ctx)
+    | ModifyGroupAdd add r => earlyErrors_rec r (ModifyGroupAdd_inner add :: ctx)
+    | ModifyGroupAddRemove add remove r => earlyErrors_rec r (ModifyGroupAddRemove_inner add remove :: ctx)
     | InputStart => false
     | InputEnd => false
     | WordBoundary => false

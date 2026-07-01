@@ -378,4 +378,156 @@ Section EarlyErrors.
       intros r H. unfold earlyErrors in H. focus <! _ [] _ !> auto destruct in H. apply rec with (root := r); solve [ assumption | reflexivity ].
     Qed.
   End Completeness.
+
+  Section Soundness.
+
+    (* Note this is about [earlyErrors_rec], not the top-level [earlyErrors].
+       The latter rejects a regex that contains duplicate groups, something not
+       captured by [Pass_Regex].
+
+       For regexes whose named groups are all distinct (in particular, any
+       group-free regex), [earlyErrors_rec] soundness plus the absence of
+       duplicate names gives the full [earlyErrors] result. *)
+
+    Lemma singleton_isCharacterClass :
+      forall c v, SingletonClassAtom c v -> isCharacterClass c = false.
+    Proof. intros c v H. destruct H; auto. Qed.
+
+    Lemma singleton_characterValue :
+      forall (c : ClassAtom) v, SingletonClassAtom c v -> characterValue c = @Success _ SyntaxError v.
+    Proof. intros c v H. apply (characterValue_singleton (F := SyntaxError) c v). auto. Qed.
+
+    Lemma soundness_class_ranges :
+      forall cr, Pass_ClassRanges cr -> earlyErrors_class_ranges cr = Success false.
+    Proof.
+      induction cr as [ | ca t IHt | l h t IHt ]; intro H; inversion H; subst; auto. simpl.
+      repeat match goal with
+             | [ Hs : SingletonClassAtom ?a _ |- context[isCharacterClass ?a] ] =>
+                 rewrite (singleton_isCharacterClass _ _ Hs)
+             | [ Hs : SingletonClassAtom ?a _ |- context[characterValue ?a] ] =>
+                 rewrite (singleton_characterValue _ _ Hs)
+             end.
+      cbn. destruct cl as [ | cl' ]; cbn; auto.
+      destruct (ch <=? cl') eqn:E; auto.
+      exfalso. apply Nat.leb_le in E. lia.
+    Qed.
+
+  Lemma soundness_char_class :
+    forall cc, Pass_CharClass cc -> earlyErrors_char_class cc = Success false.
+  Proof.
+    intros [cr|cr] H; simpl; inversion H; subst; eauto using soundness_class_ranges.
+  Qed.
+
+  Lemma soundness_quantifier_prefix :
+    forall q, Pass_QuantifierPrefix q -> earlyErrors_quantifier_prefix q = false.
+  Proof.
+    intros q H. destruct q; auto.
+    cbn. inversion H; subst. destruct min as [ | min' ]; cbn; auto.
+    destruct (max <=? min') eqn:E; auto.
+    exfalso. apply Nat.leb_le in E. lia.
+  Qed.
+
+  Lemma soundness_quantifier :
+    forall q, Pass_Quantifier q -> earlyErrors_quantifier q = false.
+  Proof.
+    intros q H. destruct q; cbn; inversion H; subst; eauto using soundness_quantifier_prefix.
+  Qed.
+
+  Lemma soundness_rec :
+    forall r ctx, Pass_Regex r ctx -> earlyErrors_rec r ctx = Success false.
+  Proof.
+    intros r ctx H. induction H; cbn; auto.
+    - (* AtomEsc *)
+      match goal with [ HAE : Pass_AtomEscape _ _ |- _ ] =>
+        destruct HAE as [ ctx0 n Hle | ctx0 esc | ctx0 esc | ctx0 gn Hlen ] end;
+        cbn; auto.
+      + (* DecimalEsc *)
+        unfold capturingGroupNumber, positive_to_non_neg, positive_to_nat in *.
+        destruct (Pos.to_nat n) as [ | cgn' ] eqn:Hpos; cbn; auto.
+        destruct (_ <=? cgn') eqn:E; auto.
+        exfalso. apply Nat.leb_le in E. lia.
+      + (* GroupEsc *) rewrite Hlen. auto.
+    - (* CharacterClass *) apply soundness_char_class. auto.
+    - (* Disjunction *)
+      rewrite IHPass_Regex1. rewrite IHPass_Regex2. auto.
+    - (* Quantified *)
+      rewrite IHPass_Regex. rewrite soundness_quantifier; auto.
+    - (* Seq *)
+      rewrite IHPass_Regex1. rewrite IHPass_Regex2. auto.
+  Qed.
+
+  (* We now prove that when there are no capturing groups at all
+     (hence there are no duplicate groups),
+     PassRegex implies that there are no Early Errors. *)
+
+  Lemma exist_all_false {T} :
+    forall (ls : list T) (p : T -> Result bool SyntaxError),
+      (forall v, In v ls -> p v = Success false) ->
+      List.Exists.exist ls p = Success false.
+  Proof.
+    induction ls as [ | h t IH ]; intros p H; cbn; auto.
+    rewrite (H h (or_introl eq_refl)). cbn. apply IH. intros v Hv. apply H. right. auto.
+  Qed.
+
+  (* A node reachable in the walk has at most as many capturing groups as the
+     root, so a group-free regex walks only through group-free nodes. *)
+  Lemma walk_count_mono :
+    forall r ctx nd,
+      In nd (Zipper.Walk.walk r ctx) ->
+      countLeftCapturingParensWithin_impl (fst nd) <= countLeftCapturingParensWithin_impl r.
+  Proof.
+    induction r; intros ctx nd Hin; cbn [Zipper.Walk.walk] in Hin;
+      destruct Hin as [ Hnd | Hin ];
+      try (subst nd; cbn; lia);
+      cbn [countLeftCapturingParensWithin_impl];
+      repeat match goal with
+             | [ H : In _ nil |- _ ] => destruct H
+             | [ H : In _ (_ ++ _) |- _ ] => apply in_app_or in H; destruct H
+             end;
+      match goal with
+      | [ IH : forall ctx nd, In nd (Zipper.Walk.walk ?c ctx) -> _,
+          H : In _ (Zipper.Walk.walk ?c _) |- _ ] => specialize (IH _ _ H)
+      end; lia.
+  Qed.
+
+  Lemma walk_no_group :
+    forall r ctx nd,
+      countLeftCapturingParensWithin_impl r = 0 ->
+      In nd (Zipper.Walk.walk r ctx) ->
+      forall nm inner, fst nd <> Group nm inner.
+  Proof.
+    intros r ctx nd Hcount Hin nm inner Heq.
+    apply walk_count_mono in Hin. rewrite Hcount, Heq in Hin. cbn in Hin. lia.
+  Qed.
+
+  Lemma earlyErrors_no_groups :
+    forall r ctx,
+      countLeftCapturingParensWithin_impl r = 0 ->
+      StaticSemantics.earlyErrors r ctx = earlyErrors_rec r ctx.
+  Proof.
+    intros r ctx Hcount. unfold StaticSemantics.earlyErrors.
+    match goal with
+    | [ |- match ?X with Success _ => _ | Error _ => _ end = _ ] => assert (X = Success false) as Hdup
+    end.
+    { apply exist_all_false. intros n0 Hn0. apply exist_all_false. intros n1 Hn1.
+      destruct (n0 =?= n1)%wt; auto.
+      destruct n0 as [ r0 c0 ]; destruct n1 as [ r1 c1 ]; cbn.
+      destruct r0; auto. destruct name; auto.
+      exfalso. eapply walk_no_group; [ exact Hcount | exact Hn0 | reflexivity ]. }
+    rewrite Hdup. auto.
+  Qed.
+
+  (* Full soundness: a [Pass_Regex] regex with no capturing groups passes the
+     complete early-errors check. *)
+  Theorem soundness_no_groups :
+    forall r ctx,
+      Pass_Regex r ctx ->
+      countLeftCapturingParensWithin_impl r = 0 ->
+      StaticSemantics.earlyErrors r ctx = Success false.
+  Proof.
+    intros r ctx HP Hcount. rewrite earlyErrors_no_groups by auto.
+    eauto using soundness_rec.
+  Qed.
+
+  End Soundness.
 End EarlyErrors.

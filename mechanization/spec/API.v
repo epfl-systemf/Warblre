@@ -15,6 +15,7 @@ Module API.
 
       Axiom numeric_pseudo_bij: forall c, from_numeric_value (numeric_value c) = c.
       Axiom numeric_round_trip_order: forall l r, l <= r -> (numeric_value (from_numeric_value l)) <= (numeric_value (from_numeric_value r)).
+      Axiom canonicalize_casesenst: forall rer chr, RegExpRecord.ignoreCase rer = false -> canonicalize rer chr = chr.
     End Character.
 
     Parameter string : Type.
@@ -123,7 +124,8 @@ Module API.
         P.CharSets.white_spaces
         P.CharSets.ascii_word_characters
         P.Character.numeric_pseudo_bij
-        P.Character.numeric_round_trip_order)
+        P.Character.numeric_round_trip_order
+        P.Character.canonicalize_casesenst)
       in
       Parameters.make
         character_class

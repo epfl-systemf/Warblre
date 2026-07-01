@@ -33,6 +33,10 @@ Module Character.
 
     numeric_pseudo_bij: forall c, from_numeric_value (numeric_value c) = c;
     numeric_round_trip_order: forall l r, l <= r -> (numeric_value (from_numeric_value l)) <= (numeric_value (from_numeric_value r));
+
+    (* From 22.2.2.7.3 Canonicalize ( rer, ch ): *)
+    (* 2. If rer.[[IgnoreCase]] is false, return ch. *)
+    canonicalize_casesenst: forall rer chr, RegExpRecord.ignoreCase rer = false -> canonicalize rer chr = chr;
   }.
 
   Lemma numeric_inj `{class}: forall c c', numeric_value c = numeric_value c' -> c = c'.

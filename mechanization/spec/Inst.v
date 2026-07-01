@@ -10,7 +10,6 @@ From Stdlib Require Import Lia.
    - Merge CharSetExt into CharSet.
      Use MSet API + a few functions / proofs.
    - Update NaiveEngineParameters with new functions.
-   - Canonicalize?
    - Linden: instantiate and test
    - Keep just one of FastEngine and NaiveEngine
  *)
@@ -72,6 +71,10 @@ Module NaiveEngineParameters <: API.EngineParameters.
 
     Theorem numeric_round_trip_order: forall l r, l <= r -> (numeric_value (from_numeric_value l)) <= (numeric_value (from_numeric_value r)).
     Proof. easy. Qed.
+
+    Theorem canonicalize_casesenst: forall rer chr, RegExpRecord.ignoreCase rer = false -> canonicalize rer chr = chr.
+    Proof. intros rer chr H. unfold canonicalize. rewrite H. auto. Qed.
+
   End Character.
 
   Definition string : Type :=

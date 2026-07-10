@@ -1,0 +1,88 @@
+{
+    "$schema": "https://opencode.ai/config.json",
+    "mcp": {
+        "vsrocq-mcp": {
+            "enabled": true,
+            "type": "local",
+            "command": [
+                "/Users/valentinschneeberger/miniconda3/envs/coq-proof/bin/python",
+                "/Users/valentinschneeberger/epfl/masterProject/warblre/.opencode/mcp/vsrocq-mcp/server.py"
+            ],
+            "environment": {
+                "ROCQ_WORKSPACE": "/Users/valentinschneeberger/epfl/masterProject/warblre",
+                "ROCQPATH": "_build/default/mechanization",
+                "ROCQ_COQC_BINARY": "/Users/valentinschneeberger/.opam/default/bin/coqc",
+                "ROCQ_COQC_TIMEOUT": "60",
+                "ROCQ_VERIFY_TIMEOUT": "120"
+            }
+        }
+    },
+    "agent": {
+        "annotate_rocq": {
+            "mode": "subagent",
+            "description": "{file:./agents/annotate_rocq/description.md}",
+            "prompt": "{file:./agents/annotate_rocq/prompt.md}",
+            "permission": {
+                "bash": "allow",
+                "read": "allow",
+                "edit": "allow",
+                "glob": "allow",
+                "grep": "allow"
+            }
+        },
+        "filter_audit": {
+            "mode": "subagent",
+            "description": "{file:./agents/filter_audit/description.md}",
+            "prompt": "{file:./agents/filter_audit/prompt.md}",
+            "permission": {
+                "bash": "allow",
+                "read": "allow",
+                "edit": "allow"
+            }
+        },
+        "fix_audit_batch": {
+            "mode": "subagent",
+            "description": "{file:./agents/fix_audit_batch/description.md}",
+            "prompt": "{file:./agents/fix_audit_batch/prompt.md}",
+            "permission": {
+                "task": "allow"
+            }
+        },
+        "fix_audit_entry": {
+            "mode": "subagent",
+            "description": "{file:./agents/fix_audit_entry/description.md}",
+            "prompt": "{file:./agents/fix_audit_entry/prompt.md}",
+            "permission": {
+                "bash": "allow",
+                "read": "allow",
+                "edit": "allow",
+                "glob": "allow",
+                "grep": "allow"
+            }
+        },
+        "fix_proofs": {
+            "mode": "subagent",
+            "description": "{file:./agents/fix_proofs/description.md}",
+            "prompt": "{file:./agents/fix_proofs/prompt.md}",
+            "permission": {
+                "bash": "allow",
+                "read": "allow",
+                "edit": "allow",
+                "glob": "allow",
+                "grep": "allow"
+            }
+        },
+        "implement_from_comments": {
+            "mode": "subagent",
+            "description": "{file:./agents/implement_from_comments/description.md}",
+            "prompt": "{file:./agents/implement_from_comments/prompt.md}",
+            "permission": {
+                "bash": "allow",
+                "read": "allow",
+                "edit": "allow",
+                "glob": "allow",
+                "grep": "allow"
+            }
+        }
+    }
+}

@@ -1,0 +1,13 @@
+[
+  {
+    "model": "moonshotai/Kimi-K2.6",
+    "base_url": "https://inference.rcp.epfl.ch/v1",
+    "generation": {
+      "temperature": 0,
+      "top_p": 1,
+      "max_tokens": 20000,
+      "presence_penalty": 0.0,
+      "frequency_penalty": 0.0
+    }
+  }
+]
